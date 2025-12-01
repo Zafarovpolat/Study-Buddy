@@ -30,7 +30,6 @@ npm-debug.log*
 
 # Build & Data
 frontend/dist/
-backend/static/
 backend/uploads/
 *.log
 *.sqlite3
