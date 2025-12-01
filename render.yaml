@@ -1,0 +1,34 @@
+# render.yaml (в корне проекта Study-Buddy)
+services:
+  - type: web
+    name: eduai-api
+    runtime: python
+    rootDir: backend
+    buildCommand: |
+      pip install -r requirements.txt
+      cd ../frontend && npm install && npm run build
+      cp -r dist ../backend/static
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eduai-db
+          property: connectionString
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEBUG
+        value: "false"
+      - key: FREE_DAILY_LIMIT
+        value: "3"
+      - key: FRONTEND_URL
+        value: "https://eduai-api.onrender.com"
+    autoDeploy: true
+    healthCheckPath: /api/health
+
+databases:
+  - name: eduai-db
+    plan: free
+    databaseName: eduai
+    user: eduai_user

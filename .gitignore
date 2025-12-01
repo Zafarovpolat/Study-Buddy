@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build & Data
+frontend/dist/
+backend/static/
+backend/uploads/
+*.log
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+docker/postgres_data/
+docker/redis_data/
