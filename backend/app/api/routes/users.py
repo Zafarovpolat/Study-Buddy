@@ -1,4 +1,4 @@
-# backend/app/api/routes/users.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/api/routes/users.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,8 +39,6 @@ async def get_my_limits(
     }
 
 
-# backend/app/api/routes/users.py - ДОБАВЬ endpoint
-
 @router.get("/me/subscription")
 async def get_my_subscription(
     current_user: User = Depends(get_current_user),
@@ -54,6 +52,7 @@ async def get_my_subscription(
     
     return status
 
+
 @router.get("/me/streak")
 async def get_my_streak(
     current_user: User = Depends(get_current_user),
@@ -64,3 +63,26 @@ async def get_my_streak(
     streak_info = await user_service.get_streak_info(current_user)
     
     return streak_info
+
+
+# ⚠️ ТЕСТОВЫЙ ENDPOINT - УДАЛИТЬ В ПРОДАКШЕНЕ!
+@router.post("/me/grant-pro")
+async def grant_pro_for_testing(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Временно выдать Pro подписку для тестирования"""
+    from datetime import datetime, timedelta
+    from app.models import SubscriptionTier
+    
+    current_user.subscription_tier = SubscriptionTier.PRO
+    current_user.subscription_expires_at = datetime.now() + timedelta(days=7)
+    
+    await db.commit()
+    await db.refresh(current_user)
+    
+    return {
+        "success": True,
+        "message": "Pro подписка выдана на 7 дней",
+        "expires_at": current_user.subscription_expires_at.isoformat()
+    }
