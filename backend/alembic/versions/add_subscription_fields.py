@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = 'add_sub_001'
-down_revision = 'ab17545490fd'  # Предыдущая миграция
+down_revision = 'add_streak_001'  # Предыдущая миграция
 branch_labels = None
 depends_on = None
 
