@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, BigInteger, Enum, DateTime, func
+# backend/app/models/user.py - ЗАМЕНИ ПОЛНОСТЬЮ
+from sqlalchemy import Column, String, BigInteger, Integer, Enum, DateTime, Date, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -6,10 +7,12 @@ import enum
 
 from app.models.base import Base
 
+
 class SubscriptionTier(str, enum.Enum):
     FREE = "free"
     PRO = "pro"
     GROUP = "group"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -19,8 +22,17 @@ class User(Base):
     telegram_username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
     subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.FREE)
+    
+    # Rate limiting
     daily_requests_count = Column(BigInteger, default=0)
     last_request_date = Column(DateTime, nullable=True)
+    
+    # Streak tracking
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_activity_date = Column(Date, nullable=True)
+    
+    # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     

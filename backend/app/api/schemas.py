@@ -13,10 +13,16 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     pass
 
-class UserResponse(UserBase):
+# backend/app/api/schemas.py - ДОБАВЬ в UserResponse
+class UserResponse(BaseModel):
     id: UUID
+    telegram_id: int
+    telegram_username: Optional[str] = None
+    first_name: Optional[str] = None
     subscription_tier: str
     daily_requests_count: int
+    current_streak: Optional[int] = 0
+    longest_streak: Optional[int] = 0
     created_at: datetime
     
     class Config:

@@ -1,10 +1,10 @@
 # backend/app/api/routes/users.py - ЗАМЕНИ ПОЛНОСТЬЮ
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import get_db, User
 from app.services import UserService
-from app.api.schemas import UserResponse, SuccessResponse
+from app.api.schemas import UserResponse
 from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/test")
 async def test_endpoint():
-    """Тестовый endpoint без авторизации"""
+    """Тестовый endpoint"""
     return {"status": "ok", "message": "API работает!"}
 
 
@@ -37,3 +37,15 @@ async def get_my_limits(
         "remaining_today": remaining if remaining >= 0 else "unlimited",
         "daily_limit": 3 if current_user.subscription_tier.value == "free" else "unlimited"
     }
+
+
+@router.get("/me/streak")
+async def get_my_streak(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить информацию о streak"""
+    user_service = UserService(db)
+    streak_info = await user_service.get_streak_info(current_user)
+    
+    return streak_info

@@ -153,6 +153,11 @@ class ApiClient {
         });
         return data;
     }
+
+    async getMyStreak() {
+        const { data } = await this.client.get('/users/me/streak');
+        return data;
+    }
 }
 
 // Создаём и экспортируем синглтон
