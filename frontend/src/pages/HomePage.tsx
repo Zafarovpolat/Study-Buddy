@@ -1,4 +1,4 @@
-// frontend/src/pages/HomePage.tsx - ЗАМЕНИ начало файла (до return)
+// frontend/src/pages/HomePage.tsx
 import { useEffect, useState } from 'react';
 import { Plus, Folder, RefreshCw, Upload, Camera, Type } from 'lucide-react';
 import { Button, Card, Spinner } from '../components/ui';
@@ -75,6 +75,11 @@ export function HomePage() {
         telegram.haptic('medium');
     };
 
+    const handleGetPro = () => {
+        telegram.haptic('medium');
+        telegram.alert('Для оформления Pro подписки напишите боту команду /pro');
+    };
+
     if (isLoading && !materials.length) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -127,7 +132,7 @@ export function HomePage() {
                                 <p className="text-sm text-tg-hint">Осталось сегодня</p>
                                 <p className="text-2xl font-bold">{limits.remaining_today}</p>
                             </div>
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" onClick={handleGetPro}>
                                 ⭐ Pro
                             </Button>
                         </div>
