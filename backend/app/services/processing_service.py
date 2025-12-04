@@ -1,12 +1,13 @@
+# backend/app/services/processing_service.py - ЗАМЕНИ ПОЛНОСТЬЮ
 import asyncio
-from typing import Dict, Any, List
-from uuid import UUID
+from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+import traceback
 
 from app.models import Material, AIOutput, OutputFormat, ProcessingStatus
 from app.services.text_extractor import TextExtractor
 from app.services.ai_service import gemini_service
-from app.core.config import settings
+
 
 class ProcessingService:
     """Сервис обработки материалов"""
@@ -16,6 +17,8 @@ class ProcessingService:
     
     async def process_material(self, material: Material) -> Dict[str, Any]:
         """Полная обработка материала"""
+        print(f"📄 Processing material: {material.id} ({material.material_type.value})")
+        
         try:
             # 1. Обновляем статус
             material.status = ProcessingStatus.PROCESSING
@@ -23,21 +26,30 @@ class ProcessingService:
             
             # 2. Извлекаем текст если нужно
             if not material.raw_content and material.file_path:
-                text = await TextExtractor.extract(
-                    material.file_path,
-                    material.material_type.value
-                )
-                material.raw_content = text
-                await self.db.commit()
+                print(f"📖 Extracting text from: {material.file_path}")
+                try:
+                    text = await TextExtractor.extract(
+                        material.file_path,
+                        material.material_type.value
+                    )
+                    material.raw_content = text
+                    await self.db.commit()
+                    print(f"✅ Extracted {len(text)} characters")
+                except Exception as e:
+                    print(f"❌ Text extraction failed: {e}")
+                    raise
             
             content = material.raw_content
             if not content:
                 raise ValueError("Нет контента для обработки")
             
-            # 3. Параллельная генерация AI-контента
+            print(f"🤖 Generating AI outputs...")
+            
+            # 3. Генерация AI-контента
             results = await self._generate_all_outputs(content, material.title)
             
             # 4. Сохраняем результаты
+            saved_count = 0
             for format_type, output_content in results.items():
                 if output_content:
                     ai_output = AIOutput(
@@ -46,10 +58,13 @@ class ProcessingService:
                         content=output_content
                     )
                     self.db.add(ai_output)
+                    saved_count += 1
             
             # 5. Финальный статус
             material.status = ProcessingStatus.COMPLETED
             await self.db.commit()
+            
+            print(f"✅ Processing complete! Saved {saved_count} outputs")
             
             return {
                 "status": "success",
@@ -57,6 +72,9 @@ class ProcessingService:
             }
             
         except Exception as e:
+            print(f"❌ Processing failed: {e}")
+            print(traceback.format_exc())
+            
             material.status = ProcessingStatus.FAILED
             await self.db.commit()
             
@@ -70,25 +88,25 @@ class ProcessingService:
         content: str, 
         title: str
     ) -> Dict[str, str]:
-        """Параллельная генерация всех форматов"""
-        
-        # Запускаем все генерации параллельно
-        tasks = {
-            "smart_notes": gemini_service.generate_smart_notes(content, title),
-            "tldr": gemini_service.generate_tldr(content),
-            "quiz": gemini_service.generate_quiz(content, num_questions=5),
-            "glossary": gemini_service.generate_glossary(content),
-            "flashcards": gemini_service.generate_flashcards(content, num_cards=10),
-        }
-        
+        """Генерация всех форматов"""
         results = {}
         
-        # Выполняем с обработкой ошибок для каждой задачи
-        for name, task in tasks.items():
+        # Генерируем по очереди с обработкой ошибок
+        generators = [
+            ("smart_notes", lambda: gemini_service.generate_smart_notes(content, title)),
+            ("tldr", lambda: gemini_service.generate_tldr(content)),
+            ("quiz", lambda: gemini_service.generate_quiz(content, 5)),
+            ("glossary", lambda: gemini_service.generate_glossary(content)),
+            ("flashcards", lambda: gemini_service.generate_flashcards(content, 10)),
+        ]
+        
+        for name, generator in generators:
             try:
-                results[name] = await task
+                print(f"  📝 Generating {name}...")
+                results[name] = await generator()
+                print(f"  ✅ {name} done")
             except Exception as e:
-                print(f"Error generating {name}: {e}")
+                print(f"  ❌ {name} failed: {e}")
                 results[name] = None
         
         return results
@@ -103,7 +121,6 @@ class ProcessingService:
         if not content:
             raise ValueError("Нет контента для обработки")
         
-        # Генерируем нужный формат
         generators = {
             OutputFormat.SMART_NOTES: lambda: gemini_service.generate_smart_notes(content, material.title),
             OutputFormat.TLDR: lambda: gemini_service.generate_tldr(content),
@@ -118,7 +135,7 @@ class ProcessingService:
         
         output_content = await generator()
         
-        # Удаляем старый output если есть
+        # Удаляем старый
         from sqlalchemy import delete
         await self.db.execute(
             delete(AIOutput).where(
