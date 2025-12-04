@@ -1,9 +1,11 @@
-import fitz  # PyMuPDF
+# backend/app/services/text_extractor.py - ЗАМЕНИ ПОЛНОСТЬЮ
+from pypdf import PdfReader
 from docx import Document
 from pathlib import Path
-from typing import Optional
 import aiofiles
-import io
+
+from app.services.ai_service import gemini_service
+
 
 class TextExtractor:
     """Извлечение текста из различных форматов"""
@@ -14,14 +16,16 @@ class TextExtractor:
         text_parts = []
         
         try:
-            doc = fitz.open(file_path)
-            for page_num, page in enumerate(doc):
-                text = page.get_text()
-                if text.strip():
+            reader = PdfReader(file_path)
+            for page_num, page in enumerate(reader.pages):
+                text = page.extract_text()
+                if text and text.strip():
                     text_parts.append(f"--- Страница {page_num + 1} ---\n{text}")
-            doc.close()
         except Exception as e:
             raise ValueError(f"Ошибка чтения PDF: {str(e)}")
+        
+        if not text_parts:
+            raise ValueError("Не удалось извлечь текст из PDF")
         
         return "\n\n".join(text_parts)
     
@@ -31,6 +35,13 @@ class TextExtractor:
         try:
             doc = Document(file_path)
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            paragraphs.append(cell.text)
+            
             return "\n\n".join(paragraphs)
         except Exception as e:
             raise ValueError(f"Ошибка чтения DOCX: {str(e)}")
@@ -38,27 +49,27 @@ class TextExtractor:
     @staticmethod
     async def extract_from_txt(file_path: str) -> str:
         """Прочитать текстовый файл"""
-        try:
-            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
-                return await f.read()
-        except UnicodeDecodeError:
-            # Пробуем другую кодировку
-            async with aiofiles.open(file_path, 'r', encoding='cp1251') as f:
-                return await f.read()
+        encodings = ['utf-8', 'cp1251', 'latin-1']
+        
+        for encoding in encodings:
+            try:
+                async with aiofiles.open(file_path, 'r', encoding=encoding) as f:
+                    return await f.read()
+            except UnicodeDecodeError:
+                continue
+        
+        raise ValueError("Не удалось прочитать файл")
     
     @staticmethod
     async def extract_from_image(file_path: str) -> str:
-        """OCR для изображений (опционально - требует tesseract)"""
+        """OCR: Извлечь текст из изображения через Gemini Vision"""
         try:
-            import pytesseract
-            from PIL import Image
+            text = await gemini_service.extract_text_from_image(file_path)
             
-            image = Image.open(file_path)
-            # Пробуем русский + английский
-            text = pytesseract.image_to_string(image, lang='rus+eng')
+            if not text or len(text.strip()) < 10:
+                raise ValueError("Не удалось распознать текст на изображении")
+            
             return text.strip()
-        except ImportError:
-            raise ValueError("pytesseract не установлен. Установи: apt-get install tesseract-ocr tesseract-ocr-rus")
         except Exception as e:
             raise ValueError(f"Ошибка OCR: {str(e)}")
     
@@ -78,7 +89,7 @@ class TextExtractor:
         
         text = await extractor(file_path)
         
-        if not text or len(text.strip()) < 50:
-            raise ValueError("Не удалось извлечь достаточно текста из файла")
+        if not text or len(text.strip()) < 20:
+            raise ValueError("Недостаточно текста для обработки")
         
         return text.strip()

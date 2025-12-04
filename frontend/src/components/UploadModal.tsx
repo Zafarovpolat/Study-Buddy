@@ -1,5 +1,6 @@
+// frontend/src/components/UploadModal.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState, useRef } from 'react';
-import { X, Upload, FileText, Type } from 'lucide-react';
+import { X, Upload, FileText, Type, Camera } from 'lucide-react';
 import { Button, Input, Textarea, Card } from './ui';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
@@ -11,7 +12,7 @@ interface UploadModalProps {
     folderId?: string;
 }
 
-type UploadMode = 'file' | 'text';
+type UploadMode = 'file' | 'text' | 'scan';
 
 export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
     const [mode, setMode] = useState<UploadMode>('file');
@@ -20,6 +21,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
     const [file, setFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const imageInputRef = useRef<HTMLInputElement>(null);
 
     const { addMaterial, setLimits } = useStore();
 
@@ -35,6 +37,16 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
         }
     };
 
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = e.target.files?.[0];
+        if (selectedFile) {
+            setFile(selectedFile);
+            if (!title) {
+                setTitle('Скан: ' + new Date().toLocaleDateString('ru-RU'));
+            }
+        }
+    };
+
     const handleSubmit = async () => {
         try {
             setIsLoading(true);
@@ -44,6 +56,8 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
 
             if (mode === 'file' && file) {
                 material = await api.uploadFile(file, title || file.name, folderId);
+            } else if (mode === 'scan' && file) {
+                material = await api.scanImage(file, title || 'Скан', folderId);
             } else if (mode === 'text' && content.trim()) {
                 material = await api.createTextMaterial(
                     title || 'Без названия',
@@ -57,7 +71,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
 
             addMaterial(material);
 
-            // Обновляем лимиты
             const limits = await api.getMyLimits();
             setLimits(limits);
 
@@ -93,22 +106,30 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </button>
                 </div>
 
-                {/* Mode Selector */}
+                {/* Mode Selector - 3 кнопки */}
                 <div className="flex gap-2 mb-6">
                     <Button
                         variant={mode === 'file' ? 'primary' : 'secondary'}
                         className="flex-1"
                         onClick={() => setMode('file')}
                     >
-                        <Upload className="w-4 h-4 mr-2" />
+                        <Upload className="w-4 h-4 mr-1" />
                         Файл
+                    </Button>
+                    <Button
+                        variant={mode === 'scan' ? 'primary' : 'secondary'}
+                        className="flex-1"
+                        onClick={() => setMode('scan')}
+                    >
+                        <Camera className="w-4 h-4 mr-1" />
+                        Скан
                     </Button>
                     <Button
                         variant={mode === 'text' ? 'primary' : 'secondary'}
                         className="flex-1"
                         onClick={() => setMode('text')}
                     >
-                        <Type className="w-4 h-4 mr-2" />
+                        <Type className="w-4 h-4 mr-1" />
                         Текст
                     </Button>
                 </div>
@@ -119,7 +140,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept=".pdf,.docx,.doc,.txt,.png,.jpg,.jpeg"
+                            accept=".pdf,.docx,.doc,.txt"
                             onChange={handleFileSelect}
                             className="hidden"
                         />
@@ -141,11 +162,9 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                                 ) : (
                                     <>
                                         <Upload className="w-12 h-12 text-tg-hint mx-auto mb-2" />
-                                        <p className="text-tg-hint">
-                                            Нажмите для выбора файла
-                                        </p>
+                                        <p className="text-tg-hint">Нажмите для выбора</p>
                                         <p className="text-xs text-tg-hint mt-1">
-                                            PDF, DOCX, TXT, PNG, JPG (до 20 MB)
+                                            PDF, DOCX, TXT (до 20 MB)
                                         </p>
                                     </>
                                 )}
@@ -154,10 +173,65 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
 
                         <Input
                             label="Название (опционально)"
-                            placeholder="Введите название материала"
+                            placeholder="Введите название"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                         />
+                    </div>
+                )}
+
+                {/* Scan (Image) */}
+                {mode === 'scan' && (
+                    <div className="space-y-4">
+                        <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            capture="environment"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                        />
+
+                        <Card
+                            variant="outlined"
+                            className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                            onClick={() => imageInputRef.current?.click()}
+                        >
+                            <div className="py-8 text-center">
+                                {file ? (
+                                    <>
+                                        <img
+                                            src={URL.createObjectURL(file)}
+                                            alt="Preview"
+                                            className="w-32 h-32 object-cover mx-auto mb-2 rounded-lg"
+                                        />
+                                        <p className="font-medium">Фото выбрано</p>
+                                        <p className="text-sm text-tg-hint">
+                                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Camera className="w-12 h-12 text-tg-hint mx-auto mb-2" />
+                                        <p className="text-tg-hint">Сфотографируйте доску</p>
+                                        <p className="text-xs text-tg-hint mt-1">
+                                            или выберите фото из галереи
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        </Card>
+
+                        <Input
+                            label="Название (опционально)"
+                            placeholder="Тема лекции..."
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+
+                        <p className="text-xs text-tg-hint">
+                            💡 AI распознает текст с фото и создаст конспект
+                        </p>
                     </div>
                 )}
 
@@ -187,9 +261,13 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     size="lg"
                     onClick={handleSubmit}
                     isLoading={isLoading}
-                    disabled={mode === 'file' ? !file : !content.trim()}
+                    disabled={
+                        mode === 'file' ? !file :
+                            mode === 'scan' ? !file :
+                                !content.trim()
+                    }
                 >
-                    Загрузить и обработать
+                    {mode === 'scan' ? '📷 Сканировать' : '📤 Загрузить'}
                 </Button>
             </div>
         </div>

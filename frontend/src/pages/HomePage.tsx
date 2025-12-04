@@ -1,5 +1,6 @@
+// frontend/src/pages/HomePage.tsx - ЗАМЕНИ начало файла (до return)
 import { useEffect, useState } from 'react';
-import { Plus, Folder, RefreshCw } from 'lucide-react';
+import { Plus, Folder, RefreshCw, Upload, Camera, Type } from 'lucide-react';
 import { Button, Card, Spinner } from '../components/ui';
 import { MaterialCard } from '../components/MaterialCard';
 import { UploadModal } from '../components/UploadModal';
@@ -10,6 +11,7 @@ import { telegram } from '../lib/telegram';
 
 export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [uploadMode, setUploadMode] = useState<'file' | 'scan' | 'text'>('file');
     const [isLoading, setIsLoading] = useState(true);
 
     const {
@@ -25,7 +27,6 @@ export function HomePage() {
         setSelectedMaterial,
     } = useStore();
 
-    // Load initial data
     useEffect(() => {
         loadData();
     }, [currentFolderId]);
@@ -34,7 +35,6 @@ export function HomePage() {
         try {
             setIsLoading(true);
 
-            // Parallel requests
             const [userData, limitsData, materialsData, foldersData] = await Promise.all([
                 !user ? api.getMe() : Promise.resolve(user),
                 api.getMyLimits(),
@@ -48,7 +48,6 @@ export function HomePage() {
             setFolders(foldersData);
         } catch (error) {
             console.error('Failed to load data:', error);
-            telegram.alert('Ошибка загрузки данных');
         } finally {
             setIsLoading(false);
         }
@@ -56,11 +55,9 @@ export function HomePage() {
 
     const handleMaterialClick = async (material: any) => {
         if (material.status === 'completed') {
-            // Load full material with outputs
             try {
                 const fullMaterial = await api.getMaterial(material.id);
                 setSelectedMaterial(fullMaterial);
-                // Navigate to material page (или открыть модальное окно)
                 window.location.hash = `#/material/${material.id}`;
             } catch (error) {
                 telegram.alert('Ошибка загрузки материала');
@@ -68,8 +65,14 @@ export function HomePage() {
         } else if (material.status === 'processing') {
             telegram.alert('Материал ещё обрабатывается...');
         } else if (material.status === 'failed') {
-            telegram.alert('Ошибка обработки. Попробуйте загрузить снова.');
+            telegram.alert('Ошибка обработки. Попробуйте снова.');
         }
+    };
+
+    const openUpload = (mode: 'file' | 'scan' | 'text') => {
+        setUploadMode(mode);
+        setIsUploadOpen(true);
+        telegram.haptic('medium');
     };
 
     if (isLoading && !materials.length) {
@@ -85,7 +88,38 @@ export function HomePage() {
             <Header />
 
             <main className="p-4 pb-24 space-y-4">
-                {/* Quick Stats */}
+
+                {/* Quick Actions - 3 кнопки */}
+                <section>
+                    <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
+                    <div className="grid grid-cols-3 gap-2">
+                        <Card
+                            className="cursor-pointer active:scale-95 transition-transform text-center py-4"
+                            onClick={() => openUpload('scan')}
+                        >
+                            <Camera className="w-8 h-8 text-tg-button mx-auto mb-1" />
+                            <span className="text-sm font-medium">Скан</span>
+                        </Card>
+
+                        <Card
+                            className="cursor-pointer active:scale-95 transition-transform text-center py-4"
+                            onClick={() => openUpload('file')}
+                        >
+                            <Upload className="w-8 h-8 text-tg-button mx-auto mb-1" />
+                            <span className="text-sm font-medium">Файл</span>
+                        </Card>
+
+                        <Card
+                            className="cursor-pointer active:scale-95 transition-transform text-center py-4"
+                            onClick={() => openUpload('text')}
+                        >
+                            <Type className="w-8 h-8 text-tg-button mx-auto mb-1" />
+                            <span className="text-sm font-medium">Текст</span>
+                        </Card>
+                    </div>
+                </section>
+
+                {/* Лимиты */}
                 {limits && user?.subscription_tier === 'free' && (
                     <Card className="bg-gradient-to-r from-tg-button/10 to-tg-button/5">
                         <div className="flex items-center justify-between">
@@ -94,13 +128,13 @@ export function HomePage() {
                                 <p className="text-2xl font-bold">{limits.remaining_today}</p>
                             </div>
                             <Button variant="ghost" size="sm">
-                                Получить Pro ⭐
+                                ⭐ Pro
                             </Button>
                         </div>
                     </Card>
                 )}
 
-                {/* Folders */}
+                {/* Папки */}
                 {folders.length > 0 && (
                     <section>
                         <h2 className="text-sm font-medium text-tg-hint mb-2">Папки</h2>
@@ -122,7 +156,7 @@ export function HomePage() {
                     </section>
                 )}
 
-                {/* Materials */}
+                {/* Материалы */}
                 <section>
                     <div className="flex items-center justify-between mb-2">
                         <h2 className="text-sm font-medium text-tg-hint">Материалы</h2>
@@ -144,11 +178,11 @@ export function HomePage() {
                     ) : (
                         <Card className="text-center py-8">
                             <p className="text-tg-hint mb-4">
-                                Нет материалов. Загрузите первый!
+                                Нет материалов
                             </p>
-                            <Button onClick={() => setIsUploadOpen(true)}>
+                            <Button onClick={() => openUpload('file')}>
                                 <Plus className="w-4 h-4 mr-2" />
-                                Добавить материал
+                                Добавить
                             </Button>
                         </Card>
                     )}
@@ -157,10 +191,7 @@ export function HomePage() {
 
             {/* FAB */}
             <button
-                onClick={() => {
-                    telegram.haptic('medium');
-                    setIsUploadOpen(true);
-                }}
+                onClick={() => openUpload('file')}
                 className="fixed bottom-6 right-6 w-14 h-14 bg-tg-button text-tg-button-text rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
             >
                 <Plus className="w-6 h-6" />

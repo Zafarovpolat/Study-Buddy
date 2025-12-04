@@ -141,6 +141,18 @@ class ApiClient {
         const { data } = await this.client.get(`/outputs/${outputId}`);
         return data;
     }
+
+    async scanImage(file: File, title?: string, folderId?: string) {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (title) formData.append('title', title);
+        if (folderId) formData.append('folder_id', folderId);
+
+        const { data } = await this.client.post('/materials/scan', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return data;
+    }
 }
 
 // Создаём и экспортируем синглтон

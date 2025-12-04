@@ -151,6 +151,77 @@ async def get_material(
     return material
 
 
+# backend/app/api/routes/materials.py - ДОБАВЬ этот endpoint
+
+@router.post("/scan", response_model=MaterialResponse)
+async def scan_image(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    folder_id: Optional[UUID] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сканировать изображение (фото доски/конспекта) и обработать"""
+    # Проверяем лимиты
+    user_service = UserService(db)
+    can_proceed, remaining = await user_service.check_rate_limit(current_user)
+    
+    if not can_proceed:
+        raise HTTPException(
+            status_code=429,
+            detail="Достигнут дневной лимит. Оформите Pro для безлимита."
+        )
+    
+    # Проверяем что это изображение
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Поддерживаются только изображения: JPG, PNG, WebP"
+        )
+    
+    # Проверяем размер
+    content = await file.read()
+    size_mb = len(content) / (1024 * 1024)
+    
+    if size_mb > settings.MAX_FILE_SIZE_MB:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Файл слишком большой. Максимум: {settings.MAX_FILE_SIZE_MB}MB"
+        )
+    
+    # Сохраняем файл
+    material_service = MaterialService(db)
+    file_path = await material_service.save_uploaded_file(
+        content, file.filename, current_user.id
+    )
+    
+    # Создаём материал
+    material = await material_service.create_material(
+        user=current_user,
+        title=title or "Скан: " + (file.filename or "изображение"),
+        material_type=MaterialType.IMAGE,
+        file_path=file_path,
+        original_filename=file.filename,
+        folder_id=folder_id
+    )
+    
+    # Увеличиваем счётчик
+    await user_service.increment_request_count(current_user)
+    
+    # Обрабатываем
+    try:
+        from app.services.processing_service import ProcessingService
+        processing_service = ProcessingService(db)
+        await processing_service.process_material(material)
+        await db.refresh(material)
+    except Exception as e:
+        print(f"Scan processing error: {e}")
+        material.status = ProcessingStatus.FAILED
+        await db.commit()
+    
+    return material
+
 @router.delete("/{material_id}", response_model=SuccessResponse)
 async def delete_material(
     material_id: UUID,
