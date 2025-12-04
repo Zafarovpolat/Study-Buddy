@@ -1,4 +1,4 @@
-# backend/app/main.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/main.py
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
@@ -10,12 +10,38 @@ from pathlib import Path
 
 from app.api.routes import api_router
 from app.core.config import settings
+from app.bot.bot import create_bot_application
+
+# Глобальная переменная для бота
+bot_app = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global bot_app
     print("🚀 Starting EduAI Backend...")
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+    
+    # Инициализируем бота
+    if settings.TELEGRAM_BOT_TOKEN:
+        try:
+            bot_app = create_bot_application()
+            await bot_app.initialize()
+            
+            # Устанавливаем webhook
+            webhook_url = f"{settings.FRONTEND_URL}/api/v1/webhook"
+            await bot_app.bot.set_webhook(url=webhook_url)
+            print(f"✅ Telegram webhook set: {webhook_url}")
+        except Exception as e:
+            print(f"❌ Failed to setup bot: {e}")
+            traceback.print_exc()
+    else:
+        print("⚠️ TELEGRAM_BOT_TOKEN not set, bot disabled")
+    
     yield
+    
+    # Shutdown
+    if bot_app:
+        await bot_app.shutdown()
     print("👋 Shutting down...")
 
 app = FastAPI(
@@ -48,9 +74,28 @@ async def global_exception_handler(request: Request, exc: Exception):
 # API роуты
 app.include_router(api_router, prefix="/api/v1")
 
+# Telegram Webhook endpoint
+@app.post("/api/v1/webhook")
+async def telegram_webhook(request: Request):
+    """Обработчик webhook от Telegram"""
+    global bot_app
+    if bot_app is None:
+        return JSONResponse({"error": "Bot not initialized"}, status_code=500)
+    
+    try:
+        data = await request.json()
+        from telegram import Update
+        update = Update.de_json(data, bot_app.bot)
+        await bot_app.process_update(update)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        print(f"❌ Webhook error: {e}")
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy"}
+    return {"status": "healthy", "bot": bot_app is not None}
 
 # Путь к статическим файлам frontend
 STATIC_DIR = Path(__file__).parent.parent / "static"
