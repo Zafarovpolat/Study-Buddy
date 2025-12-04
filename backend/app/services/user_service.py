@@ -71,8 +71,14 @@ class UserService:
                 return user, False
             raise
     
+    # backend/app/services/user_service.py - ОБНОВИ метод check_rate_limit
+
     async def check_rate_limit(self, user: User) -> Tuple[bool, int]:
         """Проверка лимита запросов"""
+        # Pro юзеры без лимитов
+        if user.is_pro:
+            return True, -1
+        
         if user.subscription_tier != SubscriptionTier.FREE:
             return True, -1
         

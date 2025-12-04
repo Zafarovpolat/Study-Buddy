@@ -39,6 +39,21 @@ async def get_my_limits(
     }
 
 
+# backend/app/api/routes/users.py - ДОБАВЬ endpoint
+
+@router.get("/me/subscription")
+async def get_my_subscription(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить статус подписки"""
+    from app.services.payment_service import PaymentService
+    
+    payment_service = PaymentService(db)
+    status = await payment_service.check_subscription_status(current_user)
+    
+    return status
+
 @router.get("/me/streak")
 async def get_my_streak(
     current_user: User = Depends(get_current_user),

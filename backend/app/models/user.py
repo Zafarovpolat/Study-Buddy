@@ -1,5 +1,5 @@
 # backend/app/models/user.py - ЗАМЕНИ ПОЛНОСТЬЮ
-from sqlalchemy import Column, String, BigInteger, Integer, Enum, DateTime, Date, func
+from sqlalchemy import Column, String, BigInteger, Integer, Enum, DateTime, Date, Boolean, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -21,7 +21,11 @@ class User(Base):
     telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
     telegram_username = Column(String(255), nullable=True)
     first_name = Column(String(255), nullable=True)
+    
+    # Subscription
     subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.FREE)
+    subscription_expires_at = Column(DateTime, nullable=True)
+    telegram_payment_charge_id = Column(String(255), nullable=True)
     
     # Rate limiting
     daily_requests_count = Column(BigInteger, default=0)
@@ -39,3 +43,13 @@ class User(Base):
     # Relationships
     materials = relationship("Material", back_populates="user")
     folders = relationship("Folder", back_populates="user")
+    
+    @property
+    def is_pro(self) -> bool:
+        """Проверка активна ли Pro подписка"""
+        if self.subscription_tier == SubscriptionTier.FREE:
+            return False
+        if self.subscription_expires_at:
+            from datetime import datetime
+            return self.subscription_expires_at > datetime.now()
+        return True

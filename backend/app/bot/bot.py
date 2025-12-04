@@ -1,4 +1,5 @@
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
+# backend/app/bot/bot.py - ЗАМЕНИ ПОЛНОСТЬЮ
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, PreCheckoutQueryHandler, MessageHandler, filters
 
 from app.core.config import settings
 from app.bot.handlers import (
@@ -6,33 +7,31 @@ from app.bot.handlers import (
     help_command,
     premium_command,
     stats_command,
-    button_callback
+    button_callback,
+    pre_checkout_callback,
+    successful_payment_callback
 )
 
-def create_bot_application() -> Application:
-    """Создание и настройка Telegram бота"""
-    application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-    
-    # Регистрация обработчиков команд
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("premium", premium_command))
-    application.add_handler(CommandHandler("stats", stats_command))
-    
-    # Обработчик callback кнопок
-    application.add_handler(CallbackQueryHandler(button_callback))
-    
-    return application
 
-# Для запуска бота отдельно (polling mode - для разработки)
-async def run_bot_polling():
-    """Запуск бота в режиме polling (для разработки)"""
-    application = create_bot_application()
-    await application.initialize()
-    await application.start()
-    await application.updater.start_polling()
+def create_bot_application() -> Application:
+    """Создание бота"""
+    if not settings.TELEGRAM_BOT_TOKEN:
+        raise ValueError("TELEGRAM_BOT_TOKEN not set")
     
-    # Держим бота запущенным
-    import asyncio
-    while True:
-        await asyncio.sleep(1)
+    app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
+    
+    # Команды
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("pro", premium_command))
+    app.add_handler(CommandHandler("premium", premium_command))
+    app.add_handler(CommandHandler("stats", stats_command))
+    
+    # Кнопки
+    app.add_handler(CallbackQueryHandler(button_callback))
+    
+    # Платежи
+    app.add_handler(PreCheckoutQueryHandler(pre_checkout_callback))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
+    
+    return app
