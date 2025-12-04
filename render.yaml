@@ -23,7 +23,7 @@ services:
       - key: FREE_DAILY_LIMIT
         value: "3"
       - key: FRONTEND_URL
-        value: "https://eduai-api.onrender.com"
+        value: "https://eduai-api-tlyf.onrender.com"
     autoDeploy: true
     healthCheckPath: /api/health
 
