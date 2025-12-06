@@ -158,6 +158,55 @@ class ApiClient {
         const { data } = await this.client.get('/users/me/streak');
         return data;
     }
+
+    // ==================== Groups ====================
+
+    async getMyGroups() {
+        const { data } = await this.client.get('/groups/');
+        return data;
+    }
+
+    async createGroup(name: string, description?: string) {
+        const { data } = await this.client.post('/groups/', { name, description });
+        return data;
+    }
+
+    async getGroup(groupId: string) {
+        const { data } = await this.client.get(`/groups/${groupId}`);
+        return data;
+    }
+
+    async joinGroup(inviteCode: string) {
+        const { data } = await this.client.post('/groups/join', { invite_code: inviteCode });
+        return data;
+    }
+
+    async leaveGroup(groupId: string) {
+        const { data } = await this.client.post(`/groups/${groupId}/leave`);
+        return data;
+    }
+
+    async deleteGroup(groupId: string) {
+        const { data } = await this.client.delete(`/groups/${groupId}`);
+        return data;
+    }
+
+    async getGroupMembers(groupId: string) {
+        const { data } = await this.client.get(`/groups/${groupId}/members`);
+        return data;
+    }
+
+    // ==================== Referrals ====================
+
+    async getReferralStats() {
+        const { data } = await this.client.get('/groups/referral/stats');
+        return data;
+    }
+
+    async generateReferralCode() {
+        const { data } = await this.client.post('/groups/referral/generate');
+        return data;
+    }
 }
 
 // Создаём и экспортируем синглтон

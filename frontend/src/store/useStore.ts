@@ -1,3 +1,4 @@
+// frontend/src/store/useStore.ts - ЗАМЕНИ ПОЛНОСТЬЮ
 import { create } from 'zustand';
 
 interface User {
@@ -7,6 +8,8 @@ interface User {
     first_name?: string;
     subscription_tier: 'free' | 'pro' | 'group';
     daily_requests_count: number;
+    referral_code?: string;
+    referral_count?: number;
     created_at: string;
 }
 
@@ -14,7 +17,20 @@ interface Folder {
     id: string;
     name: string;
     parent_id?: string;
+    is_group?: boolean;
     created_at: string;
+}
+
+interface Group {
+    id: string;
+    name: string;
+    description?: string;
+    invite_code: string;
+    role: 'owner' | 'admin' | 'member';
+    member_count: number;
+    max_members: number;
+    joined_at: string;
+    is_owner: boolean;
 }
 
 interface Material {
@@ -40,6 +56,15 @@ interface Limits {
     daily_limit: number | string;
 }
 
+interface ReferralStats {
+    referral_code: string;
+    referral_link: string;
+    referral_count: number;
+    referrals_needed: number;
+    pro_granted: boolean;
+    threshold: number;
+}
+
 interface AppState {
     // User
     user: User | null;
@@ -51,10 +76,20 @@ interface AppState {
     currentFolderId: string | null;
     setCurrentFolderId: (id: string | null) => void;
 
+    // Active Tab
+    activeTab: 'personal' | 'groups';
+    setActiveTab: (tab: 'personal' | 'groups') => void;
+
     // Folders
     folders: Folder[];
     setFolders: (folders: Folder[]) => void;
     addFolder: (folder: Folder) => void;
+
+    // Groups
+    groups: Group[];
+    setGroups: (groups: Group[]) => void;
+    addGroup: (group: Group) => void;
+    removeGroup: (id: string) => void;
 
     // Materials
     materials: Material[];
@@ -62,6 +97,10 @@ interface AppState {
     addMaterial: (material: Material) => void;
     updateMaterial: (id: string, updates: Partial<Material>) => void;
     removeMaterial: (id: string) => void;
+
+    // Referrals
+    referralStats: ReferralStats | null;
+    setReferralStats: (stats: ReferralStats | null) => void;
 
     // UI State
     isLoading: boolean;
@@ -83,10 +122,22 @@ export const useStore = create<AppState>((set) => ({
     currentFolderId: null,
     setCurrentFolderId: (id) => set({ currentFolderId: id }),
 
+    // Active Tab
+    activeTab: 'personal',
+    setActiveTab: (tab) => set({ activeTab: tab }),
+
     // Folders
     folders: [],
     setFolders: (folders) => set({ folders }),
     addFolder: (folder) => set((state) => ({ folders: [...state.folders, folder] })),
+
+    // Groups
+    groups: [],
+    setGroups: (groups) => set({ groups }),
+    addGroup: (group) => set((state) => ({ groups: [...state.groups, group] })),
+    removeGroup: (id) => set((state) => ({
+        groups: state.groups.filter((g) => g.id !== id)
+    })),
 
     // Materials
     materials: [],
@@ -102,6 +153,10 @@ export const useStore = create<AppState>((set) => ({
     removeMaterial: (id) => set((state) => ({
         materials: state.materials.filter((m) => m.id !== id),
     })),
+
+    // Referrals
+    referralStats: null,
+    setReferralStats: (stats) => set({ referralStats: stats }),
 
     // UI
     isLoading: false,
