@@ -25,6 +25,7 @@ AsyncSessionLocal = sessionmaker(
 class Base(DeclarativeBase):
     pass
 
+__all__ = ["Base", "get_db", "engine", "AsyncSessionLocal"]
 
 async def get_db():
     async with AsyncSessionLocal() as session:

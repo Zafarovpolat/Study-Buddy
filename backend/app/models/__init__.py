@@ -1,17 +1,20 @@
-# backend/app/models/__init__.py - ОБНОВИ
-from app.models.base import Base
-from app.models.database import get_db, engine, async_session
+# backend/app/models/__init__.py - ЗАМЕНИ ПОЛНОСТЬЮ
+from app.models.base import Base, get_db, engine, AsyncSessionLocal
 from app.models.user import User, SubscriptionTier
 from app.models.material import Material, MaterialType, ProcessingStatus
 from app.models.folder import Folder
 from app.models.group_member import GroupMember, GroupRole
 from app.models.ai_output import AIOutput, OutputFormat
 
+# Алиас для совместимости
+async_session = AsyncSessionLocal
+
 __all__ = [
     "Base",
     "get_db",
     "engine", 
     "async_session",
+    "AsyncSessionLocal",
     "User",
     "SubscriptionTier",
     "Material",
