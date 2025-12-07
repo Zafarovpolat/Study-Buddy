@@ -1,10 +1,10 @@
-// frontend/src/components/GroupsTab.tsx - СОЗДАЙ НОВЫЙ ФАЙЛ
+// frontend/src/components/GroupsTab.tsx - ЗАМЕНИ НАЧАЛО ФАЙЛА
 import { useState } from 'react';
 import { Users, Plus, Link, Copy, Check, LogOut, Trash2, Crown } from 'lucide-react';
 import { Card, Button, Spinner } from './ui';
 import { api } from '../lib/api';
-import { useStore } from '../store/useStore';
 import { telegram } from '../lib/telegram';
+
 
 interface Group {
     id: string;
@@ -25,7 +25,6 @@ interface GroupsTabProps {
 export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isJoinOpen, setIsJoinOpen] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
 
     const handleCopyInvite = async (group: Group) => {

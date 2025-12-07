@@ -13,7 +13,7 @@ import { telegram } from '../lib/telegram';
 
 export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [uploadMode, setUploadMode] = useState<'file' | 'scan' | 'text'>('file');
+    const [, setUploadMode] = useState<'file' | 'scan' | 'text'>('file');
     const [isLoading, setIsLoading] = useState(true);
 
     const {
@@ -122,8 +122,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'personal'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -135,8 +135,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'groups'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <Users className="w-4 h-4" />

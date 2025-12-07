@@ -9,7 +9,6 @@ import { telegram } from '../lib/telegram';
 export function InviteBanner() {
     const { referralStats, setReferralStats, user } = useStore();
     const [copied, setCopied] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         loadReferralStats();
