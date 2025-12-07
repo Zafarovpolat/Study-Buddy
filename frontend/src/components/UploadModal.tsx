@@ -1,6 +1,6 @@
 // frontend/src/components/UploadModal.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState, useRef } from 'react';
-import { X, Upload, FileText, Type, Camera } from 'lucide-react';
+import { X, Upload, FileText, Type, Camera, Image } from 'lucide-react';
 import { Button, Input, Textarea, Card } from './ui';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
@@ -21,7 +21,8 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
     const [file, setFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const imageInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
 
     const { addMaterial, setLimits } = useStore();
 
@@ -92,6 +93,14 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
         setMode('file');
     };
 
+    const openCamera = () => {
+        cameraInputRef.current?.click();
+    };
+
+    const openGallery = () => {
+        galleryInputRef.current?.click();
+    };
+
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
             <div className="bg-tg-bg w-full max-w-lg rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slide-up">
@@ -99,7 +108,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold">Новый материал</h2>
                     <button
-                        onClick={onClose}
+                        onClick={() => { resetForm(); onClose(); }}
                         className="p-2 hover:bg-tg-secondary rounded-full transition-colors"
                     >
                         <X className="w-5 h-5" />
@@ -111,7 +120,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     <Button
                         variant={mode === 'file' ? 'primary' : 'secondary'}
                         className="flex-1"
-                        onClick={() => setMode('file')}
+                        onClick={() => { setMode('file'); setFile(null); }}
                     >
                         <Upload className="w-4 h-4 mr-1" />
                         Файл
@@ -119,7 +128,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     <Button
                         variant={mode === 'scan' ? 'primary' : 'secondary'}
                         className="flex-1"
-                        onClick={() => setMode('scan')}
+                        onClick={() => { setMode('scan'); setFile(null); }}
                     >
                         <Camera className="w-4 h-4 mr-1" />
                         Скан
@@ -127,7 +136,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     <Button
                         variant={mode === 'text' ? 'primary' : 'secondary'}
                         className="flex-1"
-                        onClick={() => setMode('text')}
+                        onClick={() => { setMode('text'); setFile(null); }}
                     >
                         <Type className="w-4 h-4 mr-1" />
                         Текст
@@ -180,47 +189,79 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </div>
                 )}
 
-                {/* Scan (Image) */}
+                {/* Scan (Image) - ИСПРАВЛЕННЫЙ */}
                 {mode === 'scan' && (
                     <div className="space-y-4">
+                        {/* Hidden inputs */}
                         <input
-                            ref={imageInputRef}
+                            ref={cameraInputRef}
                             type="file"
-                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            accept="image/*"
                             capture="environment"
                             onChange={handleImageSelect}
                             className="hidden"
                         />
+                        <input
+                            ref={galleryInputRef}
+                            type="file"
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                        />
 
-                        <Card
-                            variant="outlined"
-                            className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                            onClick={() => imageInputRef.current?.click()}
-                        >
-                            <div className="py-8 text-center">
-                                {file ? (
-                                    <>
-                                        <img
-                                            src={URL.createObjectURL(file)}
-                                            alt="Preview"
-                                            className="w-32 h-32 object-cover mx-auto mb-2 rounded-lg"
-                                        />
-                                        <p className="font-medium">Фото выбрано</p>
-                                        <p className="text-sm text-tg-hint">
-                                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                                        </p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Camera className="w-12 h-12 text-tg-hint mx-auto mb-2" />
-                                        <p className="text-tg-hint">Сфотографируйте доску</p>
+                        {file ? (
+                            /* Preview */
+                            <Card variant="outlined" className="overflow-hidden">
+                                <img
+                                    src={URL.createObjectURL(file)}
+                                    alt="Preview"
+                                    className="w-full h-48 object-cover"
+                                />
+                                <div className="p-3 text-center">
+                                    <p className="font-medium">Фото выбрано</p>
+                                    <p className="text-sm text-tg-hint">
+                                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                    <button
+                                        onClick={() => setFile(null)}
+                                        className="text-sm text-red-500 mt-2"
+                                    >
+                                        Удалить
+                                    </button>
+                                </div>
+                            </Card>
+                        ) : (
+                            /* Two buttons: Camera + Gallery */
+                            <div className="grid grid-cols-2 gap-3">
+                                <Card
+                                    variant="outlined"
+                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                                    onClick={openCamera}
+                                >
+                                    <div className="py-6 text-center">
+                                        <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
+                                        <p className="font-medium text-sm">Камера</p>
                                         <p className="text-xs text-tg-hint mt-1">
-                                            или выберите фото из галереи
+                                            Сфотографировать
                                         </p>
-                                    </>
-                                )}
+                                    </div>
+                                </Card>
+
+                                <Card
+                                    variant="outlined"
+                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                                    onClick={openGallery}
+                                >
+                                    <div className="py-6 text-center">
+                                        <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
+                                        <p className="font-medium text-sm">Галерея</p>
+                                        <p className="text-xs text-tg-hint mt-1">
+                                            Выбрать фото
+                                        </p>
+                                    </div>
+                                </Card>
                             </div>
-                        </Card>
+                        )}
 
                         <Input
                             label="Название (опционально)"

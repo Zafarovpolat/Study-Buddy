@@ -1,4 +1,4 @@
-# backend/reset_db.py - СОЗДАЙ ЭТОТ ФАЙЛ
+# backend/reset_db.py - ЗАМЕНИ ПОЛНОСТЬЮ
 """Reset database for fresh migration"""
 import os
 
@@ -9,7 +9,6 @@ def reset_alembic():
         print("⚠️ No DATABASE_URL, skipping reset")
         return
     
-    # Преобразуем URL для psycopg2
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     

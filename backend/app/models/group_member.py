@@ -1,4 +1,4 @@
-# backend/app/models/group_member.py - СОЗДАЙ НОВЫЙ ФАЙЛ
+# backend/app/models/group_member.py - ЗАМЕНИ ПОЛНОСТЬЮ
 from sqlalchemy import Column, String, DateTime, ForeignKey, func, Enum, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -9,7 +9,7 @@ from app.models.base import Base
 
 
 class GroupRole(str, enum.Enum):
-    OWNER = "owner"
+    OWNER = "owner"      # lowercase!
     ADMIN = "admin"
     MEMBER = "member"
 
@@ -21,7 +21,10 @@ class GroupMember(Base):
     group_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    role = Column(Enum(GroupRole), default=GroupRole.MEMBER)
+    role = Column(
+        Enum(GroupRole, values_callable=lambda x: [e.value for e in x]),
+        default=GroupRole.MEMBER
+    )
     joined_at = Column(DateTime, server_default=func.now())
     
     # Relationships

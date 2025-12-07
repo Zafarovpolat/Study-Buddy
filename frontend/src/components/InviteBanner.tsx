@@ -1,4 +1,4 @@
-// frontend/src/components/InviteBanner.tsx - СОЗДАЙ НОВЫЙ ФАЙЛ
+// frontend/src/components/InviteBanner.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState, useEffect } from 'react';
 import { Gift, Copy, Check, Share2 } from 'lucide-react';
 import { Card, Button } from './ui';
@@ -38,19 +38,16 @@ export function InviteBanner() {
         const text = `📚 Присоединяйся к Study Buddy — ИИ-помощник для учёбы!\n\nПо моей ссылке получишь бонус:`;
         const url = referralStats.referral_link;
 
-        // Telegram share
-        if (telegram.isAvailable) {
-            window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`, '_blank');
-        } else {
-            navigator.share?.({ title: 'Study Buddy', text, url });
-        }
+        window.open(
+            `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
+            '_blank'
+        );
 
         telegram.haptic('medium');
     };
 
     if (!referralStats) return null;
 
-    // Если уже получил Pro за рефералов - не показываем баннер
     if (referralStats.pro_granted && user?.subscription_tier === 'pro') {
         return null;
     }
@@ -59,14 +56,14 @@ export function InviteBanner() {
     const remaining = referralStats.referrals_needed;
 
     return (
-        <Card className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-200">
+        <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0">
             <div className="flex items-start gap-3">
-                <div className="p-2 bg-purple-500/20 rounded-full">
-                    <Gift className="w-6 h-6 text-purple-600" />
+                <div className="p-2 bg-white/20 rounded-full flex-shrink-0">
+                    <Gift className="w-6 h-6 text-white" />
                 </div>
 
                 <div className="flex-1">
-                    <h3 className="font-semibold text-purple-900">
+                    <h3 className="font-semibold text-white">
                         {remaining > 0
                             ? `Пригласи ${remaining} друзей — получи Pro бесплатно!`
                             : '🎉 Поздравляем! Вы получили Pro!'
@@ -77,13 +74,13 @@ export function InviteBanner() {
                         <>
                             {/* Прогресс бар */}
                             <div className="mt-2 mb-3">
-                                <div className="flex justify-between text-xs text-purple-700 mb-1">
+                                <div className="flex justify-between text-xs text-white/80 mb-1">
                                     <span>{referralStats.referral_count} из {referralStats.threshold} друзей</span>
                                     <span>{Math.round(progress)}%</span>
                                 </div>
-                                <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
+                                <div className="h-2 bg-white/30 rounded-full overflow-hidden">
                                     <div
-                                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                                        className="h-full bg-white transition-all duration-500"
                                         style={{ width: `${Math.min(progress, 100)}%` }}
                                     />
                                 </div>
@@ -94,7 +91,7 @@ export function InviteBanner() {
                                 <Button
                                     size="sm"
                                     onClick={handleShare}
-                                    className="flex-1 bg-purple-600 hover:bg-purple-700"
+                                    className="flex-1 bg-white text-purple-600 hover:bg-white/90"
                                 >
                                     <Share2 className="w-4 h-4 mr-1" />
                                     Поделиться
@@ -103,10 +100,10 @@ export function InviteBanner() {
                                     size="sm"
                                     variant="secondary"
                                     onClick={handleCopy}
-                                    className="px-3"
+                                    className="px-3 bg-white/20 hover:bg-white/30 text-white border-0"
                                 >
                                     {copied ? (
-                                        <Check className="w-4 h-4 text-green-500" />
+                                        <Check className="w-4 h-4" />
                                     ) : (
                                         <Copy className="w-4 h-4" />
                                     )}
