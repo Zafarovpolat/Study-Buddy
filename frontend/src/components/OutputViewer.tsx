@@ -65,10 +65,10 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
                                 setActiveFormat(format);
                             }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${activeFormat === format
-                                    ? 'bg-tg-button text-tg-button-text'
-                                    : hasOutput
-                                        ? 'bg-tg-secondary text-tg-text'
-                                        : 'bg-tg-secondary/50 text-tg-hint'
+                                ? 'bg-tg-button text-tg-button-text'
+                                : hasOutput
+                                    ? 'bg-tg-secondary text-tg-text'
+                                    : 'bg-tg-secondary/50 text-tg-hint'
                                 }`}
                         >
                             <Icon className={`w-4 h-4 ${activeFormat === format ? '' : config.color}`} />
@@ -137,18 +137,48 @@ function ContentRenderer({ content, format }: { content: string; format: string 
 }
 
 // Markdown Viewer
+// В файле frontend/src/components/OutputViewer.tsx
+// ЗАМЕНИ функцию MarkdownViewer на эту:
+
 function MarkdownViewer({ content }: { content: string }) {
-    const formattedContent = content
+    // Очищаем markdown артефакты
+    let html = content
+        // Убираем ``` блоки кода
+        .replace(/```[\s\S]*?```/g, (match) => {
+            const code = match.replace(/```\w*\n?/g, '').trim();
+            return `<pre class="bg-tg-secondary p-3 rounded-lg text-sm overflow-x-auto my-2">${code}</pre>`;
+        })
+        // Жирный текст **text** или __text__
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/## (.*?)$/gm, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
-        .replace(/### (.*?)$/gm, '<h3 class="font-semibold mt-3 mb-1">$1</h3>')
-        .replace(/- (.*?)$/gm, '<li class="ml-4">• $1</li>')
+        .replace(/__(.*?)__/g, '<strong>$1</strong>')
+        // Курсив *text* или _text_
+        .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+        .replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>')
+        // Инлайн код `code`
+        .replace(/`([^`]+)`/g, '<code class="bg-tg-secondary px-1 rounded text-sm">$1</code>')
+        // Заголовки
+        .replace(/^### (.*?)$/gm, '<h3 class="font-semibold text-base mt-3 mb-1">$1</h3>')
+        .replace(/^## (.*?)$/gm, '<h2 class="font-bold text-lg mt-4 mb-2">$1</h2>')
+        .replace(/^# (.*?)$/gm, '<h1 class="font-bold text-xl mt-4 mb-2">$1</h1>')
+        // Списки
+        .replace(/^- (.*?)$/gm, '<li class="ml-4 list-disc">$1</li>')
+        .replace(/^\* (.*?)$/gm, '<li class="ml-4 list-disc">$1</li>')
+        .replace(/^\d+\. (.*?)$/gm, '<li class="ml-4 list-decimal">$1</li>')
+        // Переносы строк (но не внутри тегов)
+        .replace(/\n\n/g, '</p><p class="mt-2">')
         .replace(/\n/g, '<br/>');
+
+    // Оборачиваем в параграф
+    html = `<p>${html}</p>`;
+
+    // Группируем li в ul
+    html = html.replace(/(<li class="ml-4 list-disc">.*?<\/li>)+/g, '<ul class="my-2">$&</ul>');
+    html = html.replace(/(<li class="ml-4 list-decimal">.*?<\/li>)+/g, '<ol class="my-2">$&</ol>');
 
     return (
         <div
-            className="prose prose-sm max-w-none text-tg-text"
-            dangerouslySetInnerHTML={{ __html: formattedContent }}
+            className="prose prose-sm max-w-none text-tg-text leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: html }}
         />
     );
 }
@@ -301,12 +331,12 @@ function QuizViewer({ data }: { data: any }) {
                             onClick={() => handleAnswer(index)}
                             disabled={showResult}
                             className={`w-full p-4 rounded-xl text-left transition-all ${showResult
-                                    ? isCorrect
-                                        ? 'bg-green-500/20 border-2 border-green-500'
-                                        : isSelected
-                                            ? 'bg-red-500/20 border-2 border-red-500'
-                                            : 'bg-tg-secondary'
-                                    : 'bg-tg-secondary hover:bg-tg-hint/20'
+                                ? isCorrect
+                                    ? 'bg-green-500/20 border-2 border-green-500'
+                                    : isSelected
+                                        ? 'bg-red-500/20 border-2 border-red-500'
+                                        : 'bg-tg-secondary'
+                                : 'bg-tg-secondary hover:bg-tg-hint/20'
                                 }`}
                         >
                             <span className="font-medium mr-2">
@@ -415,8 +445,8 @@ function FlashcardsViewer({ data }: { data: any }) {
             <div
                 onClick={flip}
                 className={`min-h-[200px] p-6 rounded-2xl flex items-center justify-center cursor-pointer transition-all transform hover:scale-[1.02] ${isFlipped
-                        ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
-                        : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
+                    ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
+                    : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
                     } ${known.has(currentIndex) ? 'ring-2 ring-green-500' : ''}`}
             >
                 <div className="text-center">

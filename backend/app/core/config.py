@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
-    
+    TELEGRAM_BOT_USERNAME: str = "studybuddy_uzbot"  # ДОБАВЬ ЭТО
+
     # AI - Gemini
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.0-flash"  # Читается из .env!

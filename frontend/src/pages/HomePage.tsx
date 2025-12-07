@@ -1,6 +1,6 @@
 // frontend/src/pages/HomePage.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useEffect, useState } from 'react';
-import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User } from 'lucide-react';
+import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User, ArrowLeft } from 'lucide-react';
 import { Button, Card, Spinner } from '../components/ui';
 import { MaterialCard } from '../components/MaterialCard';
 import { UploadModal } from '../components/UploadModal';
@@ -194,6 +194,20 @@ export function HomePage() {
                                     </Button>
                                 </div>
                             </Card>
+                        )}
+
+                        {/* Кнопка назад из папки */}
+                        {currentFolderId && (
+                            <button
+                                onClick={() => {
+                                    useStore.getState().setCurrentFolderId(null);
+                                    telegram.haptic('selection');
+                                }}
+                                className="flex items-center gap-2 text-tg-button mb-2"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Назад</span>
+                            </button>
                         )}
 
                         {/* Папки */}

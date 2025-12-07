@@ -239,13 +239,34 @@ class GroupService:
     
     async def get_referral_stats(self, user: User) -> dict:
         """Получить статистику рефералов"""
+        from app.core.config import settings
+        
         await self.get_or_create_referral_code(user)
+        
+        # Используем username бота из настроек
+        bot_username = settings.TELEGRAM_BOT_USERNAME
         
         return {
             "referral_code": user.referral_code,
-            "referral_link": f"https://t.me/{settings.TELEGRAM_BOT_TOKEN.split(':')[0]}?start=ref_{user.referral_code}",
+            "referral_link": f"https://t.me/{bot_username}?start=ref_{user.referral_code}",
             "referral_count": user.referral_count or 0,
             "referrals_needed": max(0, self.REFERRAL_PRO_THRESHOLD - (user.referral_count or 0)),
             "pro_granted": user.referral_pro_granted,
             "threshold": self.REFERRAL_PRO_THRESHOLD
         }
+    
+    async def _get_bot_username(self) -> str:
+        """Получить username бота"""
+        from app.core.config import settings
+        
+        # Если есть сохранённый username - используем его
+        # Иначе пробуем получить через API
+        try:
+            from telegram import Bot
+            bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
+            me = await bot.get_me()
+            return me.username
+        except Exception:
+            # Fallback - используем известный username
+            return "studybuddy_uzbot"
+    
