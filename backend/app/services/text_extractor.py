@@ -24,7 +24,7 @@ class TextExtractor:
             text = "\n\n".join(text_parts)
             
             if not text.strip():
-                raise ValueError("PDF не содержит текста (возможно, сканированный документ)")
+                raise ValueError("PDF не содержит текста")
             
             return text
             
@@ -46,10 +46,7 @@ class TextExtractor:
             
             for table in doc.tables:
                 for row in table.rows:
-                    row_text = []
-                    for cell in row.cells:
-                        if cell.text.strip():
-                            row_text.append(cell.text.strip())
+                    row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
                     if row_text:
                         text_parts.append(" | ".join(row_text))
             
@@ -61,19 +58,20 @@ class TextExtractor:
             return text
             
         except KeyError:
-            raise ValueError("Файл повреждён или имеет неправильный формат. Попробуйте пересохранить документ в Word.")
+            raise ValueError("Файл повреждён. Сохраните как .docx в Word")
         except Exception as e:
-            error_msg = str(e)
-            if "relationship" in error_msg.lower() or "KeyError" in error_msg:
-                raise ValueError("Файл повреждён или защищён. Откройте в Word и сохраните как .docx")
-            raise ValueError(f"Ошибка чтения DOCX: {error_msg}")
+            if "relationship" in str(e).lower():
+                raise ValueError("Файл повреждён. Сохраните как .docx в Word")
+            raise ValueError(f"Ошибка чтения DOCX: {str(e)}")
     
     @staticmethod
     async def extract_from_doc(file_path: str) -> str:
-        """Извлечь текст из старого формата DOC (Word 97-2003)"""
+        """Извлечь текст из DOC через Gemini OCR"""
+        # Старый .doc формат - конвертируем через AI как изображение документа
+        # или просто говорим пользователю конвертировать
         raise ValueError(
             "Формат .doc (Word 97-2003) не поддерживается. "
-            "Откройте файл в Microsoft Word и сохраните как .docx"
+            "Откройте в Word → Файл → Сохранить как → выберите .docx"
         )
     
     @staticmethod
@@ -87,10 +85,10 @@ class TextExtractor:
                     text = f.read()
                     if text.strip():
                         return text
-            except (UnicodeDecodeError, UnicodeError):
+            except UnicodeDecodeError:
                 continue
         
-        raise ValueError("Не удалось прочитать файл. Проверьте кодировку.")
+        raise ValueError("Не удалось прочитать файл")
     
     @staticmethod
     async def extract_from_image(file_path: str) -> str:
@@ -115,31 +113,35 @@ class TextExtractor:
             }
             mime_type = mime_types.get(ext, 'image/jpeg')
             
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # Читаем модель из настроек!
+            model = genai.GenerativeModel(settings.GEMINI_MODEL)
+            
+            print(f"🔍 Using model: {settings.GEMINI_MODEL}")
             
             response = model.generate_content([
                 {
                     "mime_type": mime_type,
                     "data": base64.b64encode(image_data).decode('utf-8')
                 },
-                """Извлеки весь текст с этого изображения. 
-                Если это фото доски, конспекта или документа - распознай весь текст.
-                Сохрани структуру. Если текста нет - напиши "Текст не обнаружен"."""
+                "Извлеки весь текст с изображения. Сохрани структуру. Только текст, без комментариев."
             ])
             
             text = response.text.strip()
             
-            if not text or "не обнаружен" in text.lower():
-                raise ValueError("Не удалось распознать текст на изображении")
+            if not text or len(text) < 3:
+                raise ValueError("Текст не распознан")
             
             return text
             
         except Exception as e:
-            raise ValueError(f"Ошибка распознавания: {str(e)}")
+            error = str(e)
+            if "404" in error or "not found" in error.lower():
+                raise ValueError(f"Модель {settings.GEMINI_MODEL} недоступна")
+            raise ValueError(f"Ошибка OCR: {error[:100]}")
     
     @classmethod
     async def extract(cls, file_path: str, material_type: str) -> str:
-        """Универсальный метод извлечения текста"""
+        """Универсальный метод"""
         
         if not os.path.exists(file_path):
             raise ValueError("Файл не найден")
@@ -147,33 +149,27 @@ class TextExtractor:
         if os.path.getsize(file_path) == 0:
             raise ValueError("Файл пустой")
         
-        # ВАЖНО: Определяем тип по расширению файла, НЕ по material_type!
         ext = Path(file_path).suffix.lower()
         
-        ext_to_extractor = {
+        extractors = {
             '.pdf': cls.extract_from_pdf,
             '.docx': cls.extract_from_docx,
-            '.doc': cls.extract_from_doc,      # Отдельный обработчик!
+            '.doc': cls.extract_from_doc,
             '.txt': cls.extract_from_txt,
             '.jpg': cls.extract_from_image,
             '.jpeg': cls.extract_from_image,
             '.png': cls.extract_from_image,
             '.webp': cls.extract_from_image,
-            '.gif': cls.extract_from_image,
         }
         
-        extractor = ext_to_extractor.get(ext)
+        extractor = extractors.get(ext)
         
         if not extractor:
-            raise ValueError(f"Формат {ext} не поддерживается. Используйте PDF, DOCX, TXT или изображения.")
+            raise ValueError(f"Формат {ext} не поддерживается")
         
-        print(f"📂 Extracting from: {file_path} (ext: {ext})")
+        print(f"📂 Extracting {ext} from {file_path}")
         
         text = await extractor(file_path)
-        
-        # Очистка
-        text = text.strip()
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        text = re.sub(r' {2,}', ' ', text)
+        text = re.sub(r'\n{3,}', '\n\n', text.strip())
         
         return text

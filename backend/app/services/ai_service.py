@@ -2,209 +2,191 @@
 import google.generativeai as genai
 from typing import Optional
 import json
-import asyncio
-from functools import partial
-from pathlib import Path
-import traceback
+import re
 
 from app.core.config import settings
-
-# Настройка Gemini
-genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
 class GeminiService:
     """Сервис для работы с Gemini AI"""
     
     def __init__(self):
-        # Gemini 2.0 Flash
-        model_name = getattr(settings, 'GEMINI_MODEL', 'gemini-2.0-flash')
-        print(f"🤖 Initializing Gemini model: {model_name}")
+        self.api_key = settings.GEMINI_API_KEY
+        self.model_name = settings.GEMINI_MODEL  # Читаем из настроек!
         
-        self.model = genai.GenerativeModel(model_name)
-        
-        self.generation_config = genai.types.GenerationConfig(
-            temperature=0.7,
-            top_p=0.9,
-            max_output_tokens=8192,  # Gemini 2.0 поддерживает больше
-        )
+        if self.api_key:
+            genai.configure(api_key=self.api_key)
+            print(f"🤖 Gemini configured with model: {self.model_name}")
+        else:
+            print("⚠️ GEMINI_API_KEY not set!")
     
-    async def _generate(self, prompt: str, image_path: Optional[str] = None) -> str:
-        """Асинхронная генерация текста (с опциональным изображением)"""
-        loop = asyncio.get_event_loop()
-        
-        try:
-            if image_path:
-                # Читаем изображение
-                with open(image_path, 'rb') as f:
-                    image_data = f.read()
-                
-                # Определяем MIME тип
-                ext = Path(image_path).suffix.lower()
-                mime_types = {
-                    '.jpg': 'image/jpeg',
-                    '.jpeg': 'image/jpeg',
-                    '.png': 'image/png',
-                    '.gif': 'image/gif',
-                    '.webp': 'image/webp',
-                }
-                mime_type = mime_types.get(ext, 'image/jpeg')
-                
-                # Создаём контент с изображением
-                image_part = {
-                    "mime_type": mime_type,
-                    "data": image_data
-                }
-                
-                response = await loop.run_in_executor(
-                    None,
-                    partial(
-                        self.model.generate_content,
-                        [prompt, image_part],
-                        generation_config=self.generation_config
-                    )
-                )
-            else:
-                response = await loop.run_in_executor(
-                    None,
-                    partial(
-                        self.model.generate_content,
-                        prompt,
-                        generation_config=self.generation_config
-                    )
-                )
-            
-            return response.text
-            
-        except Exception as e:
-            print(f"❌ Gemini API error: {e}")
-            print(traceback.format_exc())
-            raise
-    
-    async def extract_text_from_image(self, image_path: str) -> str:
-        """OCR: Извлечение текста из изображения"""
-        prompt = """Извлеки весь текст с этого изображения.
-
-ИНСТРУКЦИИ:
-1. Извлеки ВЕСЬ видимый текст, включая рукописный
-2. Сохрани структуру (заголовки, списки, абзацы)
-3. Исправь очевидные опечатки
-4. Если текст на доске/в тетради - структурируй логически
-5. Формулы запиши в понятном виде
-
-Верни ТОЛЬКО извлечённый текст без комментариев."""
-
-        return await self._generate(prompt, image_path)
+    def _get_model(self):
+        """Получить модель Gemini"""
+        return genai.GenerativeModel(self.model_name)
     
     async def generate_smart_notes(self, content: str, title: str = "") -> str:
-        """Генерация умных конспектов"""
-        max_len = getattr(settings, 'MAX_CONTENT_LENGTH', 30000)
-        
-        prompt = f"""Ты — эксперт по созданию учебных конспектов.
+        """Генерация умного конспекта"""
+        prompt = f"""Создай структурированный конспект по материалу.
 
-МАТЕРИАЛ:
-{title}
-{content[:max_len]}
+Название: {title}
 
-Создай структурированный конспект:
-1. 5-7 ключевых разделов (## Заголовок)
-2. Для каждого: 3-5 пунктов, термины **жирным**
-3. В конце: "🎯 Главное" с 3-5 выводами
+Материал:
+{content[:30000]}
 
-Формат: Markdown"""
-        
-        return await self._generate(prompt)
+Требования:
+1. Выдели основные темы и подтемы
+2. Используй маркированные списки
+3. Выдели ключевые определения
+4. Добавь примеры где уместно
+5. Сохрани логическую структуру
+
+Формат: Markdown с заголовками ##, списками -, выделением **жирным**."""
+
+        try:
+            model = self._get_model()
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"❌ Smart notes error: {e}")
+            raise
     
     async def generate_tldr(self, content: str) -> str:
         """Генерация краткого содержания"""
-        max_len = getattr(settings, 'MAX_CONTENT_LENGTH', 30000)
-        
-        prompt = f"""Создай TL;DR (краткое содержание):
+        prompt = f"""Напиши краткое содержание (TL;DR) этого материала в 3-5 предложениях.
 
-{content[:max_len]}
+Материал:
+{content[:20000]}
 
-Требования:
-- Максимум 5-7 предложений
-- Начни с "📌 **Суть:**"
-- Простой язык"""
-        
-        return await self._generate(prompt)
+Выдели самое важное. Будь конкретен."""
+
+        try:
+            model = self._get_model()
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"❌ TLDR error: {e}")
+            raise
     
     async def generate_quiz(self, content: str, num_questions: int = 5) -> str:
         """Генерация теста"""
-        max_len = getattr(settings, 'MAX_CONTENT_LENGTH', 30000)
-        
-        prompt = f"""Создай тест из {num_questions} вопросов:
+        prompt = f"""Создай тест из {num_questions} вопросов по материалу.
 
-{content[:max_len]}
+Материал:
+{content[:25000]}
 
-ФОРМАТ JSON:
+Формат JSON:
 {{
   "questions": [
     {{
-      "id": 1,
       "question": "Вопрос?",
-      "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}},
-      "correct": "A",
-      "explanation": "Почему"
+      "options": ["A) вариант", "B) вариант", "C) вариант", "D) вариант"],
+      "correct": 0,
+      "explanation": "Пояснение"
+    }}
+  ]
+}}
+
+Верни ТОЛЬКО валидный JSON без markdown."""
+
+        try:
+            model = self._get_model()
+            response = model.generate_content(prompt)
+            
+            # Очищаем от markdown
+            text = response.text.strip()
+            text = re.sub(r'^```json\s*', '', text)
+            text = re.sub(r'^```\s*', '', text)
+            text = re.sub(r'\s*```$', '', text)
+            
+            # Проверяем валидность JSON
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            # Возвращаем базовый тест
+            return json.dumps({
+                "questions": [{
+                    "question": "Тест не удалось сгенерировать",
+                    "options": ["Попробуйте снова"],
+                    "correct": 0,
+                    "explanation": ""
+                }]
+            }, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Quiz error: {e}")
+            raise
+    
+    async def generate_glossary(self, content: str) -> str:
+        """Генерация глоссария"""
+        prompt = f"""Создай глоссарий ключевых терминов из материала.
+
+Материал:
+{content[:25000]}
+
+Формат JSON:
+{{
+  "terms": [
+    {{
+      "term": "Термин",
+      "definition": "Определение"
+    }}
+  ]
+}}
+
+Найди 5-15 важных терминов. Верни ТОЛЬКО JSON."""
+
+        try:
+            model = self._get_model()
+            response = model.generate_content(prompt)
+            
+            text = response.text.strip()
+            text = re.sub(r'^```json\s*', '', text)
+            text = re.sub(r'^```\s*', '', text)
+            text = re.sub(r'\s*```$', '', text)
+            
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            return json.dumps({"terms": []}, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Glossary error: {e}")
+            raise
+    
+    async def generate_flashcards(self, content: str, num_cards: int = 10) -> str:
+        """Генерация флэш-карточек"""
+        prompt = f"""Создай {num_cards} флэш-карточек для запоминания.
+
+Материал:
+{content[:25000]}
+
+Формат JSON:
+{{
+  "cards": [
+    {{
+      "front": "Вопрос или термин",
+      "back": "Ответ или определение"
     }}
   ]
 }}
 
 Верни ТОЛЬКО JSON."""
-        
-        response = await self._generate(prompt)
-        return self._extract_json(response)
-    
-    async def generate_glossary(self, content: str) -> str:
-        """Генерация глоссария"""
-        max_len = getattr(settings, 'MAX_CONTENT_LENGTH', 30000)
-        
-        prompt = f"""Создай глоссарий из материала:
 
-{content[:max_len]}
-
-Формат: **Термин** — определение (1-2 предложения).
-Отсортируй по алфавиту. 10-15 терминов."""
-        
-        return await self._generate(prompt)
-    
-    async def generate_flashcards(self, content: str, num_cards: int = 10) -> str:
-        """Генерация карточек"""
-        max_len = getattr(settings, 'MAX_CONTENT_LENGTH', 30000)
-        
-        prompt = f"""Создай {num_cards} flashcards:
-
-{content[:max_len]}
-
-ФОРМАТ JSON:
-{{
-  "flashcards": [
-    {{"id": 1, "front": "Вопрос", "back": "Ответ"}}
-  ]
-}}
-
-Верни ТОЛЬКО JSON."""
-        
-        response = await self._generate(prompt)
-        return self._extract_json(response)
-    
-    def _extract_json(self, response: str) -> str:
-        """Извлечение JSON из ответа"""
         try:
-            json_str = response
+            model = self._get_model()
+            response = model.generate_content(prompt)
             
-            if "```json" in json_str:
-                json_str = json_str.split("```json")[1].split("```")[0]
-            elif "```" in json_str:
-                json_str = json_str.split("```")[1].split("```")[0]
+            text = response.text.strip()
+            text = re.sub(r'^```json\s*', '', text)
+            text = re.sub(r'^```\s*', '', text)
+            text = re.sub(r'\s*```$', '', text)
             
-            parsed = json.loads(json_str.strip())
-            return json.dumps(parsed, ensure_ascii=False, indent=2)
-        except json.JSONDecodeError as e:
-            print(f"⚠️ JSON parse error: {e}")
-            return response
+            json.loads(text)
+            return text
+        except json.JSONDecodeError:
+            return json.dumps({"cards": []}, ensure_ascii=False)
+        except Exception as e:
+            print(f"❌ Flashcards error: {e}")
+            raise
 
 
-# Singleton
+# Создаём глобальный экземпляр
 gemini_service = GeminiService()
