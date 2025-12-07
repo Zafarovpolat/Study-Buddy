@@ -1,5 +1,6 @@
+// frontend/src/components/OutputViewer.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState } from 'react';
-import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw } from 'lucide-react';
+import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button, Card } from './ui';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
@@ -64,10 +65,10 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
                                 setActiveFormat(format);
                             }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${activeFormat === format
-                                ? 'bg-tg-button text-tg-button-text'
-                                : hasOutput
-                                    ? 'bg-tg-secondary text-tg-text'
-                                    : 'bg-tg-secondary/50 text-tg-hint'
+                                    ? 'bg-tg-button text-tg-button-text'
+                                    : hasOutput
+                                        ? 'bg-tg-secondary text-tg-text'
+                                        : 'bg-tg-secondary/50 text-tg-hint'
                                 }`}
                         >
                             <Icon className={`w-4 h-4 ${activeFormat === format ? '' : config.color}`} />
@@ -95,14 +96,10 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
                         </div>
 
                         {/* Render content based on format */}
-                        {activeFormat === 'quiz' || activeFormat === 'flashcards' ? (
-                            <JsonContentViewer
-                                content={activeOutput.content}
-                                format={activeFormat}
-                            />
-                        ) : (
-                            <MarkdownViewer content={activeOutput.content} />
-                        )}
+                        <ContentRenderer
+                            content={activeOutput.content}
+                            format={activeFormat}
+                        />
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-64 text-tg-hint">
@@ -117,9 +114,30 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
     );
 }
 
+// Универсальный рендерер контента
+function ContentRenderer({ content, format }: { content: string; format: string }) {
+    // Пробуем распарсить JSON
+    try {
+        const data = JSON.parse(content);
+
+        switch (format) {
+            case 'quiz':
+                return <QuizViewer data={data} />;
+            case 'flashcards':
+                return <FlashcardsViewer data={data} />;
+            case 'glossary':
+                return <GlossaryViewer data={data} />;
+            default:
+                return <MarkdownViewer content={content} />;
+        }
+    } catch {
+        // Если не JSON - рендерим как markdown
+        return <MarkdownViewer content={content} />;
+    }
+}
+
 // Markdown Viewer
 function MarkdownViewer({ content }: { content: string }) {
-    // Простой рендер markdown (можно заменить на react-markdown)
     const formattedContent = content
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/## (.*?)$/gm, '<h2 class="text-lg font-bold mt-4 mb-2">$1</h2>')
@@ -135,51 +153,96 @@ function MarkdownViewer({ content }: { content: string }) {
     );
 }
 
-// JSON Content Viewer (Quiz, Flashcards)
-function JsonContentViewer({ content, format }: { content: string; format: string }) {
-    try {
-        const data = JSON.parse(content);
+// ============ GLOSSARY VIEWER ============
+interface Term {
+    term: string;
+    definition: string;
+}
 
-        if (format === 'quiz') {
-            return <QuizViewer questions={data.questions || []} />;
-        }
+function GlossaryViewer({ data }: { data: any }) {
+    const terms: Term[] = data.terms || [];
+    const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
-        if (format === 'flashcards') {
-            return <FlashcardsViewer cards={data.flashcards || []} />;
-        }
-
-        return <pre className="text-xs overflow-auto">{content}</pre>;
-    } catch {
-        return <MarkdownViewer content={content} />;
+    if (terms.length === 0) {
+        return <p className="text-tg-hint text-center">Термины не найдены</p>;
     }
+
+    return (
+        <div className="space-y-2">
+            <p className="text-sm text-tg-hint mb-3">
+                📚 {terms.length} терминов
+            </p>
+
+            {terms.map((item, index) => (
+                <div
+                    key={index}
+                    className="border border-tg-hint/20 rounded-xl overflow-hidden"
+                >
+                    <button
+                        onClick={() => {
+                            setExpandedIndex(expandedIndex === index ? null : index);
+                            telegram.haptic('selection');
+                        }}
+                        className="w-full p-4 flex items-center justify-between text-left bg-tg-secondary/50 hover:bg-tg-secondary transition-colors"
+                    >
+                        <span className="font-medium text-purple-600">{item.term}</span>
+                        {expandedIndex === index ? (
+                            <ChevronUp className="w-4 h-4 text-tg-hint" />
+                        ) : (
+                            <ChevronDown className="w-4 h-4 text-tg-hint" />
+                        )}
+                    </button>
+
+                    {expandedIndex === index && (
+                        <div className="p-4 bg-tg-bg border-t border-tg-hint/20">
+                            <p className="text-sm">{item.definition}</p>
+                        </div>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
 }
 
-// Quiz Viewer
+// ============ QUIZ VIEWER ============
 interface Question {
-    id: number;
     question: string;
-    options: Record<string, string>;
-    correct: string;
-    explanation: string;
+    options: string[] | Record<string, string>;
+    correct: number | string;
+    explanation?: string;
 }
 
-function QuizViewer({ questions }: { questions: Question[] }) {
+function QuizViewer({ data }: { data: any }) {
+    const questions: Question[] = data.questions || [];
     const [currentIndex, setCurrentIndex] = useState(0);
-    const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+    const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [showResult, setShowResult] = useState(false);
     const [score, setScore] = useState(0);
 
-    const question = questions[currentIndex];
-    if (!question) return <p className="text-tg-hint">Нет вопросов</p>;
+    if (questions.length === 0) {
+        return <p className="text-tg-hint text-center">Вопросы не найдены</p>;
+    }
 
-    const handleAnswer = (answer: string) => {
-        if (selectedAnswer) return;
+    const question = questions[currentIndex];
+
+    // Нормализуем options в массив
+    const options: string[] = Array.isArray(question.options)
+        ? question.options
+        : Object.values(question.options || {});
+
+    // Нормализуем correct в индекс
+    const correctIndex = typeof question.correct === 'number'
+        ? question.correct
+        : parseInt(question.correct) || 0;
+
+    const handleAnswer = (index: number) => {
+        if (selectedAnswer !== null) return;
 
         telegram.haptic('selection');
-        setSelectedAnswer(answer);
+        setSelectedAnswer(index);
         setShowResult(true);
 
-        if (answer === question.correct) {
+        if (index === correctIndex) {
             setScore((s) => s + 1);
             telegram.haptic('success');
         } else {
@@ -195,6 +258,13 @@ function QuizViewer({ questions }: { questions: Question[] }) {
         }
     };
 
+    const restart = () => {
+        setCurrentIndex(0);
+        setSelectedAnswer(null);
+        setShowResult(false);
+        setScore(0);
+    };
+
     const isFinished = currentIndex === questions.length - 1 && showResult;
 
     return (
@@ -205,41 +275,55 @@ function QuizViewer({ questions }: { questions: Question[] }) {
                 <span>Счёт: {score}/{questions.length}</span>
             </div>
 
+            {/* Progress bar */}
+            <div className="h-1 bg-tg-secondary rounded-full overflow-hidden">
+                <div
+                    className="h-full bg-tg-button transition-all"
+                    style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+                />
+            </div>
+
             {/* Question */}
             <p className="text-lg font-medium">{question.question}</p>
 
             {/* Options */}
             <div className="space-y-2">
-                {Object.entries(question.options).map(([key, value]) => {
-                    const isCorrect = key === question.correct;
-                    const isSelected = key === selectedAnswer;
+                {options.map((option, index) => {
+                    const isCorrect = index === correctIndex;
+                    const isSelected = index === selectedAnswer;
+
+                    // Убираем префикс типа "A) " если есть
+                    const cleanOption = option.replace(/^[A-D]\)\s*/, '');
 
                     return (
                         <button
-                            key={key}
-                            onClick={() => handleAnswer(key)}
+                            key={index}
+                            onClick={() => handleAnswer(index)}
                             disabled={showResult}
                             className={`w-full p-4 rounded-xl text-left transition-all ${showResult
-                                ? isCorrect
-                                    ? 'bg-green-500/20 border-2 border-green-500'
-                                    : isSelected
-                                        ? 'bg-red-500/20 border-2 border-red-500'
-                                        : 'bg-tg-secondary'
-                                : 'bg-tg-secondary hover:bg-tg-hint/20'
+                                    ? isCorrect
+                                        ? 'bg-green-500/20 border-2 border-green-500'
+                                        : isSelected
+                                            ? 'bg-red-500/20 border-2 border-red-500'
+                                            : 'bg-tg-secondary'
+                                    : 'bg-tg-secondary hover:bg-tg-hint/20'
                                 }`}
                         >
-                            <span className="font-medium mr-2">{key}.</span>
-                            {value}
+                            <span className="font-medium mr-2">
+                                {String.fromCharCode(65 + index)}.
+                            </span>
+                            {cleanOption}
                         </button>
                     );
                 })}
             </div>
 
             {/* Explanation */}
-            {showResult && (
+            {showResult && question.explanation && (
                 <Card variant="outlined" className="bg-tg-button/5">
                     <p className="text-sm">
-                        <span className="font-semibold">Объяснение:</span> {question.explanation}
+                        <span className="font-semibold">💡 </span>
+                        {question.explanation}
                     </p>
                 </Card>
             )}
@@ -247,41 +331,49 @@ function QuizViewer({ questions }: { questions: Question[] }) {
             {/* Next Button */}
             {showResult && !isFinished && (
                 <Button className="w-full" onClick={nextQuestion}>
-                    Следующий вопрос
+                    Следующий вопрос →
                 </Button>
             )}
 
             {/* Final Result */}
             {isFinished && (
-                <Card className="text-center bg-tg-button/10">
-                    <p className="text-2xl font-bold mb-2">
+                <Card className="text-center bg-gradient-to-br from-tg-button/20 to-tg-button/5">
+                    <p className="text-4xl mb-2">
                         {score === questions.length ? '🎉' : score >= questions.length / 2 ? '👍' : '📚'}
                     </p>
-                    <p className="text-lg font-semibold">
-                        Результат: {score} из {questions.length}
+                    <p className="text-xl font-bold">
+                        {score} из {questions.length}
                     </p>
                     <p className="text-sm text-tg-hint mt-1">
-                        {Math.round((score / questions.length) * 100)}% правильных ответов
+                        {Math.round((score / questions.length) * 100)}% правильных
                     </p>
+                    <Button className="mt-4" variant="secondary" onClick={restart}>
+                        Пройти заново
+                    </Button>
                 </Card>
             )}
         </div>
     );
 }
 
-// Flashcards Viewer
+// ============ FLASHCARDS VIEWER ============
 interface Flashcard {
-    id: number;
     front: string;
     back: string;
 }
 
-function FlashcardsViewer({ cards }: { cards: Flashcard[] }) {
+function FlashcardsViewer({ data }: { data: any }) {
+    // Поддерживаем оба формата: cards и flashcards
+    const cards: Flashcard[] = data.cards || data.flashcards || [];
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
+    const [known, setKnown] = useState<Set<number>>(new Set());
+
+    if (cards.length === 0) {
+        return <p className="text-tg-hint text-center">Карточки не найдены</p>;
+    }
 
     const card = cards[currentIndex];
-    if (!card) return <p className="text-tg-hint">Нет карточек</p>;
 
     const flip = () => {
         telegram.haptic('light');
@@ -300,34 +392,61 @@ function FlashcardsViewer({ cards }: { cards: Flashcard[] }) {
         telegram.haptic('selection');
     };
 
+    const markKnown = () => {
+        const newKnown = new Set(known);
+        if (known.has(currentIndex)) {
+            newKnown.delete(currentIndex);
+        } else {
+            newKnown.add(currentIndex);
+        }
+        setKnown(newKnown);
+        telegram.haptic('success');
+    };
+
     return (
         <div className="space-y-4">
             {/* Progress */}
-            <div className="text-center text-sm text-tg-hint">
-                Карточка {currentIndex + 1} из {cards.length}
+            <div className="flex items-center justify-between text-sm text-tg-hint">
+                <span>Карточка {currentIndex + 1} из {cards.length}</span>
+                <span>Выучено: {known.size}/{cards.length}</span>
             </div>
 
             {/* Card */}
             <div
                 onClick={flip}
-                className="min-h-[200px] p-6 rounded-2xl bg-gradient-to-br from-tg-button/20 to-tg-button/5 flex items-center justify-center cursor-pointer transition-all hover:scale-[1.02]"
+                className={`min-h-[200px] p-6 rounded-2xl flex items-center justify-center cursor-pointer transition-all transform hover:scale-[1.02] ${isFlipped
+                        ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
+                        : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
+                    } ${known.has(currentIndex) ? 'ring-2 ring-green-500' : ''}`}
             >
-                <p className="text-lg text-center">
-                    {isFlipped ? card.back : card.front}
-                </p>
+                <div className="text-center">
+                    <p className="text-xs text-tg-hint mb-2">
+                        {isFlipped ? '← Ответ' : 'Вопрос →'}
+                    </p>
+                    <p className="text-lg font-medium">
+                        {isFlipped ? card.back : card.front}
+                    </p>
+                </div>
             </div>
 
             <p className="text-center text-xs text-tg-hint">
-                Нажмите на карточку, чтобы перевернуть
+                👆 Нажмите, чтобы перевернуть
             </p>
 
-            {/* Navigation */}
+            {/* Actions */}
             <div className="flex gap-2">
                 <Button variant="secondary" className="flex-1" onClick={prev}>
-                    ← Назад
+                    ←
+                </Button>
+                <Button
+                    variant={known.has(currentIndex) ? "primary" : "secondary"}
+                    className="flex-1"
+                    onClick={markKnown}
+                >
+                    {known.has(currentIndex) ? '✓ Выучено' : 'Знаю'}
                 </Button>
                 <Button variant="secondary" className="flex-1" onClick={next}>
-                    Вперёд →
+                    →
                 </Button>
             </div>
         </div>

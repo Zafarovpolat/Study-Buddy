@@ -151,24 +151,33 @@ class GeminiService:
             print(f"❌ Glossary error: {e}")
             raise
     
+    # backend/app/services/ai_service.py - ЗАМЕНИ метод generate_flashcards
+
     async def generate_flashcards(self, content: str, num_cards: int = 10) -> str:
         """Генерация флэш-карточек"""
-        prompt = f"""Создай {num_cards} флэш-карточек для запоминания.
+        prompt = f"""Создай {num_cards} флэш-карточек для запоминания ключевых понятий.
 
 Материал:
 {content[:25000]}
 
-Формат JSON:
+ВАЖНО: Создай МИНИМУМ {num_cards} карточек!
+
+Формат JSON (строго соблюдай):
 {{
   "cards": [
     {{
-      "front": "Вопрос или термин",
-      "back": "Ответ или определение"
+      "front": "Что такое компьютерная сеть?",
+      "back": "Система связанных компьютеров для обмена данными"
+    }},
+    {{
+      "front": "Какие типы сетей существуют?",
+      "back": "LAN, WAN, MAN, PAN"
     }}
   ]
 }}
 
-Верни ТОЛЬКО JSON."""
+Создай разнообразные карточки: определения, вопросы, факты.
+Верни ТОЛЬКО валидный JSON без markdown и комментариев."""
 
         try:
             model = self._get_model()
@@ -179,10 +188,22 @@ class GeminiService:
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
-            json.loads(text)
+            # Проверяем JSON
+            parsed = json.loads(text)
+            
+            # Проверяем что cards не пустой
+            if not parsed.get("cards") or len(parsed["cards"]) == 0:
+                raise ValueError("No cards generated")
+            
             return text
-        except json.JSONDecodeError:
-            return json.dumps({"cards": []}, ensure_ascii=False)
+        except json.JSONDecodeError as e:
+            print(f"❌ Flashcards JSON error: {e}")
+            print(f"Raw response: {response.text[:500]}")
+            return json.dumps({
+                "cards": [
+                    {"front": "Карточки не сгенерированы", "back": "Попробуйте снова"}
+                ]
+            }, ensure_ascii=False)
         except Exception as e:
             print(f"❌ Flashcards error: {e}")
             raise
