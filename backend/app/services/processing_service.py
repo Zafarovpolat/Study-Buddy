@@ -19,6 +19,8 @@ class ProcessingService:
         """Полная обработка материала"""
         print(f"📄 Processing material: {material.id} ({material.material_type.value})")
         
+        error_message = None
+        
         try:
             # 1. Обновляем статус
             material.status = ProcessingStatus.PROCESSING
@@ -35,52 +37,71 @@ class ProcessingService:
                     material.raw_content = text
                     await self.db.commit()
                     print(f"✅ Extracted {len(text)} characters")
+                except ValueError as e:
+                    # Понятная ошибка от TextExtractor
+                    error_message = str(e)
+                    raise
                 except Exception as e:
-                    print(f"❌ Text extraction failed: {e}")
+                    error_message = f"Не удалось прочитать файл: {str(e)}"
                     raise
             
             content = material.raw_content
             if not content:
-                raise ValueError("Нет контента для обработки")
+                error_message = "Файл не содержит текста или пустой"
+                raise ValueError(error_message)
             
-            print(f"🤖 Generating AI outputs...")
+            # Проверяем минимальную длину
+            if len(content.strip()) < 50:
+                error_message = "Слишком мало текста для обработки (минимум 50 символов)"
+                raise ValueError(error_message)
+            
+            print(f"🤖 Generating AI outputs for {len(content)} chars...")
             
             # 3. Генерация AI-контента
             results = await self._generate_all_outputs(content, material.title)
             
-            # 4. Сохраняем результаты
-            saved_count = 0
-            for format_type, output_content in results.items():
-                if output_content:
-                    ai_output = AIOutput(
-                        material_id=material.id,
-                        format=OutputFormat(format_type),
-                        content=output_content
-                    )
-                    self.db.add(ai_output)
-                    saved_count += 1
+            # 4. Проверяем что хоть что-то сгенерировалось
+            successful_outputs = {k: v for k, v in results.items() if v}
             
-            # 5. Финальный статус
+            if not successful_outputs:
+                error_message = "AI не смог обработать материал. Попробуйте другой файл."
+                raise ValueError(error_message)
+            
+            # 5. Сохраняем результаты
+            for format_type, output_content in successful_outputs.items():
+                ai_output = AIOutput(
+                    material_id=material.id,
+                    format=OutputFormat(format_type),
+                    content=output_content
+                )
+                self.db.add(ai_output)
+            
+            # 6. Финальный статус
             material.status = ProcessingStatus.COMPLETED
             await self.db.commit()
             
-            print(f"✅ Processing complete! Saved {saved_count} outputs")
+            print(f"✅ Processing complete! Saved {len(successful_outputs)} outputs")
             
             return {
                 "status": "success",
-                "outputs": list(results.keys())
+                "outputs": list(successful_outputs.keys())
             }
             
         except Exception as e:
-            print(f"❌ Processing failed: {e}")
+            final_error = error_message or str(e)
+            print(f"❌ Processing failed: {final_error}")
             print(traceback.format_exc())
             
             material.status = ProcessingStatus.FAILED
+            # Сохраняем сообщение об ошибке в raw_content если он пустой
+            if not material.raw_content:
+                material.raw_content = f"[ОШИБКА] {final_error}"
+            
             await self.db.commit()
             
             return {
                 "status": "error",
-                "error": str(e)
+                "error": final_error
             }
     
     async def _generate_all_outputs(
@@ -91,7 +112,12 @@ class ProcessingService:
         """Генерация всех форматов"""
         results = {}
         
-        # Генерируем по очереди с обработкой ошибок
+        # Ограничиваем длину контента для API
+        max_length = 50000  # ~50k символов
+        if len(content) > max_length:
+            print(f"⚠️ Content too long ({len(content)}), truncating to {max_length}")
+            content = content[:max_length] + "\n\n[... текст обрезан из-за большого размера ...]"
+        
         generators = [
             ("smart_notes", lambda: gemini_service.generate_smart_notes(content, title)),
             ("tldr", lambda: gemini_service.generate_tldr(content)),
@@ -103,8 +129,13 @@ class ProcessingService:
         for name, generator in generators:
             try:
                 print(f"  📝 Generating {name}...")
-                results[name] = await generator()
-                print(f"  ✅ {name} done")
+                result = await generator()
+                if result and len(result.strip()) > 10:
+                    results[name] = result
+                    print(f"  ✅ {name} done ({len(result)} chars)")
+                else:
+                    print(f"  ⚠️ {name} returned empty")
+                    results[name] = None
             except Exception as e:
                 print(f"  ❌ {name} failed: {e}")
                 results[name] = None
@@ -120,6 +151,10 @@ class ProcessingService:
         content = material.raw_content
         if not content:
             raise ValueError("Нет контента для обработки")
+        
+        # Убираем сообщение об ошибке если оно там
+        if content.startswith("[ОШИБКА]"):
+            raise ValueError("Материал не был обработан. Загрузите файл заново.")
         
         generators = {
             OutputFormat.SMART_NOTES: lambda: gemini_service.generate_smart_notes(content, material.title),

@@ -83,7 +83,7 @@ export function InviteBanner() {
                         <Button
                             size="sm"
                             onClick={handleShare}
-                            className="flex-1 bg-white text-purple-600 hover:bg-white/90"
+                            className="flex-1 bg-transparent border border-white text-purple-600 hover:bg-white"
                         >
                             <Share2 className="w-4 h-4 mr-1" />
                             Поделиться
