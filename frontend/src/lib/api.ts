@@ -196,6 +196,11 @@ class ApiClient {
         return data;
     }
 
+    async getGroupMaterials(groupId: string) {
+        const { data } = await this.client.get(`/materials/group/${groupId}`);
+        return data;
+    }
+
     // ==================== Referrals ====================
 
     async getReferralStats() {

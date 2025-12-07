@@ -1,10 +1,11 @@
 # backend/app/api/routes/materials.py - ЗАМЕНИ ПОЛНОСТЬЮ
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from typing import Optional, List
 from uuid import UUID
 
-from app.models import get_db, User, ProcessingStatus, MaterialType
+from app.models import get_db, User, Material, ProcessingStatus, MaterialType
 from app.services import UserService, MaterialService
 from app.api.schemas import MaterialResponse, MaterialDetailResponse, SuccessResponse
 from app.api.deps import get_current_user
@@ -18,12 +19,12 @@ async def upload_material(
     file: UploadFile = File(...),
     title: Optional[str] = Form(None),
     folder_id: Optional[UUID] = Form(None),
+    group_id: Optional[UUID] = Form(None),
     auto_process: bool = Form(True),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Загрузить и обработать материал"""
-    # Проверяем лимиты
     user_service = UserService(db)
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
     
@@ -33,7 +34,16 @@ async def upload_material(
             detail="Daily limit reached. Upgrade to Pro for unlimited access."
         )
     
-    # Проверяем размер файла
+    # Если указана группа - проверяем членство
+    target_folder_id = folder_id
+    if group_id:
+        from app.services.group_service import GroupService
+        group_service = GroupService(db)
+        groups = await group_service.get_user_groups(current_user)
+        if not any(g["id"] == str(group_id) for g in groups):
+            raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+        target_folder_id = group_id
+    
     content = await file.read()
     size_mb = len(content) / (1024 * 1024)
     
@@ -43,7 +53,6 @@ async def upload_material(
             detail=f"File too large. Max: {settings.MAX_FILE_SIZE_MB}MB"
         )
     
-    # Определяем тип и сохраняем
     material_service = MaterialService(db)
     material_type = material_service.detect_material_type(file.filename)
     
@@ -51,20 +60,17 @@ async def upload_material(
         content, file.filename, current_user.id
     )
     
-    # Создаём материал
     material = await material_service.create_material(
         user=current_user,
         title=title or file.filename,
         material_type=material_type,
         file_path=file_path,
         original_filename=file.filename,
-        folder_id=folder_id
+        folder_id=target_folder_id
     )
     
-    # Увеличиваем счётчик
     await user_service.increment_request_count(current_user)
     
-    # Автоматическая обработка
     if auto_process:
         try:
             from app.services.processing_service import ProcessingService
@@ -82,6 +88,7 @@ async def create_text_material(
     title: str = Form(...),
     content: str = Form(...),
     folder_id: Optional[UUID] = Form(None),
+    group_id: Optional[UUID] = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -92,19 +99,27 @@ async def create_text_material(
     if not can_proceed:
         raise HTTPException(status_code=429, detail="Daily limit reached")
     
+    target_folder_id = folder_id
+    if group_id:
+        from app.services.group_service import GroupService
+        group_service = GroupService(db)
+        groups = await group_service.get_user_groups(current_user)
+        if not any(g["id"] == str(group_id) for g in groups):
+            raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+        target_folder_id = group_id
+    
     material_service = MaterialService(db)
     
     material = await material_service.create_material(
         user=current_user,
         title=title,
         material_type=MaterialType.TXT,
-        folder_id=folder_id,
+        folder_id=target_folder_id,
         raw_content=content
     )
     
     await user_service.increment_request_count(current_user)
     
-    # Автоматическая обработка
     try:
         from app.services.processing_service import ProcessingService
         processing_service = ProcessingService(db)
@@ -112,6 +127,79 @@ async def create_text_material(
         await db.refresh(material)
     except Exception as e:
         print(f"Processing error: {e}")
+    
+    return material
+
+
+@router.post("/scan", response_model=MaterialResponse)
+async def scan_image(
+    file: UploadFile = File(...),
+    title: Optional[str] = Form(None),
+    folder_id: Optional[UUID] = Form(None),
+    group_id: Optional[UUID] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сканировать изображение и обработать"""
+    user_service = UserService(db)
+    can_proceed, remaining = await user_service.check_rate_limit(current_user)
+    
+    if not can_proceed:
+        raise HTTPException(
+            status_code=429,
+            detail="Достигнут дневной лимит. Оформите Pro для безлимита."
+        )
+    
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail="Поддерживаются только изображения: JPG, PNG, WebP"
+        )
+    
+    target_folder_id = folder_id
+    if group_id:
+        from app.services.group_service import GroupService
+        group_service = GroupService(db)
+        groups = await group_service.get_user_groups(current_user)
+        if not any(g["id"] == str(group_id) for g in groups):
+            raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+        target_folder_id = group_id
+    
+    content = await file.read()
+    size_mb = len(content) / (1024 * 1024)
+    
+    if size_mb > settings.MAX_FILE_SIZE_MB:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Файл слишком большой. Максимум: {settings.MAX_FILE_SIZE_MB}MB"
+        )
+    
+    material_service = MaterialService(db)
+    file_path = await material_service.save_uploaded_file(
+        content, file.filename, current_user.id
+    )
+    
+    material = await material_service.create_material(
+        user=current_user,
+        title=title or "Скан: " + (file.filename or "изображение"),
+        material_type=MaterialType.IMAGE,
+        file_path=file_path,
+        original_filename=file.filename,
+        folder_id=target_folder_id
+    )
+    
+    await user_service.increment_request_count(current_user)
+    
+    try:
+        from app.services.processing_service import ProcessingService
+        processing_service = ProcessingService(db)
+        await processing_service.process_material(material)
+        await db.refresh(material)
+    except Exception as e:
+        print(f"Scan processing error: {e}")
+        material.status = ProcessingStatus.FAILED
+        await db.commit()
     
     return material
 
@@ -124,7 +212,7 @@ async def list_materials(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить список материалов"""
+    """Получить список материалов пользователя"""
     material_service = MaterialService(db)
     materials = await material_service.get_user_materials(
         user_id=current_user.id,
@@ -132,6 +220,31 @@ async def list_materials(
         limit=limit,
         offset=offset
     )
+    return materials
+
+
+@router.get("/group/{group_id}", response_model=List[MaterialResponse])
+async def get_group_materials(
+    group_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить материалы группы"""
+    from app.services.group_service import GroupService
+    
+    group_service = GroupService(db)
+    
+    groups = await group_service.get_user_groups(current_user)
+    if not any(g["id"] == str(group_id) for g in groups):
+        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+    
+    result = await db.execute(
+        select(Material)
+        .where(Material.folder_id == group_id)
+        .order_by(Material.created_at.desc())
+    )
+    materials = result.scalars().all()
+    
     return materials
 
 
@@ -143,84 +256,28 @@ async def get_material(
 ):
     """Получить материал с AI-выводами"""
     material_service = MaterialService(db)
+    
     material = await material_service.get_by_id(material_id, current_user.id)
+    
+    if not material:
+        from app.services.group_service import GroupService
+        
+        result = await db.execute(
+            select(Material).where(Material.id == material_id)
+        )
+        material = result.scalar_one_or_none()
+        
+        if material and material.folder_id:
+            group_service = GroupService(db)
+            groups = await group_service.get_user_groups(current_user)
+            if not any(g["id"] == str(material.folder_id) for g in groups):
+                material = None
     
     if not material:
         raise HTTPException(status_code=404, detail="Material not found")
     
     return material
 
-
-# backend/app/api/routes/materials.py - ДОБАВЬ этот endpoint
-
-@router.post("/scan", response_model=MaterialResponse)
-async def scan_image(
-    file: UploadFile = File(...),
-    title: Optional[str] = Form(None),
-    folder_id: Optional[UUID] = Form(None),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Сканировать изображение (фото доски/конспекта) и обработать"""
-    # Проверяем лимиты
-    user_service = UserService(db)
-    can_proceed, remaining = await user_service.check_rate_limit(current_user)
-    
-    if not can_proceed:
-        raise HTTPException(
-            status_code=429,
-            detail="Достигнут дневной лимит. Оформите Pro для безлимита."
-        )
-    
-    # Проверяем что это изображение
-    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail="Поддерживаются только изображения: JPG, PNG, WebP"
-        )
-    
-    # Проверяем размер
-    content = await file.read()
-    size_mb = len(content) / (1024 * 1024)
-    
-    if size_mb > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Файл слишком большой. Максимум: {settings.MAX_FILE_SIZE_MB}MB"
-        )
-    
-    # Сохраняем файл
-    material_service = MaterialService(db)
-    file_path = await material_service.save_uploaded_file(
-        content, file.filename, current_user.id
-    )
-    
-    # Создаём материал
-    material = await material_service.create_material(
-        user=current_user,
-        title=title or "Скан: " + (file.filename or "изображение"),
-        material_type=MaterialType.IMAGE,
-        file_path=file_path,
-        original_filename=file.filename,
-        folder_id=folder_id
-    )
-    
-    # Увеличиваем счётчик
-    await user_service.increment_request_count(current_user)
-    
-    # Обрабатываем
-    try:
-        from app.services.processing_service import ProcessingService
-        processing_service = ProcessingService(db)
-        await processing_service.process_material(material)
-        await db.refresh(material)
-    except Exception as e:
-        print(f"Scan processing error: {e}")
-        material.status = ProcessingStatus.FAILED
-        await db.commit()
-    
-    return material
 
 @router.delete("/{material_id}", response_model=SuccessResponse)
 async def delete_material(

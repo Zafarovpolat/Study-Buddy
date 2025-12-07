@@ -93,18 +93,9 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
         setMode('file');
     };
 
-    const openCamera = () => {
-        cameraInputRef.current?.click();
-    };
-
-    const openGallery = () => {
-        galleryInputRef.current?.click();
-    };
-
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
             <div className="bg-tg-bg w-full max-w-lg rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slide-up">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold">Новый материал</h2>
                     <button
@@ -115,7 +106,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </button>
                 </div>
 
-                {/* Mode Selector - 3 кнопки */}
                 <div className="flex gap-2 mb-6">
                     <Button
                         variant={mode === 'file' ? 'primary' : 'secondary'}
@@ -143,7 +133,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </Button>
                 </div>
 
-                {/* File Upload */}
                 {mode === 'file' && (
                     <div className="space-y-4">
                         <input
@@ -189,10 +178,8 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </div>
                 )}
 
-                {/* Scan (Image) - ИСПРАВЛЕННЫЙ */}
                 {mode === 'scan' && (
                     <div className="space-y-4">
-                        {/* Hidden inputs */}
                         <input
                             ref={cameraInputRef}
                             type="file"
@@ -210,7 +197,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                         />
 
                         {file ? (
-                            /* Preview */
                             <Card variant="outlined" className="overflow-hidden">
                                 <img
                                     src={URL.createObjectURL(file)}
@@ -231,12 +217,11 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                                 </div>
                             </Card>
                         ) : (
-                            /* Two buttons: Camera + Gallery */
                             <div className="grid grid-cols-2 gap-3">
                                 <Card
                                     variant="outlined"
                                     className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                                    onClick={openCamera}
+                                    onClick={() => cameraInputRef.current?.click()}
                                 >
                                     <div className="py-6 text-center">
                                         <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
@@ -250,7 +235,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                                 <Card
                                     variant="outlined"
                                     className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                                    onClick={openGallery}
+                                    onClick={() => galleryInputRef.current?.click()}
                                 >
                                     <div className="py-6 text-center">
                                         <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
@@ -276,7 +261,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </div>
                 )}
 
-                {/* Text Input */}
                 {mode === 'text' && (
                     <div className="space-y-4">
                         <Input
@@ -296,7 +280,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </div>
                 )}
 
-                {/* Submit Button */}
                 <Button
                     className="w-full mt-6"
                     size="lg"

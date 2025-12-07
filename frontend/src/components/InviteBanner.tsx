@@ -26,7 +26,8 @@ export function InviteBanner() {
     const handleCopy = async () => {
         if (!referralStats) return;
 
-        await navigator.clipboard.writeText(referralStats.referral_link);
+        const text = `📚 Присоединяйся к Study Buddy!\n${referralStats.referral_link}`;
+        await navigator.clipboard.writeText(text);
         setCopied(true);
         telegram.haptic('success');
         setTimeout(() => setCopied(false), 2000);
@@ -35,7 +36,7 @@ export function InviteBanner() {
     const handleShare = () => {
         if (!referralStats) return;
 
-        const text = `📚 Присоединяйся к Study Buddy — ИИ-помощник для учёбы!\n\nПо моей ссылке получишь бонус:`;
+        const text = `📚 Присоединяйся к Study Buddy — ИИ-помощник для учёбы!`;
         const url = referralStats.referral_link;
 
         window.open(
@@ -46,9 +47,7 @@ export function InviteBanner() {
         telegram.haptic('medium');
     };
 
-    if (!referralStats) return null;
-
-    if (referralStats.pro_granted && user?.subscription_tier === 'pro') {
+    if (!referralStats || referralStats.pro_granted) {
         return null;
     }
 
@@ -62,55 +61,46 @@ export function InviteBanner() {
                     <Gift className="w-6 h-6 text-white" />
                 </div>
 
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-white">
-                        {remaining > 0
-                            ? `Пригласи ${remaining} друзей — получи Pro бесплатно!`
-                            : '🎉 Поздравляем! Вы получили Pro!'
-                        }
+                        Пригласи {remaining} друзей — получи Pro!
                     </h3>
 
-                    {remaining > 0 && (
-                        <>
-                            {/* Прогресс бар */}
-                            <div className="mt-2 mb-3">
-                                <div className="flex justify-between text-xs text-white/80 mb-1">
-                                    <span>{referralStats.referral_count} из {referralStats.threshold} друзей</span>
-                                    <span>{Math.round(progress)}%</span>
-                                </div>
-                                <div className="h-2 bg-white/30 rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-white transition-all duration-500"
-                                        style={{ width: `${Math.min(progress, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
+                    <div className="mt-2 mb-3">
+                        <div className="flex justify-between text-xs text-white/80 mb-1">
+                            <span>{referralStats.referral_count} из {referralStats.threshold}</span>
+                            <span>{Math.round(progress)}%</span>
+                        </div>
+                        <div className="h-2 bg-white/30 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-white transition-all duration-500"
+                                style={{ width: `${Math.min(progress, 100)}%` }}
+                            />
+                        </div>
+                    </div>
 
-                            {/* Кнопки */}
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    onClick={handleShare}
-                                    className="flex-1 bg-white text-purple-600 hover:bg-white/90"
-                                >
-                                    <Share2 className="w-4 h-4 mr-1" />
-                                    Поделиться
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="secondary"
-                                    onClick={handleCopy}
-                                    className="px-3 bg-white/20 hover:bg-white/30 text-white border-0"
-                                >
-                                    {copied ? (
-                                        <Check className="w-4 h-4" />
-                                    ) : (
-                                        <Copy className="w-4 h-4" />
-                                    )}
-                                </Button>
-                            </div>
-                        </>
-                    )}
+                    <div className="flex gap-2">
+                        <Button
+                            size="sm"
+                            onClick={handleShare}
+                            className="flex-1 bg-white text-purple-600 hover:bg-white/90"
+                        >
+                            <Share2 className="w-4 h-4 mr-1" />
+                            Поделиться
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={handleCopy}
+                            className="px-3 bg-white/20 hover:bg-white/30 text-white border-0"
+                        >
+                            {copied ? (
+                                <Check className="w-4 h-4" />
+                            ) : (
+                                <Copy className="w-4 h-4" />
+                            )}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </Card>
