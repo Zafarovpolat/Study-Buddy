@@ -1,4 +1,4 @@
-# backend/app/services/material_service.py
+# backend/app/services/material_service.py - ЗАМЕНИ ПОЛНОСТЬЮ
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -8,8 +8,9 @@ import aiofiles
 import os
 from pathlib import Path
 
-from app.models import Material, MaterialType, ProcessingStatus, User, Folder
+from app.models import Material, MaterialType, ProcessingStatus, User
 from app.core.config import settings
+
 
 class MaterialService:
     def __init__(self, db: AsyncSession):
@@ -86,7 +87,6 @@ class MaterialService:
     
     async def delete_material(self, material: Material) -> None:
         """Удалить материал"""
-        # Удаляем файл если есть
         if material.file_path and os.path.exists(material.file_path):
             os.remove(material.file_path)
         
@@ -100,17 +100,14 @@ class MaterialService:
         user_id: UUID
     ) -> str:
         """Сохранить загруженный файл"""
-        # Создаём директорию пользователя
         user_dir = Path(settings.UPLOAD_DIR) / str(user_id)
         user_dir.mkdir(parents=True, exist_ok=True)
         
-        # Генерируем уникальное имя файла
         import uuid
-        ext = Path(filename).suffix
+        ext = Path(filename).suffix.lower()
         safe_filename = f"{uuid.uuid4()}{ext}"
         file_path = user_dir / safe_filename
         
-        # Сохраняем файл
         async with aiofiles.open(file_path, 'wb') as f:
             await f.write(file_content)
         
@@ -120,14 +117,17 @@ class MaterialService:
     def detect_material_type(filename: str) -> MaterialType:
         """Определить тип материала по расширению"""
         ext = Path(filename).suffix.lower()
+        
         type_map = {
             '.pdf': MaterialType.PDF,
             '.docx': MaterialType.DOCX,
-            '.doc': MaterialType.DOCX,
+            '.doc': MaterialType.DOCX,   # Храним как DOCX, но обрабатываем по расширению файла
             '.txt': MaterialType.TXT,
             '.png': MaterialType.IMAGE,
             '.jpg': MaterialType.IMAGE,
             '.jpeg': MaterialType.IMAGE,
+            '.webp': MaterialType.IMAGE,
+            '.gif': MaterialType.IMAGE,
             '.mp3': MaterialType.AUDIO,
             '.wav': MaterialType.AUDIO,
             '.m4a': MaterialType.AUDIO,

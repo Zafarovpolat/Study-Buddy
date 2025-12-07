@@ -7,7 +7,7 @@ import { useStore } from '../store/useStore';
 import { telegram } from '../lib/telegram';
 
 export function InviteBanner() {
-    const { referralStats, setReferralStats, user } = useStore();
+    const { referralStats, setReferralStats } = useStore();
     const [copied, setCopied] = useState(false);
 
     useEffect(() => {

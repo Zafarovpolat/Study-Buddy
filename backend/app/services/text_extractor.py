@@ -1,6 +1,6 @@
 # backend/app/services/text_extractor.py - ЗАМЕНИ ПОЛНОСТЬЮ
 import os
-from typing import Optional
+import re
 from pathlib import Path
 
 
@@ -44,7 +44,6 @@ class TextExtractor:
                 if para.text.strip():
                     text_parts.append(para.text)
             
-            # Также извлекаем текст из таблиц
             for table in doc.tables:
                 for row in table.rows:
                     row_text = []
@@ -61,44 +60,20 @@ class TextExtractor:
             
             return text
             
-        except KeyError as e:
-            # Файл повреждён или неправильный формат
-            raise ValueError(f"Файл повреждён или имеет неправильный формат. Попробуйте пересохранить документ в Word.")
+        except KeyError:
+            raise ValueError("Файл повреждён или имеет неправильный формат. Попробуйте пересохранить документ в Word.")
         except Exception as e:
             error_msg = str(e)
-            if "relationship" in error_msg.lower():
-                raise ValueError("Файл повреждён или защищён. Попробуйте открыть в Word и сохранить заново.")
+            if "relationship" in error_msg.lower() or "KeyError" in error_msg:
+                raise ValueError("Файл повреждён или защищён. Откройте в Word и сохраните как .docx")
             raise ValueError(f"Ошибка чтения DOCX: {error_msg}")
     
     @staticmethod
     async def extract_from_doc(file_path: str) -> str:
-        """Извлечь текст из старого формата DOC"""
-        try:
-            # Пробуем antiword если установлен
-            import subprocess
-            result = subprocess.run(
-                ['antiword', file_path],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-        
-        try:
-            # Пробуем textract
-            import textract
-            text = textract.process(file_path).decode('utf-8')
-            if text.strip():
-                return text
-        except:
-            pass
-        
+        """Извлечь текст из старого формата DOC (Word 97-2003)"""
         raise ValueError(
-            "Формат .doc (старый Word) не поддерживается напрямую. "
-            "Пожалуйста, откройте файл в Word и сохраните как .docx"
+            "Формат .doc (Word 97-2003) не поддерживается. "
+            "Откройте файл в Microsoft Word и сохраните как .docx"
         )
     
     @staticmethod
@@ -115,7 +90,7 @@ class TextExtractor:
             except (UnicodeDecodeError, UnicodeError):
                 continue
         
-        raise ValueError("Не удалось прочитать текстовый файл. Проверьте кодировку.")
+        raise ValueError("Не удалось прочитать файл. Проверьте кодировку.")
     
     @staticmethod
     async def extract_from_image(file_path: str) -> str:
@@ -127,11 +102,9 @@ class TextExtractor:
             
             genai.configure(api_key=settings.GEMINI_API_KEY)
             
-            # Читаем изображение
             with open(file_path, 'rb') as f:
                 image_data = f.read()
             
-            # Определяем MIME тип
             ext = Path(file_path).suffix.lower()
             mime_types = {
                 '.jpg': 'image/jpeg',
@@ -142,7 +115,6 @@ class TextExtractor:
             }
             mime_type = mime_types.get(ext, 'image/jpeg')
             
-            # Используем Gemini Vision
             model = genai.GenerativeModel('gemini-1.5-flash')
             
             response = model.generate_content([
@@ -152,63 +124,56 @@ class TextExtractor:
                 },
                 """Извлеки весь текст с этого изображения. 
                 Если это фото доски, конспекта или документа - распознай весь текст.
-                Сохрани структуру и форматирование насколько возможно.
-                Если текста нет - напиши "Текст не обнаружен".
-                Отвечай только извлечённым текстом, без комментариев."""
+                Сохрани структуру. Если текста нет - напиши "Текст не обнаружен"."""
             ])
             
             text = response.text.strip()
             
-            if not text or "текст не обнаружен" in text.lower():
+            if not text or "не обнаружен" in text.lower():
                 raise ValueError("Не удалось распознать текст на изображении")
             
             return text
             
         except Exception as e:
-            error_msg = str(e)
-            if "API" in error_msg or "key" in error_msg.lower():
-                raise ValueError("Ошибка API для распознавания изображений")
-            raise ValueError(f"Ошибка распознавания изображения: {error_msg}")
+            raise ValueError(f"Ошибка распознавания: {str(e)}")
     
     @classmethod
     async def extract(cls, file_path: str, material_type: str) -> str:
         """Универсальный метод извлечения текста"""
         
         if not os.path.exists(file_path):
-            raise ValueError(f"Файл не найден: {file_path}")
+            raise ValueError("Файл не найден")
         
-        # Проверяем размер файла
-        file_size = os.path.getsize(file_path)
-        if file_size == 0:
+        if os.path.getsize(file_path) == 0:
             raise ValueError("Файл пустой")
         
-        extractors = {
-            'pdf': cls.extract_from_pdf,
-            'docx': cls.extract_from_docx,
-            'doc': cls.extract_from_doc,
-            'txt': cls.extract_from_txt,
-            'image': cls.extract_from_image,
+        # ВАЖНО: Определяем тип по расширению файла, НЕ по material_type!
+        ext = Path(file_path).suffix.lower()
+        
+        ext_to_extractor = {
+            '.pdf': cls.extract_from_pdf,
+            '.docx': cls.extract_from_docx,
+            '.doc': cls.extract_from_doc,      # Отдельный обработчик!
+            '.txt': cls.extract_from_txt,
+            '.jpg': cls.extract_from_image,
+            '.jpeg': cls.extract_from_image,
+            '.png': cls.extract_from_image,
+            '.webp': cls.extract_from_image,
+            '.gif': cls.extract_from_image,
         }
         
-        extractor = extractors.get(material_type.lower())
+        extractor = ext_to_extractor.get(ext)
         
         if not extractor:
-            raise ValueError(f"Неподдерживаемый тип файла: {material_type}")
+            raise ValueError(f"Формат {ext} не поддерживается. Используйте PDF, DOCX, TXT или изображения.")
         
-        try:
-            text = await extractor(file_path)
-            
-            # Очистка текста
-            text = text.strip()
-            
-            # Убираем множественные пробелы и переносы
-            import re
-            text = re.sub(r'\n{3,}', '\n\n', text)
-            text = re.sub(r' {2,}', ' ', text)
-            
-            return text
-            
-        except ValueError:
-            raise
-        except Exception as e:
-            raise ValueError(f"Ошибка извлечения текста: {str(e)}")
+        print(f"📂 Extracting from: {file_path} (ext: {ext})")
+        
+        text = await extractor(file_path)
+        
+        # Очистка
+        text = text.strip()
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        text = re.sub(r' {2,}', ' ', text)
+        
+        return text
