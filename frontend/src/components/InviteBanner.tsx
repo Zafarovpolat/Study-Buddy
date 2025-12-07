@@ -9,14 +9,18 @@ import { telegram } from '../lib/telegram';
 export function InviteBanner() {
     const { referralStats, setReferralStats } = useStore();
     const [copied, setCopied] = useState(false);
-    const [isHidden, setIsHidden] = useState(false);
+    const [isHidden, setIsHidden] = useState(() => {
+        // Инициализируем сразу из sessionStorage
+        return sessionStorage.getItem('invite_banner_hidden') === 'true';
+    });
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        // Проверяем, был ли баннер скрыт в этой сессии
-        const hidden = sessionStorage.getItem('invite_banner_hidden');
-        if (hidden) setIsHidden(true);
-
-        loadReferralStats();
+        if (!referralStats) {
+            loadReferralStats();
+        } else {
+            setIsLoading(false);
+        }
     }, []);
 
     const loadReferralStats = async () => {
@@ -25,6 +29,8 @@ export function InviteBanner() {
             setReferralStats(stats);
         } catch (error) {
             console.error('Failed to load referral stats:', error);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -58,8 +64,12 @@ export function InviteBanner() {
         telegram.haptic('selection');
     };
 
-    // Не показываем если скрыт, нет данных или уже Pro
-    if (isHidden || !referralStats || referralStats.pro_granted) {
+    // Не показываем если: скрыт, загружается, нет данных, или уже Pro
+    if (isHidden || isLoading) {
+        return null;
+    }
+
+    if (!referralStats || referralStats.pro_granted) {
         return null;
     }
 
@@ -68,7 +78,6 @@ export function InviteBanner() {
 
     return (
         <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 relative">
-            {/* Кнопка скрытия */}
             <button
                 onClick={handleHide}
                 className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
@@ -114,11 +123,7 @@ export function InviteBanner() {
                             onClick={handleCopy}
                             className="px-3 bg-white/20 hover:bg-white/30 text-white border-0"
                         >
-                            {copied ? (
-                                <Check className="w-4 h-4" />
-                            ) : (
-                                <Copy className="w-4 h-4" />
-                            )}
+                            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                         </Button>
                     </div>
                 </div>

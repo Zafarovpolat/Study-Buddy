@@ -2,10 +2,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from uuid import UUID
 
-from app.models import get_db, User, Material, ProcessingStatus, MaterialType
+from app.models import get_db, User, Material, AIOutput, ProcessingStatus, MaterialType
 from app.services import UserService, MaterialService
 from app.api.schemas import MaterialResponse, MaterialDetailResponse, SuccessResponse
 from app.api.deps import get_current_user
@@ -29,12 +30,8 @@ async def upload_material(
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
     
     if not can_proceed:
-        raise HTTPException(
-            status_code=429,
-            detail="Daily limit reached. Upgrade to Pro for unlimited access."
-        )
+        raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
     
-    # Если указана группа - проверяем членство
     target_folder_id = folder_id
     if group_id:
         from app.services.group_service import GroupService
@@ -48,17 +45,12 @@ async def upload_material(
     size_mb = len(content) / (1024 * 1024)
     
     if size_mb > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Max: {settings.MAX_FILE_SIZE_MB}MB"
-        )
+        raise HTTPException(status_code=413, detail=f"Файл слишком большой. Макс: {settings.MAX_FILE_SIZE_MB}MB")
     
     material_service = MaterialService(db)
     material_type = material_service.detect_material_type(file.filename)
     
-    file_path = await material_service.save_uploaded_file(
-        content, file.filename, current_user.id
-    )
+    file_path = await material_service.save_uploaded_file(content, file.filename, current_user.id)
     
     material = await material_service.create_material(
         user=current_user,
@@ -97,7 +89,11 @@ async def create_text_material(
     can_proceed, _ = await user_service.check_rate_limit(current_user)
     
     if not can_proceed:
-        raise HTTPException(status_code=429, detail="Daily limit reached")
+        raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
+    
+    # Проверяем минимальную длину текста
+    if len(content.strip()) < 10:
+        raise HTTPException(status_code=400, detail="Текст слишком короткий (минимум 10 символов)")
     
     target_folder_id = folder_id
     if group_id:
@@ -120,6 +116,7 @@ async def create_text_material(
     
     await user_service.increment_request_count(current_user)
     
+    # Автоматическая обработка
     try:
         from app.services.processing_service import ProcessingService
         processing_service = ProcessingService(db)
@@ -127,6 +124,7 @@ async def create_text_material(
         await db.refresh(material)
     except Exception as e:
         print(f"Processing error: {e}")
+        # Не падаем - материал создан, можно сгенерировать вручную
     
     return material
 
@@ -140,22 +138,16 @@ async def scan_image(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сканировать изображение и обработать"""
+    """Сканировать изображение"""
     user_service = UserService(db)
-    can_proceed, remaining = await user_service.check_rate_limit(current_user)
+    can_proceed, _ = await user_service.check_rate_limit(current_user)
     
     if not can_proceed:
-        raise HTTPException(
-            status_code=429,
-            detail="Достигнут дневной лимит. Оформите Pro для безлимита."
-        )
+        raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
     
     allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
     if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=400,
-            detail="Поддерживаются только изображения: JPG, PNG, WebP"
-        )
+        raise HTTPException(status_code=400, detail="Только изображения: JPG, PNG, WebP")
     
     target_folder_id = folder_id
     if group_id:
@@ -170,19 +162,14 @@ async def scan_image(
     size_mb = len(content) / (1024 * 1024)
     
     if size_mb > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Файл слишком большой. Максимум: {settings.MAX_FILE_SIZE_MB}MB"
-        )
+        raise HTTPException(status_code=413, detail=f"Файл слишком большой")
     
     material_service = MaterialService(db)
-    file_path = await material_service.save_uploaded_file(
-        content, file.filename, current_user.id
-    )
+    file_path = await material_service.save_uploaded_file(content, file.filename, current_user.id)
     
     material = await material_service.create_material(
         user=current_user,
-        title=title or "Скан: " + (file.filename or "изображение"),
+        title=title or "Скан",
         material_type=MaterialType.IMAGE,
         file_path=file_path,
         original_filename=file.filename,
@@ -212,7 +199,7 @@ async def list_materials(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить список материалов пользователя"""
+    """Получить материалы пользователя"""
     material_service = MaterialService(db)
     materials = await material_service.get_user_materials(
         user_id=current_user.id,
@@ -233,8 +220,8 @@ async def get_group_materials(
     from app.services.group_service import GroupService
     
     group_service = GroupService(db)
-    
     groups = await group_service.get_user_groups(current_user)
+    
     if not any(g["id"] == str(group_id) for g in groups):
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
     
@@ -255,26 +242,33 @@ async def get_material(
     db: AsyncSession = Depends(get_db)
 ):
     """Получить материал с AI-выводами"""
-    material_service = MaterialService(db)
     
-    material = await material_service.get_by_id(material_id, current_user.id)
+    # Загружаем материал С outputs через selectinload
+    result = await db.execute(
+        select(Material)
+        .options(selectinload(Material.outputs))
+        .where(Material.id == material_id)
+    )
+    material = result.scalar_one_or_none()
     
     if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    # Проверяем доступ - владелец или участник группы
+    has_access = False
+    
+    if material.user_id == current_user.id:
+        has_access = True
+    elif material.folder_id:
+        # Проверяем членство в группе
         from app.services.group_service import GroupService
-        
-        result = await db.execute(
-            select(Material).where(Material.id == material_id)
-        )
-        material = result.scalar_one_or_none()
-        
-        if material and material.folder_id:
-            group_service = GroupService(db)
-            groups = await group_service.get_user_groups(current_user)
-            if not any(g["id"] == str(material.folder_id) for g in groups):
-                material = None
+        group_service = GroupService(db)
+        groups = await group_service.get_user_groups(current_user)
+        if any(g["id"] == str(material.folder_id) for g in groups):
+            has_access = True
     
-    if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
+    if not has_access:
+        raise HTTPException(status_code=403, detail="Нет доступа к материалу")
     
     return material
 
@@ -290,8 +284,8 @@ async def delete_material(
     material = await material_service.get_by_id(material_id, current_user.id)
     
     if not material:
-        raise HTTPException(status_code=404, detail="Material not found")
+        raise HTTPException(status_code=404, detail="Материал не найден")
     
     await material_service.delete_material(material)
     
-    return SuccessResponse(message="Material deleted successfully")
+    return SuccessResponse(message="Удалено")

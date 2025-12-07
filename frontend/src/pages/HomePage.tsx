@@ -28,6 +28,7 @@ export function HomePage() {
         groups,
         setGroups,
         currentFolderId,
+        setCurrentFolderId,
         setSelectedMaterial,
         activeTab,
         setActiveTab,
@@ -100,6 +101,11 @@ export function HomePage() {
         telegram.alert('Для оформления Pro подписки напишите боту команду /pro');
     };
 
+    const handleBackFromFolder = () => {
+        setCurrentFolderId(null);
+        telegram.haptic('selection');
+    };
+
     if (isLoading && !materials.length && !groups.length) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -119,11 +125,12 @@ export function HomePage() {
                     <button
                         onClick={() => {
                             setActiveTab('personal');
+                            setCurrentFolderId(null);
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'personal'
-                            ? 'bg-tg-bg shadow text-tg-text'
-                            : 'text-tg-hint'
+                                ? 'bg-tg-bg shadow text-tg-text'
+                                : 'text-tg-hint'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -135,8 +142,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'groups'
-                            ? 'bg-tg-bg shadow text-tg-text'
-                            : 'text-tg-hint'
+                                ? 'bg-tg-bg shadow text-tg-text'
+                                : 'text-tg-hint'
                             }`}
                     >
                         <Users className="w-4 h-4" />
@@ -144,45 +151,60 @@ export function HomePage() {
                     </button>
                 </div>
 
-                {/* Invite Banner - показываем только на вкладке Личное */}
-                {activeTab === 'personal' && user?.subscription_tier === 'free' && (
-                    <InviteBanner />
-                )}
-
                 {activeTab === 'personal' ? (
                     <>
-                        {/* Quick Actions - 3 кнопки */}
-                        <section>
-                            <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
-                            <div className="grid grid-cols-3 gap-2">
-                                <Card
-                                    className="cursor-pointer active:scale-95 transition-transform text-center py-4"
-                                    onClick={() => openUpload('scan')}
+                        {/* Кнопка назад из папки */}
+                        {currentFolderId && (
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleBackFromFolder}
+                                    className="flex items-center gap-2 text-tg-button font-medium py-2"
                                 >
-                                    <Camera className="w-8 h-8 text-tg-button mx-auto mb-1" />
-                                    <span className="text-sm font-medium">Скан</span>
-                                </Card>
-
-                                <Card
-                                    className="cursor-pointer active:scale-95 transition-transform text-center py-4"
-                                    onClick={() => openUpload('file')}
-                                >
-                                    <Upload className="w-8 h-8 text-tg-button mx-auto mb-1" />
-                                    <span className="text-sm font-medium">Файл</span>
-                                </Card>
-
-                                <Card
-                                    className="cursor-pointer active:scale-95 transition-transform text-center py-4"
-                                    onClick={() => openUpload('text')}
-                                >
-                                    <Type className="w-8 h-8 text-tg-button mx-auto mb-1" />
-                                    <span className="text-sm font-medium">Текст</span>
-                                </Card>
+                                    <ArrowLeft className="w-5 h-5" />
+                                    <span>Назад</span>
+                                </button>
                             </div>
-                        </section>
+                        )}
 
-                        {/* Лимиты */}
-                        {limits && user?.subscription_tier === 'free' && (
+                        {/* Invite Banner - только на главной, не в папках */}
+                        {!currentFolderId && user?.subscription_tier === 'free' && (
+                            <InviteBanner />
+                        )}
+
+                        {/* Quick Actions - только на главной */}
+                        {!currentFolderId && (
+                            <section>
+                                <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <Card
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4"
+                                        onClick={() => openUpload('scan')}
+                                    >
+                                        <Camera className="w-8 h-8 text-tg-button mx-auto mb-1" />
+                                        <span className="text-sm font-medium">Скан</span>
+                                    </Card>
+
+                                    <Card
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4"
+                                        onClick={() => openUpload('file')}
+                                    >
+                                        <Upload className="w-8 h-8 text-tg-button mx-auto mb-1" />
+                                        <span className="text-sm font-medium">Файл</span>
+                                    </Card>
+
+                                    <Card
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4"
+                                        onClick={() => openUpload('text')}
+                                    >
+                                        <Type className="w-8 h-8 text-tg-button mx-auto mb-1" />
+                                        <span className="text-sm font-medium">Текст</span>
+                                    </Card>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* Лимиты - только на главной */}
+                        {!currentFolderId && limits && user?.subscription_tier === 'free' && (
                             <Card className="bg-gradient-to-r from-tg-button/10 to-tg-button/5">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -196,20 +218,6 @@ export function HomePage() {
                             </Card>
                         )}
 
-                        {/* Кнопка назад из папки */}
-                        {currentFolderId && (
-                            <button
-                                onClick={() => {
-                                    useStore.getState().setCurrentFolderId(null);
-                                    telegram.haptic('selection');
-                                }}
-                                className="flex items-center gap-2 text-tg-button mb-2"
-                            >
-                                <ArrowLeft className="w-4 h-4" />
-                                <span>Назад</span>
-                            </button>
-                        )}
-
                         {/* Папки */}
                         {folders.length > 0 && (
                             <section>
@@ -218,10 +226,10 @@ export function HomePage() {
                                     {folders.map((folder) => (
                                         <Card
                                             key={folder.id}
-                                            className="flex items-center gap-2 cursor-pointer active:scale-[0.98]"
+                                            className="flex items-center gap-2 cursor-pointer active:scale-[0.98] transition-transform"
                                             onClick={() => {
                                                 telegram.haptic('selection');
-                                                useStore.getState().setCurrentFolderId(folder.id);
+                                                setCurrentFolderId(folder.id);
                                             }}
                                         >
                                             <Folder className="w-5 h-5 text-tg-button" />
@@ -235,9 +243,14 @@ export function HomePage() {
                         {/* Материалы */}
                         <section>
                             <div className="flex items-center justify-between mb-2">
-                                <h2 className="text-sm font-medium text-tg-hint">Материалы</h2>
-                                <button onClick={loadData} className="p-1 text-tg-hint">
-                                    <RefreshCw className="w-4 h-4" />
+                                <h2 className="text-sm font-medium text-tg-hint">
+                                    {currentFolderId ? 'Материалы в папке' : 'Материалы'}
+                                </h2>
+                                <button
+                                    onClick={loadData}
+                                    className="p-1 text-tg-hint hover:text-tg-text transition-colors"
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                                 </button>
                             </div>
 
@@ -254,7 +267,7 @@ export function HomePage() {
                             ) : (
                                 <Card className="text-center py-8">
                                     <p className="text-tg-hint mb-4">
-                                        Нет материалов
+                                        {currentFolderId ? 'В папке нет материалов' : 'Нет материалов'}
                                     </p>
                                     <Button onClick={() => openUpload('file')}>
                                         <Plus className="w-4 h-4 mr-2" />
@@ -274,7 +287,7 @@ export function HomePage() {
             {activeTab === 'personal' && (
                 <button
                     onClick={() => openUpload('file')}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-tg-button text-tg-button-text rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform"
+                    className="fixed bottom-6 right-6 w-14 h-14 bg-tg-button text-tg-button-text rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-40"
                 >
                     <Plus className="w-6 h-6" />
                 </button>
