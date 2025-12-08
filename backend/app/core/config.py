@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 20
     
     # Rate limits
-    FREE_DAILY_LIMIT: int = 3
+    FREE_DAILY_LIMIT: int = 100
     MAX_CONTENT_LENGTH: int = 50000
     
     # Frontend URL

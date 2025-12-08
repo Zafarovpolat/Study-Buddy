@@ -6,10 +6,28 @@ from typing import Optional, List
 from uuid import UUID
 import aiofiles
 import os
+import re
 from pathlib import Path
 
 from app.models import Material, MaterialType, ProcessingStatus, User
 from app.core.config import settings
+
+
+def clean_text_for_db(text: str) -> str:
+    """Очищает текст от символов, несовместимых с PostgreSQL UTF-8"""
+    if not text:
+        return ""
+    
+    # Удаляем null-байты
+    text = text.replace('\x00', '')
+    
+    # Удаляем другие проблемные control characters
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    
+    # Заменяем невалидные UTF-8 символы
+    text = text.encode('utf-8', errors='replace').decode('utf-8')
+    
+    return text
 
 
 class MaterialService:
@@ -27,9 +45,14 @@ class MaterialService:
         raw_content: Optional[str] = None
     ) -> Material:
         """Создать новый материал"""
+        
+        # ОЧИСТКА контента перед сохранением!
+        if raw_content:
+            raw_content = clean_text_for_db(raw_content)
+        
         material = Material(
             user_id=user.id,
-            title=title,
+            title=clean_text_for_db(title),  # Очищаем и title на всякий случай
             material_type=material_type,
             file_path=file_path,
             original_filename=original_filename,
@@ -80,7 +103,8 @@ class MaterialService:
         """Обновить статус материала"""
         material.status = status
         if raw_content:
-            material.raw_content = raw_content
+            # ОЧИСТКА перед сохранением!
+            material.raw_content = clean_text_for_db(raw_content)
         await self.db.commit()
         await self.db.refresh(material)
         return material
@@ -121,7 +145,7 @@ class MaterialService:
         type_map = {
             '.pdf': MaterialType.PDF,
             '.docx': MaterialType.DOCX,
-            '.doc': MaterialType.DOCX,   # Храним как DOCX, но обрабатываем по расширению файла
+            '.doc': MaterialType.DOCX,
             '.txt': MaterialType.TXT,
             '.png': MaterialType.IMAGE,
             '.jpg': MaterialType.IMAGE,

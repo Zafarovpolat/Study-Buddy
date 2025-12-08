@@ -4,6 +4,23 @@ import re
 from pathlib import Path
 
 
+def clean_text_for_db(text: str) -> str:
+    """Очищает текст от символов, несовместимых с PostgreSQL UTF-8"""
+    if not text:
+        return ""
+    
+    # Удаляем null-байты (главная причина ошибки!)
+    text = text.replace('\x00', '')
+    
+    # Удаляем другие проблемные control characters (кроме \n, \r, \t)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    
+    # Заменяем суррогатные пары на пробелы
+    text = text.encode('utf-8', errors='replace').decode('utf-8')
+    
+    return text
+
+
 class TextExtractor:
     """Извлечение текста из разных форматов файлов"""
     
@@ -26,7 +43,8 @@ class TextExtractor:
             if not text.strip():
                 raise ValueError("PDF не содержит текста")
             
-            return text
+            # ОЧИСТКА!
+            return clean_text_for_db(text)
             
         except Exception as e:
             raise ValueError(f"Ошибка чтения PDF: {str(e)}")
@@ -55,7 +73,8 @@ class TextExtractor:
             if not text.strip():
                 raise ValueError("DOCX не содержит текста")
             
-            return text
+            # ОЧИСТКА!
+            return clean_text_for_db(text)
             
         except KeyError:
             raise ValueError("Файл повреждён. Сохраните как .docx в Word")
@@ -67,8 +86,6 @@ class TextExtractor:
     @staticmethod
     async def extract_from_doc(file_path: str) -> str:
         """Извлечь текст из DOC через Gemini OCR"""
-        # Старый .doc формат - конвертируем через AI как изображение документа
-        # или просто говорим пользователю конвертировать
         raise ValueError(
             "Формат .doc (Word 97-2003) не поддерживается. "
             "Откройте в Word → Файл → Сохранить как → выберите .docx"
@@ -84,7 +101,8 @@ class TextExtractor:
                 with open(file_path, 'r', encoding=encoding) as f:
                     text = f.read()
                     if text.strip():
-                        return text
+                        # ОЧИСТКА!
+                        return clean_text_for_db(text)
             except UnicodeDecodeError:
                 continue
         
@@ -113,7 +131,6 @@ class TextExtractor:
             }
             mime_type = mime_types.get(ext, 'image/jpeg')
             
-            # Читаем модель из настроек!
             model = genai.GenerativeModel(settings.GEMINI_MODEL)
             
             print(f"🔍 Using model: {settings.GEMINI_MODEL}")
@@ -131,7 +148,8 @@ class TextExtractor:
             if not text or len(text) < 3:
                 raise ValueError("Текст не распознан")
             
-            return text
+            # ОЧИСТКА!
+            return clean_text_for_db(text)
             
         except Exception as e:
             error = str(e)
@@ -170,6 +188,9 @@ class TextExtractor:
         print(f"📂 Extracting {ext} from {file_path}")
         
         text = await extractor(file_path)
+        
+        # Финальная очистка
+        text = clean_text_for_db(text)
         text = re.sub(r'\n{3,}', '\n\n', text.strip())
         
         return text

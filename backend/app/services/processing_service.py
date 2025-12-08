@@ -1,5 +1,6 @@
 # backend/app/services/processing_service.py - ЗАМЕНИ ПОЛНОСТЬЮ
 import asyncio
+import re
 from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 import traceback
@@ -7,6 +8,23 @@ import traceback
 from app.models import Material, AIOutput, OutputFormat, ProcessingStatus
 from app.services.text_extractor import TextExtractor
 from app.services.ai_service import gemini_service
+
+
+def clean_text_for_db(text: str) -> str:
+    """Очищает текст от символов, несовместимых с PostgreSQL UTF-8"""
+    if not text:
+        return ""
+    
+    # Удаляем null-байты (главная причина ошибки!)
+    text = text.replace('\x00', '')
+    
+    # Удаляем другие проблемные control characters (кроме \n, \r, \t)
+    text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
+    
+    # Заменяем невалидные UTF-8 символы
+    text = text.encode('utf-8', errors='replace').decode('utf-8')
+    
+    return text
 
 
 class ProcessingService:
@@ -34,11 +52,12 @@ class ProcessingService:
                         material.file_path,
                         material.material_type.value
                     )
+                    # ОЧИСТКА ТЕКСТА!
+                    text = clean_text_for_db(text)
                     material.raw_content = text
                     await self.db.commit()
                     print(f"✅ Extracted {len(text)} characters")
                 except ValueError as e:
-                    # Понятная ошибка от TextExtractor
                     error_message = str(e)
                     raise
                 except Exception as e:
@@ -46,6 +65,14 @@ class ProcessingService:
                     raise
             
             content = material.raw_content
+            
+            # Очистка на случай если raw_content был передан напрямую
+            if content:
+                content = clean_text_for_db(content)
+                if content != material.raw_content:
+                    material.raw_content = content
+                    await self.db.commit()
+            
             if not content:
                 error_message = "Файл не содержит текста или пустой"
                 raise ValueError(error_message)
@@ -67,12 +94,12 @@ class ProcessingService:
                 error_message = "AI не смог обработать материал. Попробуйте другой файл."
                 raise ValueError(error_message)
             
-            # 5. Сохраняем результаты
+            # 5. Сохраняем результаты (с очисткой!)
             for format_type, output_content in successful_outputs.items():
                 ai_output = AIOutput(
                     material_id=material.id,
                     format=OutputFormat(format_type),
-                    content=output_content
+                    content=clean_text_for_db(output_content)  # ОЧИСТКА!
                 )
                 self.db.add(ai_output)
             
@@ -92,12 +119,21 @@ class ProcessingService:
             print(f"❌ Processing failed: {final_error}")
             print(traceback.format_exc())
             
+            # Rollback текущей транзакции перед новым коммитом
+            try:
+                await self.db.rollback()
+            except:
+                pass
+            
             material.status = ProcessingStatus.FAILED
-            # Сохраняем сообщение об ошибке в raw_content если он пустой
             if not material.raw_content:
                 material.raw_content = f"[ОШИБКА] {final_error}"
             
-            await self.db.commit()
+            try:
+                await self.db.commit()
+            except Exception as commit_error:
+                print(f"❌ Failed to commit error status: {commit_error}")
+                await self.db.rollback()
             
             return {
                 "status": "error",
@@ -113,7 +149,7 @@ class ProcessingService:
         results = {}
         
         # Ограничиваем длину контента для API
-        max_length = 50000  # ~50k символов
+        max_length = 50000
         if len(content) > max_length:
             print(f"⚠️ Content too long ({len(content)}), truncating to {max_length}")
             content = content[:max_length] + "\n\n[... текст обрезан из-за большого размера ...]"
@@ -131,7 +167,8 @@ class ProcessingService:
                 print(f"  📝 Generating {name}...")
                 result = await generator()
                 if result and len(result.strip()) > 10:
-                    results[name] = result
+                    # ОЧИСТКА результатов AI!
+                    results[name] = clean_text_for_db(result)
                     print(f"  ✅ {name} done ({len(result)} chars)")
                 else:
                     print(f"  ⚠️ {name} returned empty")
@@ -152,9 +189,11 @@ class ProcessingService:
         if not content:
             raise ValueError("Нет контента для обработки")
         
-        # Убираем сообщение об ошибке если оно там
         if content.startswith("[ОШИБКА]"):
             raise ValueError("Материал не был обработан. Загрузите файл заново.")
+        
+        # Очистка контента
+        content = clean_text_for_db(content)
         
         generators = {
             OutputFormat.SMART_NOTES: lambda: gemini_service.generate_smart_notes(content, material.title),
@@ -169,6 +208,9 @@ class ProcessingService:
             raise ValueError(f"Неизвестный формат: {output_format}")
         
         output_content = await generator()
+        
+        # ОЧИСТКА результата!
+        output_content = clean_text_for_db(output_content)
         
         # Удаляем старый
         from sqlalchemy import delete
