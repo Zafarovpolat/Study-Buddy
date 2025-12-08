@@ -130,3 +130,24 @@ async def debug_delete_me(
     await db.commit()
     
     return {"success": True, "message": f"Аккаунт {user_id} удалён"}
+
+@router.delete("/debug/delete-all-users")
+async def debug_delete_all_users(
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить ВСЕХ пользователей (ТОЛЬКО ДЛЯ ТЕСТОВ!)"""
+    from sqlalchemy import text
+    
+    # Получаем количество до удаления
+    result = await db.execute(text("SELECT COUNT(*) FROM users"))
+    count_before = result.scalar()
+    
+    # Удаляем всё каскадно
+    await db.execute(text("TRUNCATE TABLE users CASCADE"))
+    await db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Удалено {count_before} пользователей",
+        "warning": "Все данные очищены!"
+    }
