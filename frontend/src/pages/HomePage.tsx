@@ -129,8 +129,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'personal'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -142,8 +142,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'groups'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <Users className="w-4 h-4" />
@@ -203,13 +203,18 @@ export function HomePage() {
                             </section>
                         )}
 
-                        {/* Лимиты - только на главной */}
+                        {/* Лимиты */}
                         {!currentFolderId && limits && user?.subscription_tier === 'free' && (
                             <Card className="bg-gradient-to-r from-tg-button/10 to-tg-button/5">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm text-tg-hint">Осталось сегодня</p>
-                                        <p className="text-2xl font-bold">{limits.remaining_today}</p>
+                                        <p className="text-2xl font-bold">
+                                            {limits.remaining_today}
+                                            <span className="text-sm font-normal text-tg-hint">
+                                                /{limits.daily_limit}
+                                            </span>
+                                        </p>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={handleGetPro}>
                                         ⭐ Pro
