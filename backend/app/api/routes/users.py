@@ -1,4 +1,4 @@
-# backend/app/api/routes/users.py
+# backend/app/api/routes/users.py - ЗАМЕНИ ПОЛНОСТЬЮ
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,6 +6,7 @@ from app.models import get_db, User
 from app.services import UserService
 from app.api.schemas import UserResponse
 from app.api.deps import get_current_user
+from app.core.config import settings  # ДОБАВЛЕНО
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -31,11 +32,13 @@ async def get_my_limits(
     user_service = UserService(db)
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
     
+    is_free = current_user.subscription_tier.value == "free"
+    
     return {
         "subscription_tier": current_user.subscription_tier.value,
         "can_make_request": can_proceed,
-        "remaining_today": remaining if remaining >= 0 else "unlimited",
-        "daily_limit": 3 if current_user.subscription_tier.value == "free" else "unlimited"
+        "remaining_today": remaining if is_free else "unlimited",
+        "daily_limit": settings.FREE_DAILY_LIMIT if is_free else "unlimited"  # ИСПРАВЛЕНО
     }
 
 
@@ -65,8 +68,10 @@ async def get_my_streak(
     return streak_info
 
 
-# ⚠️ ТЕСТОВЫЙ ENDPOINT - УДАЛИТЬ В ПРОДАКШЕНЕ!
-@router.post("/me/grant-pro")
+# ==================== DEBUG ENDPOINTS ====================
+# ⚠️ УДАЛИТЬ В ПРОДАКШЕНЕ!
+
+@router.post("/debug/grant-pro")
 async def grant_pro_for_testing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -86,3 +91,42 @@ async def grant_pro_for_testing(
         "message": "Pro подписка выдана на 7 дней",
         "expires_at": current_user.subscription_expires_at.isoformat()
     }
+
+
+@router.post("/debug/reset-referral")
+async def debug_reset_referral(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сбросить реферальные данные (только для тестов!)"""
+    current_user.referred_by_id = None
+    current_user.referral_count = 0
+    current_user.referral_pro_granted = False
+    await db.commit()
+    
+    return {"success": True, "message": "Реферальные данные сброшены"}
+
+
+@router.post("/debug/reset-limits")
+async def debug_reset_limits(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сбросить дневной счётчик запросов"""
+    current_user.daily_requests_count = 0
+    await db.commit()
+    
+    return {"success": True, "message": "Лимиты сброшены", "remaining": settings.FREE_DAILY_LIMIT}
+
+
+@router.delete("/debug/delete-me")
+async def debug_delete_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить свой аккаунт (только для тестов!)"""
+    user_id = str(current_user.id)
+    await db.delete(current_user)
+    await db.commit()
+    
+    return {"success": True, "message": f"Аккаунт {user_id} удалён"}
