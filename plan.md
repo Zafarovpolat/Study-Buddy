@@ -1,426 +1,286 @@
-# План реализации образовательного AI-ассистента (Telegram Mini App)
+# Study Buddy — План реализации
 
-## 🎯 Стратегия реализации
-
----
-
-## Фаза 0: Подготовка (1-2 недели)
-
-### Архитектура и инфраструктура
-
-- Настроить репозиторий (monorepo: frontend + backend)
-- Развернуть dev-окружение (Docker Compose)
-- Создать Telegram Bot через BotFather
-- Настроить PostgreSQL + Redis для кеширования
-- Подключить S3-совместимое хранилище
-- Настроить CI/CD pipeline
-
-### API ключи и сервисы
-
-- OpenAI (GPT-4o-mini + Whisper)
-- Векторная БД (рекомендую Qdrant вместо Pinecone - дешевле, self-hosted)
-- Payment provider (Telegram Stars + резервный Stripe)
+> **Обновлено**: 2025-12-08  
+> **Статус**: MVP готов (~95%), осталась доработка UX и Phase 2 функции
 
 ---
 
-## Фаза 1: Core MVP (4-6 недель)
+## 📊 Текущий статус
 
-### Неделя 1-2: Backend Foundation
+### ✅ Готово (Phase 1 — MVP)
 
-#### Приоритет 1: Базовая инфраструктура
+#### Основной функционал
+- [x] Загрузка материалов (PDF, DOCX, TXT, изображения)
+- [x] OCR изображений через Gemini Vision
+- [x] AI обработка: Smart Notes, TL;DR, Тесты, Глоссарий, Карточки
+- [x] Интерактивный просмотр AI-контента (тесты с баллами, карточки с flip)
+- [x] Telegram авторизация через WebApp
 
-**Основные компоненты:**
-- User management (регистрация через Telegram)
-- File upload API (PDF, DOCX, TXT)
-- Database schema:
-  - `users` (id, telegram_id, subscription_tier, created_at)
-  - `materials` (id, user_id, type, status, raw_content)
-  - `folders` (id, user_id, name, is_group)
-  - `ai_outputs` (id, material_id, format, content)
+#### Монетизация
+- [x] Free тариф с лимитом 3 материала/день
+- [x] Pro подписка через Telegram Stars
+- [x] Показ лимитов и Pro-баннер
 
-#### Приоритет 2: AI Processing Pipeline
+#### Социальные функции
+- [x] Создание групп
+- [x] Вступление по коду приглашения
+- [x] Просмотр материалов группы
+- [x] Загрузка материала в группу
+- [x] Реферальные ссылки с прогресс-баром
+- [x] Обработка `/start ref_XXX` — засчёт реферала
+- [x] Обработка `/start group_XXX` — автовступление в группу
+- [x] Выдача Pro за 5 рефералов
 
-**Базовая архитектура обработки:**
+#### UI/UX
+- [x] Папки и навигация
+- [x] Streak система с отображением в Header
+- [x] Вкладки "Личное" / "Группы"
+- [x] Баннер "Пригласи друзей"
 
-```python
-async def process_material(file_id: str):
-    # 1. Извлечение текста
-    text = await extract_text(file_id)
-    
-    # 2. Параллельная генерация
-    tasks = [
-        generate_smart_notes(text),
-        generate_tldr(text),
-        generate_quiz(text),
-        generate_glossary(text)
-    ]
-    results = await asyncio.gather(*tasks)
-    
-    # 3. Сохранение
-    await save_outputs(file_id, results)
+---
+
+## 🚧 В процессе / Требует доработки
+
+### Высокий приоритет
+
+#### 1. Выбор группы при загрузке (UX улучшение)
+**Статус**: ⚠️ Частично готово
+
+Загрузка в группу работает, но требуется UX улучшение:
+- Сейчас нужно открыть группу → нажать "+" → UploadModal
+- Нужно: в UploadModal добавить dropdown для выбора группы
+
+```typescript
+// frontend/src/components/UploadModal.tsx
+// Добавить:
+const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>(groupId);
+// + dropdown с группами пользователя
 ```
 
-**Критичные функции:**
-- OCR для изображений (Tesseract + GPT-4 Vision для проверки качества)
-- Парсинг PDF/DOCX (PyMuPDF, python-docx)
-- Chunking текста для LLM (max 8k tokens на запрос)
-- Rate limiting (3 запроса/день для Free)
+**Сложность**: 🟢 Низкая (2-3 часа)
 
 ---
 
-### Неделя 3-4: Telegram Mini App UI
+#### 2. Push уведомления
+**Статус**: ❌ Не реализовано
 
-#### Структура экранов (приоритет)
+Функции:
+- Напоминание о streak
+- Новые материалы в группе
+- Истечение Pro подписки
 
-**1. Dashboard (главный экран)**
-- Компонент: Welcome card + Quick actions
-- Стек: React + Telegram WebApp SDK
-- Интеграция с Telegram.WebApp.BackButton
-
-**2. Library (80% времени пользователя)**
-- Folder tree (рекурсивная структура)
-- Material cards с preview
-- Bottom sheet для выбора формата просмотра
-
-**3. Viewer (читалка контента)**
-- Markdown renderer для Smart Notes
-- Audio player для подкастов
-- Quiz interface с прогресс-баром
-
-#### UI Kit
-
-```javascript
-// Используйте Telegram цвета
-const theme = {
-  bg_color: Telegram.WebApp.backgroundColor,
-  button_color: Telegram.WebApp.themeParams.button_color,
-  text_color: Telegram.WebApp.themeParams.text_color
-}
-```
-
----
-
-### Неделя 5-6: Integration & Testing
-
-- Интеграция Frontend ↔ Backend
-- Telegram Bot команды (/start, /help, /premium)
-- Push-уведомления через Telegram
-- Beta-тестирование с 10-20 студентами
-
----
-
-## Фаза 2: Premium Features (3-4 недели)
-
-### Неделя 7-8: Audio Pipeline
-
-#### Speech-to-Text
-
+**Реализация**:
 ```python
-# Whisper integration
-async def transcribe_audio(audio_path: str):
-    # Разбить аудио на чанки по 10 мин (Whisper limit)
-    chunks = split_audio(audio_path, chunk_size=600)
-    
-    transcriptions = []
-    for chunk in chunks:
-        result = await openai.Audio.transcribe(
-            model="whisper-1",
-            file=chunk,
-            language="ru"  # или auto-detect
-        )
-        transcriptions.append(result.text)
-    
-    return merge_transcriptions(transcriptions)
-```
-
-#### Text-to-Speech (подкасты)
-
-**Варианты:**
-- Вариант 1 (дорогой): ElevenLabs - качественные голоса
-- Вариант 2 (экономный): OpenAI TTS - хорошо для русского
-- Формат: Монолог (проще) → Диалог (требует промпт-инженерии)
-
----
-
-### Неделя 9: Presentation Generator
-
-```python
-# Генерация PDF-слайдов
-async def create_presentation(notes: str):
-    # 1. LLM извлекает ключевые тезисы
-    slides_content = await gpt_extract_key_points(notes, max_slides=10)
-    
-    # 2. Генерация PDF (ReportLab или Pillow)
-    pdf = create_pdf_slides(slides_content, template="academic")
-    
-    return pdf
-```
-
----
-
-### Неделя 10: RAG Search
-
-#### Векторное хранилище
-
-```python
-from qdrant_client import QdrantClient
-
-# Индексация материалов
-async def index_material(material_id: str, text: str):
-    # 1. Эмбеддинги через OpenAI
-    embedding = await openai.Embedding.create(
-        model="text-embedding-3-small",
-        input=text
+# backend/app/services/notification_service.py
+async def send_streak_reminder(user: User):
+    """Отправка через Telegram Bot API"""
+    await bot.send_message(
+        chat_id=user.telegram_id,
+        text="🔥 Не забудь поучиться! Твой streak: {streak} дней"
     )
-    
-    # 2. Сохранение в Qdrant
-    qdrant.upsert(
-        collection_name="materials",
-        points=[{
-            "id": material_id,
-            "vector": embedding.data[0].embedding,
-            "payload": {"text": text, "user_id": user_id}
-        }]
-    )
-
-# Контекстный чат
-async def ai_chat(user_id: str, question: str):
-    # 1. Поиск релевантных материалов
-    results = qdrant.search(
-        collection_name="materials",
-        query_vector=get_embedding(question),
-        filter={"user_id": user_id},
-        limit=5
-    )
-    
-    # 2. Формирование контекста
-    context = "\n".join([r.payload["text"] for r in results])
-    
-    # 3. Ответ с контекстом
-    response = await openai.ChatCompletion.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": f"Context: {context}"},
-            {"role": "user", "content": question}
-        ]
-    )
-    
-    return response.choices[0].message.content
 ```
+
+**Требуется**:
+- Background worker (Celery/APScheduler)
+- Хранение настроек уведомлений пользователя
+
+**Сложность**: 🟡 Средняя (1-2 дня)
 
 ---
 
-## Фаза 3: Group Features (2-3 недели)
+### Средний приоритет
 
-### Неделя 11-12: Групповая логика
+#### 3. Поиск по материалам
+**Статус**: ❌ Не реализовано
 
-#### Database schema
-
-```sql
-CREATE TABLE groups (
-    id UUID PRIMARY KEY,
-    name VARCHAR(255),
-    owner_id UUID REFERENCES users(id),
-    invite_code VARCHAR(10) UNIQUE,
-    created_at TIMESTAMP
-);
-
-CREATE TABLE group_members (
-    group_id UUID REFERENCES groups(id),
-    user_id UUID REFERENCES users(id),
-    role ENUM('admin', 'member'),
-    joined_at TIMESTAMP
-);
-
-CREATE TABLE group_materials (
-    id UUID PRIMARY KEY,
-    group_id UUID REFERENCES groups(id),
-    material_id UUID REFERENCES materials(id),
-    uploaded_by UUID REFERENCES users(id)
-);
-```
-
-#### Механика
-
-1. Админ создает группу → генерируется `t.me/bot?start=group_abc123`
-2. Участник переходит по ссылке → автоматически вступает
-3. При загрузке материала → webhook отправляет Telegram-уведомления всем участникам
-4. Leaderboard: агрегация статистики по `quiz_results` таблице
-
----
-
-### Неделя 13: Gamification
-
+**Реализация**:
 ```python
-# Таблица лидеров
-async def get_leaderboard(group_id: str):
-    stats = await db.query("""
-        SELECT 
-            u.telegram_username,
-            COUNT(DISTINCT qr.material_id) as materials_completed,
-            AVG(qr.score) as avg_score,
-            SUM(qr.score) as total_points
-        FROM quiz_results qr
-        JOIN users u ON qr.user_id = u.id
-        WHERE qr.group_id = $1
-        GROUP BY u.id
-        ORDER BY total_points DESC
-        LIMIT 10
-    """, group_id)
-    
-    return stats
+# backend/app/api/routes/materials.py
+@router.get("/search")
+async def search_materials(
+    q: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Full-text search по title и raw_content
+    pass
 ```
+
+**Сложность**: 🟡 Средняя (1 день)
 
 ---
 
-## Фаза 4: Polish & Launch (2 недели)
+#### 4. Редактирование материала
+**Статус**: ❌ Не реализовано
 
-### Неделя 14: Payment Integration
+Функции:
+- Переименование
+- Перемещение в папку
+- Удаление (уже есть API)
 
-#### Telegram Stars (рекомендую)
+**Сложность**: 🟢 Низкая (3-4 часа)
 
+---
+
+## 📋 Phase 2 — Продвинутые функции
+
+### 1. AI Debate (чат с материалом)
+**Приоритет**: 🔵 Низкий
+
+**Концепция**:
+- Пользователь задаёт вопросы по материалу
+- AI отвечает как "Skeptic Professor"
+- Хранение истории диалога
+
+**Требуется**:
 ```python
-# Создание invoice
-await bot.send_invoice(
-    chat_id=user_id,
-    title="Pro подписка",
-    description="Безлимит + Аудио",
-    payload="pro_subscription_monthly",
-    provider_token="",  # Пусто для Stars
-    currency="XTR",
-    prices=[{"label": "Pro", "amount": 150}]  # 150 Stars
-)
+# Модели
+class DebateSession(Base):
+    id, material_id, user_id, messages (JSON), created_at
 
-# Webhook для успешной оплаты
-@bot.pre_checkout_query_handler(func=lambda query: True)
-async def process_payment(pre_checkout_query):
-    await bot.answer_pre_checkout_query(
-        pre_checkout_query.id, 
-        ok=True
-    )
-
-@bot.message_handler(content_types=['successful_payment'])
-async def upgrade_subscription(message):
-    await db.update_user_tier(message.from_user.id, "pro")
+# Сервис
+async def debate_response(session_id: UUID, user_message: str):
+    context = get_material_content(session.material_id)
+    # Gemini с контекстом материала
 ```
+
+**Сложность**: 🔴 Высокая (3-5 дней)
 
 ---
 
-### Неделя 15: Marketing & Analytics
+### 2. Neuro-Lexicon (словарь + интервальное повторение)
+**Приоритет**: 🔵 Низкий
 
-#### Метрики для отслеживания
+**Концепция**:
+- Пользователь сохраняет термины из глоссария
+- Интервальное повторение (SM-2 алгоритм)
+- Push-уведомления для повторения
 
-- DAU/MAU (Daily/Monthly Active Users)
-- Retention Day 1, 7, 30
-- Conversion Free → Pro (цель: 5-10%)
-- Group creation rate
-- Viral coefficient (сколько юзеров приглашает 1 админ группы)
-
-#### Аналитика
-
+**Модели**:
 ```python
-# Mixpanel или PostHog
-analytics.track(user_id, "Material Uploaded", {
-    "type": file_type,
-    "size_mb": file_size,
-    "tier": user_tier
-})
+class UserVocabulary(Base):
+    id, user_id, term, definition
+    next_review_date, ease_factor, interval
 ```
 
----
-
-## 🚀 Приоритеты для запуска
-
-### Must-Have для MVP
-
-1. ✅ Загрузка текста/PDF
-2. ✅ Генерация Smart Notes + TL;DR
-3. ✅ Тесты с оценкой
-4. ✅ Базовая библиотека (папки)
-5. ✅ Оплата подписки
-
-### Can Wait
-
-- ❌ Видео (Slides) - сложно, низкая ценность на старте
-- ❌ Диалоговые подкасты - требуют prompt engineering
-- ❌ Перевод на другие языки (Use-Case 2) - niche фича
+**Сложность**: 🔴 Высокая (4-5 дней)
 
 ---
 
-## 💰 Бюджет (примерный)
+### 3. Vector Search (RAG)
+**Приоритет**: 🔵 Низкий
 
-### Разработка
-- 3-4 месяца × 1-2 разработчика
+**Концепция**:
+- "Спроси свою библиотеку"
+- Поиск по всем материалам с контекстом
+
+**Реализация**:
+```python
+# pgvector extension
+ALTER TABLE materials ADD COLUMN embedding vector(768);
+
+# При создании материала
+embedding = await gemini_service.generate_embedding(content)
+material.embedding = embedding
+```
+
+**Сложность**: 🔴 Высокая (3-4 дня)
+
+---
+
+### 4. Аудио материалы
+**Приоритет**: 🔵 Низкий
+
+**Концепция**:
+- Загрузка аудио/видео
+- Транскрипция через Whisper
+- AI обработка транскрипции
+
+**Сложность**: 🔴 Высокая (4-5 дней)
+
+---
+
+### 5. Leaderboard в группах
+**Приоритет**: 🔵 Низкий
+
+**Концепция**:
+- Рейтинг участников группы по результатам тестов
+- Таблица лидеров
+
+**Требуется**:
+```python
+class QuizResult(Base):
+    id, user_id, material_id, group_id, score, max_score, completed_at
+```
+
+**Сложность**: 🟡 Средняя (1-2 дня)
+
+---
+
+## 🎯 Рекомендуемый порядок реализации
+
+### Неделя 1: UX улучшения
+1. [ ] Dropdown выбора группы в UploadModal
+2. [ ] Редактирование/переименование материала
+3. [ ] Улучшение мобильного UX
+
+### Неделя 2: Engagement
+4. [ ] Push уведомления (streak, группы)
+5. [ ] Поиск по материалам
+6. [ ] Онбординг для новых пользователей
+
+### Неделя 3-4: Phase 2
+7. [ ] Leaderboard в группах
+8. [ ] AI Debate (если есть ресурсы)
+
+---
+
+## 💰 Оценка бюджета (текущее состояние)
 
 ### Инфраструктура (месяц)
-- Сервер: $50 (AWS Lightsail / DigitalOcean)
-- OpenAI API: $200-500 (зависит от объема)
-- Storage: $20 (S3)
-- Qdrant: Self-hosted = $0
+| Сервис | Стоимость |
+|--------|-----------|
+| Render.com (Backend) | $7-25 |
+| Render.com (Frontend) | Free (Static) |
+| Supabase (PostgreSQL) | Free tier |
+| Gemini API | По использованию (~$0.01/1K tokens) |
+| **Итого** | ~$10-30/месяц |
 
-**Total MVP:** ~$300-600/месяц на старте
-
----
-
-## ⚠️ Риски и рекомендации
-
-1. **Качество конспектов** - ваша главная метрика. Сделайте A/B тест промптов.
-2. **Rate limits OpenAI** - добавьте очередь (Celery + Redis) для обработки.
-3. **Spam в группах** - админ должен иметь модерацию участников.
-4. **GDPR/данные** - храните минимум личной информации, удаляйте контент по запросу.
-
----
-
-## 📊 Таймлайн
-
-| Фаза | Длительность | Ключевые результаты |
-|------|--------------|---------------------|
-| Фаза 0: Подготовка | 1-2 недели | Инфраструктура готова |
-| Фаза 1: Core MVP | 4-6 недель | Базовые функции работают |
-| Фаза 2: Premium | 3-4 недели | Аудио + RAG + презентации |
-| Фаза 3: Groups | 2-3 недели | Групповые функции |
-| Фаза 4: Launch | 2 недели | Оплата + аналитика |
-
-**Total:** 12-17 недель (3-4 месяца)
+### При масштабировании
+| Пользователей | Gemini API | Инфраструктура |
+|--------------|------------|----------------|
+| 100 DAU | ~$20/месяц | ~$25 |
+| 1000 DAU | ~$150/месяц | ~$50 |
+| 10000 DAU | ~$1000/месяц | ~$200 |
 
 ---
 
-## 🎯 Следующие шаги
+## ⚠️ Известные ограничения
 
-1. Определить команду (frontend dev, backend dev, devops)
-2. Создать детальное техническое задание для каждой фазы
-3. Настроить project management (Jira, Linear, GitHub Projects)
-4. Начать с Фазы 0 параллельно с дизайном UI/UX
-5. Запланировать еженедельные демо для валидации фич
+1. **Gemini API rate limits** — при высокой нагрузке возможны 429 ошибки
+2. **Размер файлов** — макс 20 MB (настраивается в config)
+3. **Формат .doc** — не поддерживается, только .docx
+4. **Аудио/видео** — пока не реализовано
 
 ---
 
-## 📝 Дополнительные материалы
+## 📈 Метрики для отслеживания
 
-### Рекомендуемый tech stack
+После запуска рекомендуется отслеживать:
 
-**Frontend:**
-- React 18+
-- TypeScript
-- Vite
-- TanStack Query (для API)
-- Zustand (state management)
+| Метрика | Цель |
+|---------|------|
+| DAU / MAU | Рост |
+| Retention D1, D7, D30 | >40%, >20%, >10% |
+| Conversion Free → Pro | 5-10% |
+| Материалов на пользователя | >3 |
+| Групп создано | — |
+| Viral coefficient | >1.0 |
 
-**Backend:**
-- Python 3.11+
-- FastAPI
-- SQLAlchemy (ORM)
-- Alembic (миграции)
-- Celery + Redis (очереди)
+---
 
-**Infrastructure:**
-- Docker + Docker Compose
-- Nginx (reverse proxy)
-- PostgreSQL 15+
-- Redis 7+
-- Qdrant (векторная БД)
+## 🔗 Полезные ссылки
 
-**Monitoring:**
-- Sentry (error tracking)
-- PostHog / Mixpanel (analytics)
-- Prometheus + Grafana (metrics)
+- [Telegram Bot](https://t.me/studybuddy_uzbot)
+- [Frontend Deploy](https://studybuddyai-qd2m.onrender.com)
+- [Backend API](https://study-buddy-backend.onrender.com/docs)

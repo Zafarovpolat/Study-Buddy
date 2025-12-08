@@ -35,6 +35,20 @@ export function HomePage() {
         setActiveTab,
     } = useStore();
 
+    // ===== ЗАГРУЗКА ГРУПП ПРИ СТАРТЕ (один раз) =====
+    useEffect(() => {
+        const loadGroups = async () => {
+            try {
+                const groupsData = await api.getMyGroups();
+                setGroups(groupsData);
+            } catch (error) {
+                console.error('Failed to load groups:', error);
+            }
+        };
+        loadGroups();
+    }, []); // Только при монтировании
+
+    // ===== ЗАГРУЗКА ДАННЫХ ПРИ СМЕНЕ ВКЛАДКИ/ПАПКИ =====
     useEffect(() => {
         loadData();
     }, [currentFolderId, activeTab]);
@@ -43,30 +57,27 @@ export function HomePage() {
         try {
             setIsLoading(true);
 
-            const promises: Promise<any>[] = [
+            // Базовые данные
+            const [userData, limitsData] = await Promise.all([
                 !user ? api.getMe() : Promise.resolve(user),
                 api.getMyLimits(),
-            ];
+            ]);
 
+            if (!user) setUser(userData);
+            setLimits(limitsData);
+
+            // Данные зависящие от вкладки
             if (activeTab === 'personal') {
-                promises.push(
+                const [materialsData, foldersData] = await Promise.all([
                     api.getMaterials(currentFolderId || undefined),
-                    api.getFolders(currentFolderId || undefined)
-                );
+                    api.getFolders(currentFolderId || undefined),
+                ]);
+                setMaterials(materialsData);
+                setFolders(foldersData);
             } else {
-                promises.push(api.getMyGroups());
-            }
-
-            const results = await Promise.all(promises);
-
-            if (!user) setUser(results[0]);
-            setLimits(results[1]);
-
-            if (activeTab === 'personal') {
-                setMaterials(results[2]);
-                setFolders(results[3]);
-            } else {
-                setGroups(results[2]);
+                // Обновляем группы при переключении на вкладку
+                const groupsData = await api.getMyGroups();
+                setGroups(groupsData);
             }
         } catch (error) {
             console.error('Failed to load data:', error);

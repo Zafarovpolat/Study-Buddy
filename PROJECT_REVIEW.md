@@ -1,133 +1,197 @@
-# Study Buddy - Project Review & Implementation Plan
+# Study Buddy - Обзор проекта и статус реализации
 
-## 📂 Project Structure Overview
+> **Обновлено**: 2025-12-08
+
+---
+
+## 📂 Структура проекта
 
 ### Backend (`/backend`)
-Built with **FastAPI** and **PostgreSQL**.
+**Стек**: FastAPI + PostgreSQL + SQLAlchemy + Gemini AI
 
-*   **`app/main.py`**: Entry point. Initializes FastAPI app, database, and Telegram bot webhook.
-*   **`app/api/`**: API routes.
-    *   `routes/users.py`: User management, subscription, limits.
-    *   `routes/materials.py`: Material management (CRUD).
-    *   `routes/processing.py`: Triggering AI processing.
-*   **`app/bot/`**: Telegram Bot logic (using `python-telegram-bot`).
-    *   `bot.py`: Bot application setup.
-    *   `handlers.py`: Command handlers (`/start`, `/pro`) and payment logic.
-*   **`app/core/`**: Configuration.
-    *   `config.py`: Environment variables (Database URL, API Keys).
-*   **`app/models/`**: SQLAlchemy models.
-    *   `user.py`: User schema, subscription tier, streaks.
-    *   `material.py`: Material schema, processing status.
-    *   `ai_output.py`: Generated content (notes, quizzes).
-*   **`app/services/`**: Business logic.
-    *   `ai_service.py`: Integration with **Gemini 2.0 Flash** (Text generation, OCR).
-    *   `payment_service.py`: Telegram Stars payment processing.
-    *   `processing_service.py`: Orchestrates material processing pipeline.
-    *   `text_extractor.py`: Extracts text from PDF, DOCX, Images.
-    *   `user_service.py`: User management, streaks, rate limits.
-*   **`alembic/`**: Database migrations.
+| Компонент | Путь | Описание |
+|-----------|------|----------|
+| Entry Point | `app/main.py` | Инициализация FastAPI, WebSocket, БД, Telegram webhook |
+| API Routes | `app/api/routes/` | users, materials, folders, groups, processing, outputs |
+| Bot | `app/bot/handlers.py` | Команды /start, /pro, /invite, /stats + обработка платежей |
+| Models | `app/models/` | User, Material, Folder, GroupMember, AIOutput |
+| Services | `app/services/` | AI, Payment, Processing, TextExtractor, User, Group, Material, Folder |
+| Config | `app/core/config.py` | Переменные окружения |
 
 ### Frontend (`/frontend`)
-Built with **React**, **Vite**, and **Tailwind CSS**.
+**Стек**: React + TypeScript + Vite + Tailwind CSS
 
-*   **`src/App.tsx`**: Main router and layout.
-*   **`src/pages/`**: Application screens.
-    *   `HomePage.tsx`: Dashboard with Quick Actions, Daily Plan.
-    *   `MaterialPage.tsx`: Detailed view of a material with AI outputs.
-*   **`src/components/`**: Reusable UI components.
-    *   `ui/`: Base components (Button, Card, Input).
-    *   `MaterialCard.tsx`: Card component for material list.
-    *   `UploadModal.tsx`: File upload interface.
-*   **`src/lib/`**: Utilities.
-    *   `api.ts`: Axios client for backend API.
-    *   `telegram.ts`: Telegram WebApp integration (Theme, Haptic, MainButton).
-*   **`src/store/`**: State management (Zustand).
-    *   `useStore.ts`: Global state for user, materials, folders.
+| Компонент | Путь | Описание |
+|-----------|------|----------|
+| Entry | `src/main.tsx` | React entry point |
+| Router | `src/App.tsx` | Роутинг: HomePage, MaterialPage |
+| Pages | `src/pages/` | HomePage, MaterialPage |
+| Components | `src/components/` | Header, MaterialCard, UploadModal, OutputViewer, GroupsTab, InviteBanner |
+| API Client | `src/lib/api.ts` | Axios client со всеми endpoints |
+| Telegram | `src/lib/telegram.ts` | WebApp SDK интеграция |
+| State | `src/store/useStore.ts` | Zustand store |
 
 ---
 
-## 📊 Project Status Review
+## ✅ Реализованные функции
 
-### ✅ Implemented Features (Ready)
+### 1. Загрузка и обработка материалов
+| Функция | Backend | Frontend | Статус |
+|---------|---------|----------|--------|
+| Загрузка PDF | `materials.py` | `UploadModal` | ✅ Готово |
+| Загрузка DOCX | `materials.py` | `UploadModal` | ✅ Готово |
+| Загрузка TXT | `materials.py` | `UploadModal` | ✅ Готово |
+| Загрузка изображений (OCR) | `text_extractor.py` | `UploadModal` | ✅ Готово |
+| Создание текстового материала | `materials.py` | `UploadModal` | ✅ Готово |
 
-**1. Business Logic & Monetization**
-*   **Free Tier**: Daily limit of 3 uploads implemented (`UserService`).
-*   **Pro Subscription**: $4.99/month via Telegram Stars. Logic for removing limits is active.
-*   **Micro-transactions**: Infrastructure for one-time payments exists.
+### 2. AI Обработка (Gemini 2.0 Flash)
+| Функция | Файл | Статус |
+|---------|------|--------|
+| Smart Notes (конспект) | `ai_service.py` | ✅ Готово |
+| TL;DR (краткое содержание) | `ai_service.py` | ✅ Готово |
+| Quiz (тесты) | `ai_service.py` | ✅ Готово |
+| Glossary (глоссарий) | `ai_service.py` | ✅ Готово |
+| Flashcards (карточки) | `ai_service.py` | ✅ Готово |
+| OCR изображений | `text_extractor.py` | ✅ Готово |
 
-**2. User Journey**
-*   **Dashboard**: Header with Streak Counter, Quick Actions (Scan, Upload), Daily Plan (basic list).
-*   **Knowledge Base**: "Personal" tab, Folder navigation, Material list.
-*   **Material View**: Display of Smart Notes, Quizzes, Glossaries.
+### 3. Просмотр AI-контента
+| Компонент | Описание | Статус |
+|-----------|----------|--------|
+| MarkdownViewer | Отображение конспектов | ✅ Готово |
+| QuizViewer | Интерактивные тесты с подсчётом баллов | ✅ Готово |
+| GlossaryViewer | Раскрывающиеся термины | ✅ Готово |
+| FlashcardsViewer | Карточки с flip-анимацией | ✅ Готово |
 
-**3. Technical Pipeline**
-*   **Ingestion**: File upload (PDF, DOCX, Images) works.
-*   **Processing**:
-    *   **OCR**: Gemini Vision used for images.
-    *   **Text Extraction**: `pypdf` and `python-docx` for documents.
-*   **AI Structuring**: Gemini 2.0 Flash generates structured notes, TL;DR.
-*   **Generation**: Quizzes, Glossaries, and Flashcards are generated.
+### 4. Telegram авторизация
+| Функция | Файл | Статус |
+|---------|------|--------|
+| WebApp Init Data | `deps.py` | ✅ Готово |
+| Создание пользователя при /start | `handlers.py` | ✅ Готово |
+| Dev-режим с X-User-ID | `deps.py` | ✅ Готово |
 
-**4. Tech Stack**
-*   **Frontend**: React + Telegram UI Kit.
-*   **Backend**: FastAPI + PostgreSQL + SQLAlchemy.
-*   **AI**: Gemini 2.0 Flash (Efficient and cost-effective).
+### 5. Монетизация
+| Функция | Backend | Frontend | Статус |
+|---------|---------|----------|--------|
+| Free тариф (3/день) | `user_service.py` | `HomePage` | ✅ Готово |
+| Pro подписка | `user.py`, `payment_service.py` | `Header` | ✅ Готово |
+| Telegram Stars оплата | `handlers.py`, `payment_service.py` | — | ✅ Готово |
+| Показ лимитов | `users.py` | `HomePage` | ✅ Готово |
+
+### 6. Социальные функции — Группы
+| Функция | Backend | Frontend | Статус |
+|---------|---------|----------|--------|
+| Создание группы | `group_service.py`, `groups.py` | `GroupsTab` | ✅ Готово |
+| Вступление по коду | `group_service.py`, `groups.py` | `GroupsTab` | ✅ Готово |
+| Просмотр материалов группы | `materials.py` | `GroupsTab` | ✅ Готово |
+| Загрузка в группу | `materials.py` | `UploadModal` | ✅ Готово |
+| Копирование invite-кода | — | `GroupsTab` | ✅ Готово |
+| Выход из группы | `group_service.py` | `GroupsTab` | ✅ Готово |
+| Удаление группы (owner) | `group_service.py` | `GroupsTab` | ✅ Готово |
+
+### 7. Реферальная система
+| Функция | Backend | Frontend | Статус |
+|---------|---------|----------|--------|
+| Генерация реф. кода | `group_service.py`, `user.py` | — | ✅ Готово |
+| Реферальная ссылка | `group_service.py` | `InviteBanner` | ✅ Готово |
+| Прогресс-бар рефералов | `group_service.py` | `InviteBanner` | ✅ Готово |
+| Копирование/Share ссылки | — | `InviteBanner` | ✅ Готово |
+| Команда /invite | `handlers.py` | — | ✅ Готово |
+| **Обработка `/start ref_XXX`** | `handlers.py` | — | ✅ Готово |
+| Выдача Pro за 5 рефералов | `group_service.py` | — | ✅ Готово |
+
+### 8. Streak система
+| Функция | Backend | Frontend | Статус |
+|---------|---------|----------|--------|
+| Трекинг streak | `user_service.py` | — | ✅ Готово |
+| Отображение в Header | `users.py` | `Header` | ✅ Готово |
+| Команда /stats | `handlers.py` | — | ✅ Готово |
+
+### 9. Навигация и папки
+| Функция | Backend | Frontend | Статус |
+|---------|---------|----------|--------|
+| Создание папок | `folder_service.py` | — | ✅ Готово |
+| Навигация по папкам | `folders.py` | `HomePage` | ✅ Готово |
+| Кнопка "Назад" | — | `HomePage` | ✅ Готово |
 
 ---
 
-## 🚀 Implementation Plan (Next Steps)
+## ❌ НЕ реализовано
 
-This plan focuses on filling the gaps identified in the "Missing / To Do" section, excluding Audio/Whisper features as requested.
+### 🔴 Высокий приоритет
 
-### Phase 1: Viral Loop & Social Mechanics (High Priority)
-*Goal: Implement the "Group" mechanics to drive user growth.*
+| Функция | Описание | Сложность |
+|---------|----------|-----------|
+| **Push уведомления** | Streak reminders, новые материалы в группе | 🟡 Средняя |
+| **Выбор группы при загрузке** | Dropdown в UploadModal для выбора группы | 🟢 Низкая |
 
-1.  **Backend: Group Folders**
-    *   Update `Folder` model to support `is_group=True` and `share_link`.
-    *   Create `UserGroup` association table (User <-> Folder).
-    *   Add API endpoints for creating groups and joining via link.
-2.  **Backend: Referral System**
-    *   Add `referred_by` field to `User` model.
-    *   Implement logic: When 5 users join via a user's link -> Grant free PRO.
-    *   Generate unique referral links (`t.me/bot?start=ref_123`).
-3.  **Frontend: Group Interface**
-    *   Add "Groups" tab to `HomePage`.
-    *   Create "Create Group" modal.
-    *   Display "Invite Friends" banner with progress bar (e.g., "2/5 friends invited").
+### 🟡 Средний приоритет
 
-### Phase 2: Advanced AI Tools (Differentiation)
-*Goal: Add unique value that separates the app from simple file readers.*
+| Функция | Описание | Сложность |
+|---------|----------|-----------|
+| Поиск по материалам | Full-text search в библиотеке | 🟡 Средняя |
+| Редактирование материала | Rename, move to folder | 🟢 Низкая |
+| Онбординг для новых пользователей | Туториал при первом входе | 🟡 Средняя |
 
-1.  **AI Debate (Text-based)**
-    *   *Note: Implementing text-based debate since audio is excluded.*
-    *   **Backend**: Create `DebateSession` model.
-    *   **AI**: Implement `DebateService` using Gemini to act as a "Skeptic Professor".
-    *   **Frontend**: Chat interface for debating specific topics from a material.
-2.  **Neuro-Lexicon (Spaced Repetition)**
-    *   **Backend**: Create `UserVocabulary` table (term, definition, next_review_date).
-    *   **AI**: "Auto-Linking" - Detect terms in notes and link them to the lexicon.
-    *   **Frontend**: "Swipe" interface (Tinder-style) for learning terms: "Know" / "Don't Know".
-    *   **Scheduler**: Background job to send push notifications for terms due for review.
+### 🔵 Низкий приоритет (Phase 2)
 
-### Phase 3: Search & Personalization (Retention)
-*Goal: Make the app smarter as more content is added.*
-
-1.  **Vector Search (Pinecone/PGVector)**
-    *   *Recommendation: Use `pgvector` (PostgreSQL extension) to keep stack simple instead of adding Pinecone.*
-    *   **Backend**: Generate embeddings for all materials using Gemini.
-    *   **Feature**: "Ask your Library" - Chat with all your materials at once.
-2.  **Smart Daily Plan**
-    *   Improve `Daily Plan` algorithm to recommend materials based on Spaced Repetition (not just random/recent).
-
-### Phase 4: Polish & Optimization
-1.  **Performance**: Optimize large file processing.
-2.  **UX**: Add onboarding tutorial for new users.
-3.  **Notifications**: Reminders to keep the streak alive.
+| Функция | Описание | Сложность |
+|---------|----------|-----------|
+| AI Debate | Чат с материалом (Skeptic Professor) | 🔴 Высокая |
+| Neuro-Lexicon | Словарь + интервальное повторение | 🔴 Высокая |
+| Vector Search (RAG) | pgvector + "Спроси свою библиотеку" | 🔴 Высокая |
+| Аудио материалы | Whisper транскрипция | 🔴 Высокая |
+| Leaderboard в группах | Рейтинг по тестам | 🟡 Средняя |
 
 ---
 
-## 📝 Immediate Action Items (Next 2 Weeks)
+## 📊 Статус по модулям
 
-1.  **Database Migration**: Add `is_group` to Folders and create `UserGroup` table.
-2.  **API**: Implement `POST /api/groups` and `POST /api/groups/join`.
-3.  **Frontend**: Add "Groups" tab and "Invite" UI.
+```
+Backend
+├── Users          ████████████ 100%
+├── Materials      ████████████ 100%  
+├── Folders        ████████████ 100%
+├── Groups         ████████████ 100%
+├── Referrals      ████████████ 100%
+├── Payments       ████████████ 100%
+├── AI Processing  ████████████ 100%
+├── Text Extract   ████████████ 100%
+└── Bot Handlers   ████████████ 100%
+
+Frontend
+├── HomePage       ████████████ 100%
+├── MaterialPage   ████████████ 100%
+├── UploadModal    ██████████░░  90% (выбор группы)
+├── GroupsTab      ████████████ 100%
+├── InviteBanner   ████████████ 100%
+├── OutputViewer   ████████████ 100%
+└── Header         ████████████ 100%
+
+Общий прогресс: ~95%
+```
+
+---
+
+## 🔄 Последние изменения
+
+- ✅ Реализована обработка `/start ref_XXX` (засчёт рефералов)
+- ✅ Добавлена загрузка материалов в группу
+- ✅ InviteBanner с прогресс-баром
+- ✅ Команды /invite и /stats в боте
+- ✅ Выдача Pro за 5 рефералов
+
+---
+
+## 🛠 Технический стек
+
+| Компонент | Технология |
+|-----------|------------|
+| Frontend | React 18 + TypeScript + Vite |
+| Styling | Tailwind CSS |
+| State | Zustand |
+| Backend | Python 3.11 + FastAPI |
+| ORM | SQLAlchemy (async) |
+| Database | PostgreSQL |
+| AI | Google Gemini 2.0 Flash |
+| Bot | python-telegram-bot |
+| Deploy | Render.com |
