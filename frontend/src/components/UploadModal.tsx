@@ -10,11 +10,12 @@ interface UploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     folderId?: string;
+    groupId?: string;  // ДОБАВЛЕНО
 }
 
 type UploadMode = 'file' | 'text' | 'scan';
 
-export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
+export function UploadModal({ isOpen, onClose, folderId, groupId }: UploadModalProps) {
     const [mode, setMode] = useState<UploadMode>('file');
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -56,14 +57,15 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
             let material;
 
             if (mode === 'file' && file) {
-                material = await api.uploadFile(file, title || file.name, folderId);
+                material = await api.uploadFile(file, title || file.name, folderId, groupId);
             } else if (mode === 'scan' && file) {
-                material = await api.scanImage(file, title || 'Скан', folderId);
+                material = await api.scanImage(file, title || 'Скан', folderId, groupId);
             } else if (mode === 'text' && content.trim()) {
                 material = await api.createTextMaterial(
                     title || 'Без названия',
                     content,
-                    folderId
+                    folderId,
+                    groupId
                 );
             } else {
                 telegram.alert('Добавьте файл или текст');
@@ -96,6 +98,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
             <div className="bg-tg-bg w-full max-w-lg rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slide-up">
+                {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold">Новый материал</h2>
                     <button
@@ -106,6 +109,15 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </button>
                 </div>
 
+                {/* ======= ДОБАВЬ ЭТО СЮДА - после Header, перед Mode Selector ======= */}
+                {groupId && (
+                    <div className="mb-4 p-3 bg-purple-100 dark:bg-purple-900/30 rounded-xl text-sm text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                        <span>👥</span>
+                        <span>Загрузка в группу</span>
+                    </div>
+                )}
+
+                {/* Mode Selector */}
                 <div className="flex gap-2 mb-6">
                     <Button
                         variant={mode === 'file' ? 'primary' : 'secondary'}
@@ -133,6 +145,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </Button>
                 </div>
 
+                {/* File Upload */}
                 {mode === 'file' && (
                     <div className="space-y-4">
                         <input
@@ -178,6 +191,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </div>
                 )}
 
+                {/* Scan */}
                 {mode === 'scan' && (
                     <div className="space-y-4">
                         <input
@@ -226,9 +240,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                                     <div className="py-6 text-center">
                                         <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
                                         <p className="font-medium text-sm">Камера</p>
-                                        <p className="text-xs text-tg-hint mt-1">
-                                            Сфотографировать
-                                        </p>
                                     </div>
                                 </Card>
 
@@ -240,9 +251,6 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                                     <div className="py-6 text-center">
                                         <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
                                         <p className="font-medium text-sm">Галерея</p>
-                                        <p className="text-xs text-tg-hint mt-1">
-                                            Выбрать фото
-                                        </p>
                                     </div>
                                 </Card>
                             </div>
@@ -256,11 +264,12 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                         />
 
                         <p className="text-xs text-tg-hint">
-                            💡 AI распознает текст с фото и создаст конспект
+                            💡 AI распознает текст с фото
                         </p>
                     </div>
                 )}
 
+                {/* Text */}
                 {mode === 'text' && (
                     <div className="space-y-4">
                         <Input
@@ -280,6 +289,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                     </div>
                 )}
 
+                {/* Submit */}
                 <Button
                     className="w-full mt-6"
                     size="lg"
@@ -291,7 +301,7 @@ export function UploadModal({ isOpen, onClose, folderId }: UploadModalProps) {
                                 !content.trim()
                     }
                 >
-                    {mode === 'scan' ? '📷 Сканировать' : '📤 Загрузить'}
+                    {groupId ? '📤 Загрузить в группу' : mode === 'scan' ? '📷 Сканировать' : '📤 Загрузить'}
                 </Button>
             </div>
         </div>

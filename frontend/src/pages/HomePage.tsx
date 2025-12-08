@@ -15,6 +15,7 @@ export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [, setUploadMode] = useState<'file' | 'scan' | 'text'>('file');
     const [isLoading, setIsLoading] = useState(true);
+    const [uploadGroupId, setUploadGroupId] = useState<string | undefined>(undefined);
 
     const {
         user,
@@ -90,8 +91,9 @@ export function HomePage() {
         }
     };
 
-    const openUpload = (mode: 'file' | 'scan' | 'text') => {
+    const openUpload = (mode: 'file' | 'scan' | 'text', groupId?: string) => {
         setUploadMode(mode);
+        setUploadGroupId(groupId);
         setIsUploadOpen(true);
         telegram.haptic('medium');
     };
@@ -284,7 +286,11 @@ export function HomePage() {
                     </>
                 ) : (
                     /* Groups Tab */
-                    <GroupsTab groups={groups} onRefresh={loadData} />
+                    <GroupsTab
+                        groups={groups}
+                        onRefresh={loadData}
+                        onUploadToGroup={(groupId) => openUpload('file', groupId)}
+                    />
                 )}
             </main>
 
@@ -301,8 +307,12 @@ export function HomePage() {
             {/* Upload Modal */}
             <UploadModal
                 isOpen={isUploadOpen}
-                onClose={() => setIsUploadOpen(false)}
+                onClose={() => {
+                    setIsUploadOpen(false);
+                    setUploadGroupId(undefined);
+                }}
                 folderId={currentFolderId || undefined}
+                groupId={uploadGroupId}
             />
         </div>
     );

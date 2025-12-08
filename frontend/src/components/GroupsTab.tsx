@@ -28,6 +28,7 @@ interface Material {
 interface GroupsTabProps {
     groups: Group[];
     onRefresh: () => void;
+    onUploadToGroup?: (groupId: string) => void;  // ДОБАВЬ
 }
 
 export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
@@ -112,7 +113,21 @@ export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
                             {selectedGroup.member_count} участников • Код: {selectedGroup.invite_code}
                         </p>
                     </div>
+                    {/* ДОБАВЬ ЭТУ КНОПКУ */}
+                    <button
+                        onClick={() => {
+                            // Открываем модал загрузки с group_id
+                            telegram.haptic('medium');
+                            // Передаём в родительский компонент
+                            onUploadToGroup?.(selectedGroup.id);
+                        }}
+                        className="p-2 bg-tg-button text-tg-button-text rounded-lg"
+                    >
+                        <Plus className="w-5 h-5" />
+                    </button>
                 </div>
+
+
 
                 {isLoadingMaterials ? (
                     <div className="flex justify-center py-8">
