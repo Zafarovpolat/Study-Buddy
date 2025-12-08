@@ -273,6 +273,51 @@ async def get_material(
     return material
 
 
+# backend/app/api/routes/materials.py - ДОБАВЬ временно
+
+@router.get("/debug/groups-check")
+async def debug_groups_check(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Временный endpoint для отладки"""
+    from sqlalchemy import text
+    
+    # Проверяем группы пользователя
+    result = await db.execute(text("""
+        SELECT 
+            f.id as group_id,
+            f.name as group_name,
+            f.is_group,
+            gm.user_id as member_id,
+            gm.role
+        FROM folders f
+        LEFT JOIN group_members gm ON f.id = gm.group_id
+        WHERE f.is_group = true
+    """))
+    groups_data = [dict(row._mapping) for row in result.fetchall()]
+    
+    # Проверяем материалы в группах
+    result2 = await db.execute(text("""
+        SELECT 
+            m.id as material_id,
+            m.title,
+            m.folder_id,
+            m.user_id as owner_id,
+            f.name as folder_name,
+            f.is_group
+        FROM materials m
+        LEFT JOIN folders f ON m.folder_id = f.id
+        WHERE m.folder_id IS NOT NULL
+    """))
+    materials_data = [dict(row._mapping) for row in result2.fetchall()]
+    
+    return {
+        "current_user_id": str(current_user.id),
+        "groups_and_members": groups_data,
+        "materials_in_folders": materials_data
+    }
+
 @router.delete("/{material_id}", response_model=SuccessResponse)
 async def delete_material(
     material_id: UUID,

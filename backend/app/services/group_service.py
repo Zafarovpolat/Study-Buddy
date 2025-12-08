@@ -68,41 +68,56 @@ class GroupService:
         )
         return result.scalar_one_or_none()
     
-    async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Optional[Folder]]:
-        """Присоединиться к группе по коду"""
-        group = await self.get_group_by_invite_code(invite_code)
-        
-        if not group:
-            return False, "Группа не найдена", None
-        
-        # Проверяем, не состоит ли уже
-        existing = await self.db.execute(
-            select(GroupMember).where(
-                GroupMember.group_id == group.id,
-                GroupMember.user_id == user.id
-            )
-        )
-        if existing.scalar_one_or_none():
-            return False, "Вы уже состоите в этой группе", group
-        
-        # Проверяем лимит участников
-        member_count = await self.db.execute(
-            select(func.count(GroupMember.id)).where(GroupMember.group_id == group.id)
-        )
-        if member_count.scalar() >= group.max_members:
-            return False, "Группа заполнена", group
-        
-        # Добавляем участника
-        membership = GroupMember(
-            group_id=group.id,
-            user_id=user.id,
-            role=GroupRole.MEMBER
-        )
-        self.db.add(membership)
-        await self.db.commit()
-        
-        return True, "Вы успешно присоединились к группе", group
+    # backend/app/services/group_service.py
+
+async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Optional[Folder]]:
+    """Присоединиться к группе по коду"""
+    print(f"🔍 join_group: user={user.id}, code={invite_code}")
     
+    group = await self.get_group_by_invite_code(invite_code)
+    
+    if not group:
+        print(f"❌ Group not found for code: {invite_code}")
+        return False, "Группа не найдена", None
+    
+    print(f"✅ Found group: {group.id} - {group.name}")
+    
+    # Проверяем, не состоит ли уже
+    existing = await self.db.execute(
+        select(GroupMember).where(
+            GroupMember.group_id == group.id,
+            GroupMember.user_id == user.id
+        )
+    )
+    if existing.scalar_one_or_none():
+        print(f"⚠️ User already in group")
+        return False, "Вы уже состоите в этой группе", group
+    
+    # Добавляем участника
+    membership = GroupMember(
+        group_id=group.id,
+        user_id=user.id,
+        role=GroupRole.MEMBER
+    )
+    self.db.add(membership)
+    await self.db.commit()
+    
+    print(f"✅ Added membership: group={group.id}, user={user.id}")
+    
+    # Проверяем что добавилось
+    check = await self.db.execute(
+        select(GroupMember).where(
+            GroupMember.group_id == group.id,
+            GroupMember.user_id == user.id
+        )
+    )
+    if check.scalar_one_or_none():
+        print(f"✅ Membership confirmed in DB")
+    else:
+        print(f"❌ Membership NOT found after commit!")
+    
+    return True, "Вы успешно присоединились к группе", group
+
     async def leave_group(self, user: User, group_id: UUID) -> Tuple[bool, str]:
         """Покинуть группу"""
         result = await self.db.execute(
