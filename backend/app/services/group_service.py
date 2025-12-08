@@ -1,4 +1,4 @@
-# backend/app/services/group_service.py - СОЗДАЙ НОВЫЙ ФАЙЛ
+# backend/app/services/group_service.py - ПРОВЕРЬ ЧТО ПОЛНЫЙ
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -11,8 +11,8 @@ from app.core.config import settings
 
 
 class GroupService:
-    REFERRAL_PRO_THRESHOLD = 5  # Сколько рефералов нужно для Pro
-    REFERRAL_PRO_DAYS = 30  # На сколько дней давать Pro
+    REFERRAL_PRO_THRESHOLD = 5
+    REFERRAL_PRO_DAYS = 30
     
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -37,7 +37,6 @@ class GroupService:
         self.db.add(group)
         await self.db.flush()
         
-        # Добавляем создателя как owner
         membership = GroupMember(
             group_id=group.id,
             user_id=owner.id,
@@ -68,56 +67,38 @@ class GroupService:
         )
         return result.scalar_one_or_none()
     
-    # backend/app/services/group_service.py
-
-async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Optional[Folder]]:
-    """Присоединиться к группе по коду"""
-    print(f"🔍 join_group: user={user.id}, code={invite_code}")
-    
-    group = await self.get_group_by_invite_code(invite_code)
-    
-    if not group:
-        print(f"❌ Group not found for code: {invite_code}")
-        return False, "Группа не найдена", None
-    
-    print(f"✅ Found group: {group.id} - {group.name}")
-    
-    # Проверяем, не состоит ли уже
-    existing = await self.db.execute(
-        select(GroupMember).where(
-            GroupMember.group_id == group.id,
-            GroupMember.user_id == user.id
+    async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Optional[Folder]]:
+        """Присоединиться к группе по коду"""
+        group = await self.get_group_by_invite_code(invite_code)
+        
+        if not group:
+            return False, "Группа не найдена", None
+        
+        existing = await self.db.execute(
+            select(GroupMember).where(
+                GroupMember.group_id == group.id,
+                GroupMember.user_id == user.id
+            )
         )
-    )
-    if existing.scalar_one_or_none():
-        print(f"⚠️ User already in group")
-        return False, "Вы уже состоите в этой группе", group
-    
-    # Добавляем участника
-    membership = GroupMember(
-        group_id=group.id,
-        user_id=user.id,
-        role=GroupRole.MEMBER
-    )
-    self.db.add(membership)
-    await self.db.commit()
-    
-    print(f"✅ Added membership: group={group.id}, user={user.id}")
-    
-    # Проверяем что добавилось
-    check = await self.db.execute(
-        select(GroupMember).where(
-            GroupMember.group_id == group.id,
-            GroupMember.user_id == user.id
+        if existing.scalar_one_or_none():
+            return False, "Вы уже состоите в этой группе", group
+        
+        member_count = await self.db.execute(
+            select(func.count(GroupMember.id)).where(GroupMember.group_id == group.id)
         )
-    )
-    if check.scalar_one_or_none():
-        print(f"✅ Membership confirmed in DB")
-    else:
-        print(f"❌ Membership NOT found after commit!")
+        if member_count.scalar() >= group.max_members:
+            return False, "Группа заполнена", group
+        
+        membership = GroupMember(
+            group_id=group.id,
+            user_id=user.id,
+            role=GroupRole.MEMBER
+        )
+        self.db.add(membership)
+        await self.db.commit()
+        
+        return True, "Вы успешно присоединились к группе", group
     
-    return True, "Вы успешно присоединились к группе", group
-
     async def leave_group(self, user: User, group_id: UUID) -> Tuple[bool, str]:
         """Покинуть группу"""
         result = await self.db.execute(
@@ -132,7 +113,7 @@ async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Opt
             return False, "Вы не состоите в этой группе"
         
         if membership.role == GroupRole.OWNER:
-            return False, "Владелец не может покинуть группу. Удалите её или передайте права."
+            return False, "Владелец не может покинуть группу"
         
         await self.db.delete(membership)
         await self.db.commit()
@@ -150,7 +131,6 @@ async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Opt
         
         groups = []
         for membership, folder in result.all():
-            # Считаем участников
             count_result = await self.db.execute(
                 select(func.count(GroupMember.id)).where(GroupMember.group_id == folder.id)
             )
@@ -192,7 +172,7 @@ async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Opt
         return members
     
     async def delete_group(self, user: User, group_id: UUID) -> Tuple[bool, str]:
-        """Удалить группу (только owner)"""
+        """Удалить группу"""
         group = await self.get_group_by_id(group_id)
         
         if not group:
@@ -216,72 +196,44 @@ async def join_group(self, user: User, invite_code: str) -> Tuple[bool, str, Opt
         return user.referral_code
     
     async def process_referral(self, new_user: User, referral_code: str) -> Tuple[bool, Optional[User]]:
-        """Обработать реферальный код при регистрации"""
+        """Обработать реферальный код"""
         if not referral_code:
             return False, None
         
-        # Ищем пригласившего
         result = await self.db.execute(
             select(User).where(User.referral_code == referral_code.upper())
         )
         referrer = result.scalar_one_or_none()
         
-        if not referrer:
+        if not referrer or referrer.id == new_user.id:
             return False, None
         
-        if referrer.id == new_user.id:
-            return False, None  # Нельзя пригласить себя
-        
-        # Устанавливаем связь
         new_user.referred_by_id = referrer.id
-        
-        # Увеличиваем счётчик рефералов
         referrer.referral_count = (referrer.referral_count or 0) + 1
         
-        # Проверяем, достиг ли порога для Pro
         if referrer.referral_count >= self.REFERRAL_PRO_THRESHOLD and not referrer.referral_pro_granted:
             await self._grant_referral_pro(referrer)
         
         await self.db.commit()
-        
         return True, referrer
     
     async def _grant_referral_pro(self, user: User) -> None:
-        """Выдать Pro подписку за рефералов"""
+        """Выдать Pro за рефералов"""
         user.subscription_tier = SubscriptionTier.PRO
         user.subscription_expires_at = datetime.now() + timedelta(days=self.REFERRAL_PRO_DAYS)
         user.referral_pro_granted = True
     
     async def get_referral_stats(self, user: User) -> dict:
-        """Получить статистику рефералов"""
-        from app.core.config import settings
-        
+        """Статистика рефералов"""
         await self.get_or_create_referral_code(user)
         
-        # Используем username бота из настроек
-        bot_username = settings.TELEGRAM_BOT_USERNAME
+        bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'studybuddy_uzbot')
         
         return {
             "referral_code": user.referral_code,
             "referral_link": f"https://t.me/{bot_username}?start=ref_{user.referral_code}",
             "referral_count": user.referral_count or 0,
             "referrals_needed": max(0, self.REFERRAL_PRO_THRESHOLD - (user.referral_count or 0)),
-            "pro_granted": user.referral_pro_granted,
+            "pro_granted": user.referral_pro_granted or False,
             "threshold": self.REFERRAL_PRO_THRESHOLD
         }
-    
-    async def _get_bot_username(self) -> str:
-        """Получить username бота"""
-        from app.core.config import settings
-        
-        # Если есть сохранённый username - используем его
-        # Иначе пробуем получить через API
-        try:
-            from telegram import Bot
-            bot = Bot(token=settings.TELEGRAM_BOT_TOKEN)
-            me = await bot.get_me()
-            return me.username
-        except Exception:
-            # Fallback - используем известный username
-            return "studybuddy_uzbot"
-    
