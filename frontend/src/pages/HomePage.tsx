@@ -289,7 +289,10 @@ export function HomePage() {
                     <GroupsTab
                         groups={groups}
                         onRefresh={loadData}
-                        onUploadToGroup={(groupId) => openUpload('file', groupId)}
+                        onUploadToGroup={(groupId) => {
+                            setUploadGroupId(groupId);
+                            setIsUploadOpen(true);
+                        }}
                     />
                 )}
             </main>

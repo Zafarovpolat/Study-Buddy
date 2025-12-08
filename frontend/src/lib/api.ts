@@ -82,11 +82,12 @@ class ApiClient {
         return data;
     }
 
-    async uploadFile(file: File, title?: string, folderId?: string) {
+    async uploadFile(file: File, title?: string, folderId?: string, groupId?: string) {
         const formData = new FormData();
         formData.append('file', file);
         if (title) formData.append('title', title);
         if (folderId) formData.append('folder_id', folderId);
+        if (groupId) formData.append('group_id', groupId);
         formData.append('auto_process', 'true');
 
         const { data } = await this.client.post('/materials/upload', formData, {
@@ -95,11 +96,12 @@ class ApiClient {
         return data;
     }
 
-    async createTextMaterial(title: string, content: string, folderId?: string) {
+    async createTextMaterial(title: string, content: string, folderId?: string, groupId?: string) {
         const formData = new FormData();
         formData.append('title', title);
         formData.append('content', content);
         if (folderId) formData.append('folder_id', folderId);
+        if (groupId) formData.append('group_id', groupId);
 
         const { data } = await this.client.post('/materials/text', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -142,11 +144,13 @@ class ApiClient {
         return data;
     }
 
-    async scanImage(file: File, title?: string, folderId?: string) {
+
+    async scanImage(file: File, title?: string, folderId?: string, groupId?: string) {
         const formData = new FormData();
         formData.append('file', file);
         if (title) formData.append('title', title);
         if (folderId) formData.append('folder_id', folderId);
+        if (groupId) formData.append('group_id', groupId);
 
         const { data } = await this.client.post('/materials/scan', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },

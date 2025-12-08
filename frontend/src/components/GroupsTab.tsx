@@ -28,10 +28,10 @@ interface Material {
 interface GroupsTabProps {
     groups: Group[];
     onRefresh: () => void;
-    onUploadToGroup?: (groupId: string) => void;  // ДОБАВЬ
+    onUploadToGroup?: (groupId: string) => void;
 }
 
-export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
+export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isJoinOpen, setIsJoinOpen] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -96,7 +96,7 @@ export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
         setGroupMaterials([]);
     };
 
-    // Если открыта группа - показываем её содержимое
+    // Если открыта группа
     if (selectedGroup) {
         return (
             <section className="space-y-4">
@@ -113,21 +113,19 @@ export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
                             {selectedGroup.member_count} участников • Код: {selectedGroup.invite_code}
                         </p>
                     </div>
-                    {/* ДОБАВЬ ЭТУ КНОПКУ */}
-                    <button
-                        onClick={() => {
-                            // Открываем модал загрузки с group_id
-                            telegram.haptic('medium');
-                            // Передаём в родительский компонент
-                            onUploadToGroup?.(selectedGroup.id);
-                        }}
-                        className="p-2 bg-tg-button text-tg-button-text rounded-lg"
-                    >
-                        <Plus className="w-5 h-5" />
-                    </button>
+
+                    {onUploadToGroup && (
+                        <button
+                            onClick={() => {
+                                telegram.haptic('medium');
+                                onUploadToGroup(selectedGroup.id);
+                            }}
+                            className="p-2 bg-tg-button text-tg-button-text rounded-lg"
+                        >
+                            <Plus className="w-5 h-5" />
+                        </button>
+                    )}
                 </div>
-
-
 
                 {isLoadingMaterials ? (
                     <div className="flex justify-center py-8">
@@ -149,15 +147,22 @@ export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
                     <Card className="text-center py-8">
                         <Users className="w-12 h-12 text-tg-hint mx-auto mb-2" />
                         <p className="text-tg-hint mb-2">В группе пока нет материалов</p>
-                        <p className="text-sm text-tg-hint">
-                            Загрузите материал и выберите эту группу
-                        </p>
+                        {onUploadToGroup && (
+                            <Button
+                                onClick={() => onUploadToGroup(selectedGroup.id)}
+                                className="mt-2"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Добавить материал
+                            </Button>
+                        )}
                     </Card>
                 )}
             </section>
         );
     }
 
+    // Список групп
     return (
         <section className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
@@ -241,9 +246,6 @@ export function GroupsTab({ groups, onRefresh }: GroupsTabProps) {
                 <Card className="text-center py-8">
                     <Users className="w-12 h-12 text-tg-hint mx-auto mb-2" />
                     <p className="text-tg-hint mb-4">У вас пока нет групп</p>
-                    <p className="text-sm text-tg-hint">
-                        Создайте группу для совместного обучения
-                    </p>
                 </Card>
             )}
 
@@ -274,10 +276,9 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
 
     const handleCreate = async () => {
         if (!name.trim()) {
-            telegram.alert('Введите название группы');
+            telegram.alert('Введите название');
             return;
         }
-
         setIsLoading(true);
         try {
             await api.createGroup(name.trim(), description.trim() || undefined);
@@ -297,36 +298,24 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-md p-6">
                 <h2 className="text-lg font-semibold mb-4">Создать группу</h2>
-
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Название</label>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Подготовка к экзамену"
-                            className="w-full px-3 py-2 border rounded-lg bg-tg-secondary"
-                            maxLength={100}
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Описание</label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Описание группы..."
-                            className="w-full px-3 py-2 border rounded-lg bg-tg-secondary resize-none"
-                            rows={3}
-                        />
-                    </div>
+                    <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Название группы"
+                        className="w-full px-3 py-2 border rounded-lg bg-tg-secondary"
+                    />
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Описание (опционально)"
+                        className="w-full px-3 py-2 border rounded-lg bg-tg-secondary resize-none"
+                        rows={3}
+                    />
                 </div>
-
                 <div className="flex gap-2 mt-6">
-                    <Button variant="secondary" onClick={onClose} className="flex-1">
-                        Отмена
-                    </Button>
+                    <Button variant="secondary" onClick={onClose} className="flex-1">Отмена</Button>
                     <Button onClick={handleCreate} disabled={isLoading} className="flex-1">
                         {isLoading ? <Spinner size="sm" /> : 'Создать'}
                     </Button>
@@ -351,7 +340,6 @@ function JoinGroupModal({ isOpen, onClose, onJoined }: {
             telegram.alert('Введите код');
             return;
         }
-
         setIsLoading(true);
         try {
             const result = await api.joinGroup(code.trim());
@@ -371,23 +359,15 @@ function JoinGroupModal({ isOpen, onClose, onJoined }: {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <Card className="w-full max-w-md p-6">
                 <h2 className="text-lg font-semibold mb-4">Вступить в группу</h2>
-
-                <div>
-                    <label className="block text-sm font-medium mb-1">Код приглашения</label>
-                    <input
-                        type="text"
-                        value={code}
-                        onChange={(e) => setCode(e.target.value.toUpperCase())}
-                        placeholder="XXXXXXXX"
-                        className="w-full px-3 py-2 border rounded-lg bg-tg-secondary text-center font-mono text-lg"
-                        maxLength={20}
-                    />
-                </div>
-
+                <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="Код приглашения"
+                    className="w-full px-3 py-2 border rounded-lg bg-tg-secondary text-center font-mono text-lg"
+                />
                 <div className="flex gap-2 mt-6">
-                    <Button variant="secondary" onClick={onClose} className="flex-1">
-                        Отмена
-                    </Button>
+                    <Button variant="secondary" onClick={onClose} className="flex-1">Отмена</Button>
                     <Button onClick={handleJoin} disabled={isLoading} className="flex-1">
                         {isLoading ? <Spinner size="sm" /> : 'Вступить'}
                     </Button>
