@@ -139,6 +139,19 @@ class TelegramService {
         }
     }
 
+    showPopup(params: {
+        title?: string;
+        message: string;
+        buttons?: Array<{ type: 'ok' | 'close' | 'cancel'; text?: string }>;
+    }): void {
+        if (this.webApp?.showPopup) {
+            this.webApp.showPopup(params);
+        } else {
+            // Fallback для браузера
+            alert(params.title ? `${params.title}\n\n${params.message}` : params.message);
+        }
+    }
+
     hideMainButton() {
         if (!this.isRealTelegram) return;
         try {
