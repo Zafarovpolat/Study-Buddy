@@ -1,5 +1,6 @@
 // frontend/src/components/UploadModal.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
-import { useState, useRef, useEffect } from 'react';
+
+import { useState, useEffect } from 'react';
 import { X, Upload, FileText, Type, Camera, Image, ChevronDown, Users, User, Folder, Sparkles } from 'lucide-react';
 import { Button, Input, Textarea, Card } from './ui';
 import { api } from '../lib/api';
@@ -11,7 +12,7 @@ interface UploadModalProps {
     onClose: () => void;
     folderId?: string;
     groupId?: string;
-    initialMode?: 'file' | 'scan' | 'text' | 'topic';  // ДОБАВЛЕНО
+    initialMode?: 'file' | 'scan' | 'text' | 'topic';
 }
 
 type UploadMode = 'file' | 'text' | 'scan' | 'topic';
@@ -24,18 +25,14 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
     const [mode, setMode] = useState<UploadMode>(initialMode);
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
-    const [topicName, setTopicName] = useState('');  // Для генерации по теме
+    const [topicName, setTopicName] = useState('');
     const [file, setFile] = useState<File | null>(null);
+    const [filePreview, setFilePreview] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [showTargetDropdown, setShowTargetDropdown] = useState(false);
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const galleryInputRef = useRef<HTMLInputElement>(null);
-
-
     const { groups, folders } = useStore();
 
-    // Определяем начальную цель загрузки
     const getInitialTarget = (): UploadTarget => {
         if (groupId) {
             const group = groups.find(g => g.id === groupId);
@@ -54,34 +51,101 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
 
     const [uploadTarget, setUploadTarget] = useState<UploadTarget>(getInitialTarget);
 
-    // Обновляем mode и target при открытии
     useEffect(() => {
         if (isOpen) {
-            setMode(initialMode);  // ВАЖНО: устанавливаем режим при открытии
+            setMode(initialMode);
             setUploadTarget(getInitialTarget());
         }
     }, [isOpen, initialMode, folderId, groupId, groups, folders]);
 
+    // Очистка превью при размонтировании
+    useEffect(() => {
+        return () => {
+            if (filePreview) {
+                URL.revokeObjectURL(filePreview);
+            }
+        };
+    }, [filePreview]);
+
     if (!isOpen) return null;
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            if (!title) {
-                setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
+    // ===== ОТКРЫТИЕ КАМЕРЫ (динамический input) =====
+    const openCamera = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.capture = 'environment'; // Задняя камера
+
+        input.onchange = (e) => {
+            const target = e.target as HTMLInputElement;
+            const selectedFile = target.files?.[0];
+            if (selectedFile) {
+                handleImageSelected(selectedFile);
             }
-        }
+        };
+
+        input.click();
     };
 
-    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            if (!title) {
-                setTitle('Скан: ' + new Date().toLocaleDateString('ru-RU'));
+    // ===== ОТКРЫТИЕ ГАЛЕРЕИ (динамический input) =====
+    const openGallery = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/png,image/webp,image/jpg';
+        // БЕЗ capture - открывает галерею
+
+        input.onchange = (e) => {
+            const target = e.target as HTMLInputElement;
+            const selectedFile = target.files?.[0];
+            if (selectedFile) {
+                handleImageSelected(selectedFile);
             }
+        };
+
+        input.click();
+    };
+
+    // ===== ОТКРЫТИЕ ВЫБОРА ФАЙЛА =====
+    const openFileSelector = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.docx,.doc,.txt';
+
+        input.onchange = (e) => {
+            const target = e.target as HTMLInputElement;
+            const selectedFile = target.files?.[0];
+            if (selectedFile) {
+                setFile(selectedFile);
+                if (!title) {
+                    setTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
+                }
+            }
+        };
+
+        input.click();
+    };
+
+    // ===== ОБРАБОТКА ВЫБРАННОГО ИЗОБРАЖЕНИЯ =====
+    const handleImageSelected = (selectedFile: File) => {
+        setFile(selectedFile);
+
+        // Создаём превью
+        const url = URL.createObjectURL(selectedFile);
+        setFilePreview(url);
+
+        if (!title) {
+            setTitle('Скан: ' + new Date().toLocaleDateString('ru-RU'));
         }
+
+        telegram.haptic('light');
+    };
+
+    const clearFile = () => {
+        if (filePreview) {
+            URL.revokeObjectURL(filePreview);
+        }
+        setFile(null);
+        setFilePreview(null);
     };
 
     const handleSelectTarget = (target: UploadTarget) => {
@@ -89,8 +153,6 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
         setShowTargetDropdown(false);
         telegram.haptic('light');
     };
-
-    // frontend/src/components/UploadModal.tsx - НАЙДИ функцию handleSubmit и ЗАМЕНИ
 
     const handleSubmit = async () => {
         try {
@@ -136,26 +198,14 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     ? `папку "${uploadTarget.name}"`
                     : 'личную библиотеку';
 
-            // Сначала закрываем модал, потом показываем уведомление
             resetForm();
             onClose();
-
-            // Показываем уведомление после закрытия
-            setTimeout(() => {
-                telegram.alert(`✅ Материал загружен в ${targetName}`);
-            }, 100);
 
         } catch (error: any) {
             console.error('Upload error:', error);
             telegram.haptic('error');
-
-            // Проверяем, действительно ли это ошибка
             const errorMessage = error.response?.data?.detail || error.message || 'Ошибка загрузки';
-
-            // Не показываем ошибку если статус 200 или материал создан
-            if (error.response?.status !== 200) {
-                telegram.alert(errorMessage);
-            }
+            telegram.alert(errorMessage);
         } finally {
             setIsLoading(false);
         }
@@ -165,7 +215,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
         setTitle('');
         setContent('');
         setTopicName('');
-        setFile(null);
+        clearFile();
         setMode('file');
         setShowTargetDropdown(false);
     };
@@ -227,7 +277,6 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         <ChevronDown className={`w-5 h-5 text-tg-hint transition-transform ${showTargetDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
-                    {/* Dropdown Menu */}
                     {showTargetDropdown && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-10 overflow-hidden max-h-64 overflow-y-auto">
                             <button
@@ -292,12 +341,12 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     )}
                 </div>
 
-                {/* Mode Selector - ОБНОВЛЕНО с 4 режимами */}
+                {/* Mode Selector */}
                 <div className="grid grid-cols-4 gap-2 mb-6">
                     <Button
                         variant={mode === 'file' ? 'primary' : 'secondary'}
                         className="flex-1 px-2"
-                        onClick={() => { setMode('file'); setFile(null); }}
+                        onClick={() => { setMode('file'); clearFile(); }}
                     >
                         <Upload className="w-4 h-4" />
                         <span className="hidden sm:inline ml-1">Файл</span>
@@ -305,7 +354,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     <Button
                         variant={mode === 'scan' ? 'primary' : 'secondary'}
                         className="flex-1 px-2"
-                        onClick={() => { setMode('scan'); setFile(null); }}
+                        onClick={() => { setMode('scan'); clearFile(); }}
                     >
                         <Camera className="w-4 h-4" />
                         <span className="hidden sm:inline ml-1">Скан</span>
@@ -313,7 +362,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     <Button
                         variant={mode === 'text' ? 'primary' : 'secondary'}
                         className="flex-1 px-2"
-                        onClick={() => { setMode('text'); setFile(null); }}
+                        onClick={() => { setMode('text'); clearFile(); }}
                     >
                         <Type className="w-4 h-4" />
                         <span className="hidden sm:inline ml-1">Текст</span>
@@ -321,7 +370,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     <Button
                         variant={mode === 'topic' ? 'primary' : 'secondary'}
                         className="flex-1 px-2"
-                        onClick={() => { setMode('topic'); setFile(null); }}
+                        onClick={() => { setMode('topic'); clearFile(); }}
                     >
                         <Sparkles className="w-4 h-4" />
                         <span className="hidden sm:inline ml-1">Тема</span>
@@ -331,17 +380,10 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 {/* File Upload */}
                 {mode === 'file' && (
                     <div className="space-y-4">
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".pdf,.docx,.doc,.txt"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                        />
                         <Card
                             variant="outlined"
                             className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={openFileSelector}
                         >
                             <div className="py-8 text-center">
                                 {file ? (
@@ -368,22 +410,13 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     </div>
                 )}
 
-                {/* Scan */}
+                {/* Scan - НОВАЯ РЕАЛИЗАЦИЯ */}
                 {mode === 'scan' && (
                     <div className="space-y-4">
-                        {/* Единый input для изображений */}
-                        <input
-                            ref={galleryInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/jpg"
-                            onChange={handleImageSelect}
-                            className="hidden"
-                        />
-
-                        {file ? (
+                        {file && filePreview ? (
                             <Card variant="outlined" className="overflow-hidden">
                                 <img
-                                    src={URL.createObjectURL(file)}
+                                    src={filePreview}
                                     alt="Preview"
                                     className="w-full h-48 object-cover"
                                 />
@@ -393,7 +426,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                                         {(file.size / 1024 / 1024).toFixed(2)} MB
                                     </p>
                                     <button
-                                        onClick={() => setFile(null)}
+                                        onClick={clearFile}
                                         className="text-sm text-red-500 mt-2"
                                     >
                                         Удалить
@@ -401,22 +434,31 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                                 </div>
                             </Card>
                         ) : (
-                            <Card
-                                variant="outlined"
-                                className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                                onClick={() => galleryInputRef.current?.click()}
-                            >
-                                <div className="py-10 text-center">
-                                    <div className="flex justify-center gap-4 mb-3">
-                                        <Camera className="w-10 h-10 text-tg-button" />
-                                        <Image className="w-10 h-10 text-tg-button" />
+                            <div className="grid grid-cols-2 gap-3">
+                                <Card
+                                    variant="outlined"
+                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors active:scale-95"
+                                    onClick={openCamera}
+                                >
+                                    <div className="py-6 text-center">
+                                        <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
+                                        <p className="font-medium text-sm">Камера</p>
+                                        <p className="text-xs text-tg-hint mt-1">Сделать фото</p>
                                     </div>
-                                    <p className="font-medium">Выбрать изображение</p>
-                                    <p className="text-sm text-tg-hint mt-1">
-                                        Сделайте фото или выберите из галереи
-                                    </p>
-                                </div>
-                            </Card>
+                                </Card>
+
+                                <Card
+                                    variant="outlined"
+                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors active:scale-95"
+                                    onClick={openGallery}
+                                >
+                                    <div className="py-6 text-center">
+                                        <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
+                                        <p className="font-medium text-sm">Галерея</p>
+                                        <p className="text-xs text-tg-hint mt-1">Выбрать фото</p>
+                                    </div>
+                                </Card>
+                            </div>
                         )}
 
                         <Input
@@ -427,7 +469,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         />
 
                         <p className="text-xs text-tg-hint">
-                            💡 AI распознает текст с фото. На мобильном устройстве система предложит выбор: камера или галерея.
+                            💡 AI распознает текст с фото
                         </p>
                     </div>
                 )}
@@ -435,12 +477,23 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 {/* Text */}
                 {mode === 'text' && (
                     <div className="space-y-4">
-                        <Input label="Название" placeholder="Введите название" value={title} onChange={(e) => setTitle(e.target.value)} />
-                        <Textarea label="Текст материала" placeholder="Вставьте или введите текст..." value={content} onChange={(e) => setContent(e.target.value)} rows={8} />
+                        <Input
+                            label="Название"
+                            placeholder="Введите название"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+                        <Textarea
+                            label="Текст материала"
+                            placeholder="Вставьте или введите текст..."
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            rows={8}
+                        />
                     </div>
                 )}
 
-                {/* Topic - НОВЫЙ РЕЖИМ */}
+                {/* Topic */}
                 {mode === 'topic' && (
                     <div className="space-y-4">
                         <div className="p-4 bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-xl">
@@ -449,17 +502,17 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                                 <span className="font-medium">AI Генерация</span>
                             </div>
                             <p className="text-sm text-tg-hint">
-                                Введите название темы, и AI сгенерирует полный учебный материал с конспектом, тестами и карточками
+                                Введите название темы, и AI сгенерирует полный учебный материал
                             </p>
                         </div>
                         <Input
                             label="Название темы"
-                            placeholder="Например: Квантовая физика, Вторая мировая война..."
+                            placeholder="Например: Квантовая физика..."
                             value={topicName}
                             onChange={(e) => setTopicName(e.target.value)}
                         />
                         <p className="text-xs text-tg-hint">
-                            ✨ AI создаст: конспект, краткое содержание, тест (15-20 вопросов), глоссарий и флэш-карточки
+                            ✨ AI создаст: конспект, тест (15-20 вопросов), глоссарий и карточки
                         </p>
                     </div>
                 )}
@@ -481,12 +534,10 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     {mode === 'topic'
                         ? '✨ Сгенерировать материал'
                         : uploadTarget.type === 'group'
-                            ? `👥 Загрузить в "${uploadTarget.name}"`
-                            : uploadTarget.type === 'folder'
-                                ? `📁 Загрузить в "${uploadTarget.name}"`
-                                : mode === 'scan'
-                                    ? '📷 Сканировать'
-                                    : '📤 Загрузить'
+                            ? `👥 Загрузить`
+                            : mode === 'scan'
+                                ? '📷 Сканировать'
+                                : '📤 Загрузить'
                     }
                 </Button>
             </div>
