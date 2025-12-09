@@ -190,8 +190,6 @@ export function HomePage() {
                             <InviteBanner />
                         )}
 
-                        // Найди секцию Quick Actions и замени:
-
                         {/* Quick Actions */}
                         {!currentFolderId && (
                             <section>

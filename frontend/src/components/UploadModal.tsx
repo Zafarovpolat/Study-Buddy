@@ -357,36 +357,80 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 {/* Scan */}
                 {mode === 'scan' && (
                     <div className="space-y-4">
-                        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageSelect} className="hidden" />
-                        <input ref={galleryInputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" onChange={handleImageSelect} className="hidden" />
+                        <input
+                            ref={cameraInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                        />
+                        <input
+                            ref={galleryInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageSelect}
+                            className="hidden"
+                        />
 
                         {file ? (
                             <Card variant="outlined" className="overflow-hidden">
-                                <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-48 object-cover" />
+                                <img
+                                    src={URL.createObjectURL(file)}
+                                    alt="Preview"
+                                    className="w-full h-48 object-cover"
+                                />
                                 <div className="p-3 text-center">
                                     <p className="font-medium">Фото выбрано</p>
-                                    <p className="text-sm text-tg-hint">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                                    <button onClick={() => setFile(null)} className="text-sm text-red-500 mt-2">Удалить</button>
+                                    <p className="text-sm text-tg-hint">
+                                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                    <button
+                                        onClick={() => setFile(null)}
+                                        className="text-sm text-red-500 mt-2"
+                                    >
+                                        Удалить
+                                    </button>
                                 </div>
                             </Card>
                         ) : (
                             <div className="grid grid-cols-2 gap-3">
-                                <Card variant="outlined" className="border-dashed cursor-pointer hover:border-tg-button transition-colors" onClick={() => cameraInputRef.current?.click()}>
+                                <Card
+                                    variant="outlined"
+                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                                    onClick={() => cameraInputRef.current?.click()}
+                                >
                                     <div className="py-6 text-center">
                                         <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
                                         <p className="font-medium text-sm">Камера</p>
+                                        <p className="text-xs text-tg-hint mt-1">Сделать фото</p>
                                     </div>
                                 </Card>
-                                <Card variant="outlined" className="border-dashed cursor-pointer hover:border-tg-button transition-colors" onClick={() => galleryInputRef.current?.click()}>
+
+                                <Card
+                                    variant="outlined"
+                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                                    onClick={() => galleryInputRef.current?.click()}
+                                >
                                     <div className="py-6 text-center">
                                         <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
                                         <p className="font-medium text-sm">Галерея</p>
+                                        <p className="text-xs text-tg-hint mt-1">Выбрать фото</p>
                                     </div>
                                 </Card>
                             </div>
                         )}
-                        <Input label="Название (опционально)" placeholder="Тема лекции..." value={title} onChange={(e) => setTitle(e.target.value)} />
-                        <p className="text-xs text-tg-hint">💡 AI распознает текст с фото</p>
+
+                        <Input
+                            label="Название (опционально)"
+                            placeholder="Тема лекции..."
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                        />
+
+                        <p className="text-xs text-tg-hint">
+                            💡 AI распознает текст с фото
+                        </p>
                     </div>
                 )}
 

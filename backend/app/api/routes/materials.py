@@ -22,6 +22,10 @@ class UpdateMaterialRequest(BaseModel):
     title: Optional[str] = None
     folder_id: Optional[UUID] = None
 
+class GenerateFromTopicRequest(BaseModel):
+    topic: str
+    folder_id: Optional[str] = None
+    group_id: Optional[str] = None
 
 # ==================== Upload Endpoints ====================
 
@@ -321,6 +325,67 @@ async def update_material(
     
     return material
 
+@router.post("/generate-from-topic", response_model=MaterialResponse)
+async def generate_from_topic(
+    request: GenerateFromTopicRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сгенерировать материал по названию темы"""
+    from app.services.ai_service import gemini_service
+    from app.services.text_extractor import clean_text_for_db
+    
+    user_service = UserService(db)
+    can_proceed, _ = await user_service.check_rate_limit(current_user)
+    
+    if not can_proceed:
+        raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
+    
+    if len(request.topic.strip()) < 3:
+        raise HTTPException(status_code=400, detail="Название темы слишком короткое")
+    
+    target_folder_id = None
+    if request.folder_id:
+        target_folder_id = UUID(request.folder_id)
+    
+    if request.group_id:
+        from app.services.group_service import GroupService
+        group_service = GroupService(db)
+        groups = await group_service.get_user_groups(current_user)
+        if not any(g["id"] == request.group_id for g in groups):
+            raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+        target_folder_id = UUID(request.group_id)
+    
+    print(f"🎯 Generating content for topic: {request.topic}")
+    
+    try:
+        generated_content = await gemini_service.generate_content_from_topic(request.topic)
+        generated_content = clean_text_for_db(generated_content)
+    except Exception as e:
+        print(f"❌ AI generation error: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка генерации контента")
+    
+    material_service = MaterialService(db)
+    
+    material = await material_service.create_material(
+        user=current_user,
+        title=request.topic,
+        material_type=MaterialType.TXT,
+        folder_id=target_folder_id,
+        raw_content=generated_content
+    )
+    
+    await user_service.increment_request_count(current_user)
+    
+    try:
+        from app.services.processing_service import ProcessingService
+        processing_service = ProcessingService(db)
+        await processing_service.process_material(material)
+        await db.refresh(material)
+    except Exception as e:
+        print(f"Processing error: {e}")
+    
+    return material
 
 @router.patch("/{material_id}/move-to-root", response_model=MaterialResponse)
 async def move_material_to_root(
