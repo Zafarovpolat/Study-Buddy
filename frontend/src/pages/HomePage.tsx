@@ -303,6 +303,7 @@ export function HomePage() {
                                     </Button>
                                 </Card>
                             )}
+
                         </section>
                     </>
                 ) : (

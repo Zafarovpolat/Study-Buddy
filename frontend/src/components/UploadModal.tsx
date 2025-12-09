@@ -1,6 +1,6 @@
 // frontend/src/components/UploadModal.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState, useRef, useEffect } from 'react';
-import { X, Upload, FileText, Type, Camera, Image, ChevronDown, Users, User } from 'lucide-react';
+import { X, Upload, FileText, Type, Camera, Image, ChevronDown, Users, User, Folder } from 'lucide-react';
 import { Button, Input, Textarea, Card } from './ui';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
@@ -10,13 +10,16 @@ interface UploadModalProps {
     isOpen: boolean;
     onClose: () => void;
     folderId?: string;
-    groupId?: string;  // Предустановленная группа (если открыли из группы)
+    groupId?: string;
 }
 
 type UploadMode = 'file' | 'text' | 'scan';
-type UploadTarget = { type: 'personal'; id?: string } | { type: 'group'; id: string; name: string };
+type UploadTarget =
+    | { type: 'personal'; id?: undefined }
+    | { type: 'folder'; id: string; name: string }
+    | { type: 'group'; id: string; name: string };
 
-export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId }: UploadModalProps) {
+export function UploadModal({ isOpen, onClose, folderId, groupId }: UploadModalProps) {
     const [mode, setMode] = useState<UploadMode>('file');
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
@@ -28,25 +31,36 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
-    const { groups, addMaterial, setLimits } = useStore();
+    const { groups, folders } = useStore();
 
     // Определяем начальную цель загрузки
     const getInitialTarget = (): UploadTarget => {
-        if (initialGroupId) {
-            const group = groups.find(g => g.id === initialGroupId);
+        // Если передан groupId - загружаем в группу
+        if (groupId) {
+            const group = groups.find(g => g.id === groupId);
             if (group) {
                 return { type: 'group', id: group.id, name: group.name };
             }
         }
+        // Если передан folderId - загружаем в папку
+        if (folderId) {
+            const folder = folders.find(f => f.id === folderId);
+            if (folder) {
+                return { type: 'folder', id: folder.id, name: folder.name };
+            }
+        }
+        // По умолчанию - личная библиотека
         return { type: 'personal' };
     };
 
     const [uploadTarget, setUploadTarget] = useState<UploadTarget>(getInitialTarget);
 
-    // Обновляем target при изменении initialGroupId
+    // Обновляем target при изменении props
     useEffect(() => {
-        setUploadTarget(getInitialTarget());
-    }, [initialGroupId, groups]);
+        if (isOpen) {
+            setUploadTarget(getInitialTarget());
+        }
+    }, [isOpen, folderId, groupId, groups, folders]);
 
     if (!isOpen) return null;
 
@@ -81,18 +95,27 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
             setIsLoading(true);
             telegram.haptic('medium');
 
-            const targetGroupId = uploadTarget.type === 'group' ? uploadTarget.id : undefined;
+            // Определяем folder_id и group_id
+            let targetFolderId: string | undefined;
+            let targetGroupId: string | undefined;
+
+            if (uploadTarget.type === 'folder') {
+                targetFolderId = uploadTarget.id;
+            } else if (uploadTarget.type === 'group') {
+                targetGroupId = uploadTarget.id;
+            }
+
             let material;
 
             if (mode === 'file' && file) {
-                material = await api.uploadFile(file, title || file.name, folderId, targetGroupId);
+                material = await api.uploadFile(file, title || file.name, targetFolderId, targetGroupId);
             } else if (mode === 'scan' && file) {
-                material = await api.scanImage(file, title || 'Скан', folderId, targetGroupId);
+                material = await api.scanImage(file, title || 'Скан', targetFolderId, targetGroupId);
             } else if (mode === 'text' && content.trim()) {
                 material = await api.createTextMaterial(
                     title || 'Без названия',
                     content,
-                    folderId,
+                    targetFolderId,
                     targetGroupId
                 );
             } else {
@@ -100,22 +123,16 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
                 return;
             }
 
-            addMaterial(material);
-
-            const limits = await api.getMyLimits();
-            setLimits(limits);
-
             telegram.haptic('success');
 
-            // Показываем уведомление об успехе
+            // Уведомление об успехе
             const targetName = uploadTarget.type === 'group'
                 ? `группу "${uploadTarget.name}"`
-                : 'личную библиотеку';
-            telegram.showPopup({
-                title: '✅ Готово!',
-                message: `Материал загружен в ${targetName}`,
-                buttons: [{ type: 'ok' }]
-            });
+                : uploadTarget.type === 'folder'
+                    ? `папку "${uploadTarget.name}"`
+                    : 'личную библиотеку';
+
+            telegram.alert(`✅ Материал загружен в ${targetName}`);
 
             onClose();
             resetForm();
@@ -132,8 +149,30 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
         setContent('');
         setFile(null);
         setMode('file');
-        setUploadTarget(getInitialTarget());
         setShowTargetDropdown(false);
+    };
+
+    // Иконка для текущего target
+    const getTargetIcon = () => {
+        switch (uploadTarget.type) {
+            case 'group':
+                return <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
+            case 'folder':
+                return <Folder className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+            default:
+                return <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+        }
+    };
+
+    const getTargetBgClass = () => {
+        switch (uploadTarget.type) {
+            case 'group':
+                return 'bg-purple-100 dark:bg-purple-900/30';
+            case 'folder':
+                return 'bg-blue-100 dark:bg-blue-900/30';
+            default:
+                return 'bg-blue-100 dark:bg-blue-900/30';
+        }
     };
 
     return (
@@ -150,7 +189,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
                     </button>
                 </div>
 
-                {/* ===== DROPDOWN ВЫБОРА МЕСТА ЗАГРУЗКИ ===== */}
+                {/* Dropdown выбора места загрузки */}
                 <div className="mb-4 relative">
                     <label className="block text-sm font-medium text-tg-hint mb-2">
                         Загрузить в:
@@ -161,28 +200,21 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
                         className="w-full flex items-center justify-between p-3 bg-tg-secondary rounded-xl border border-transparent hover:border-tg-button transition-colors"
                     >
                         <div className="flex items-center gap-3">
-                            {uploadTarget.type === 'personal' ? (
-                                <>
-                                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                        <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <span className="font-medium">Личная библиотека</span>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                                        <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                                    </div>
-                                    <span className="font-medium">{uploadTarget.name}</span>
-                                </>
-                            )}
+                            <div className={`w-8 h-8 ${getTargetBgClass()} rounded-full flex items-center justify-center`}>
+                                {getTargetIcon()}
+                            </div>
+                            <span className="font-medium">
+                                {uploadTarget.type === 'personal'
+                                    ? 'Личная библиотека'
+                                    : uploadTarget.name}
+                            </span>
                         </div>
                         <ChevronDown className={`w-5 h-5 text-tg-hint transition-transform ${showTargetDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
                     {/* Dropdown Menu */}
                     {showTargetDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-10 overflow-hidden">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-10 overflow-hidden max-h-64 overflow-y-auto">
                             {/* Личная библиотека */}
                             <button
                                 type="button"
@@ -199,44 +231,65 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
                                 )}
                             </button>
 
-                            {/* Разделитель если есть группы */}
-                            {groups.length > 0 && (
-                                <div className="border-t border-tg-secondary">
-                                    <div className="px-3 py-2 text-xs text-tg-hint uppercase tracking-wider">
-                                        Группы
+                            {/* Папки */}
+                            {folders.length > 0 && (
+                                <>
+                                    <div className="border-t border-tg-secondary">
+                                        <div className="px-3 py-2 text-xs text-tg-hint uppercase tracking-wider">
+                                            Папки
+                                        </div>
                                     </div>
-                                </div>
+                                    {folders.map((folder) => (
+                                        <button
+                                            key={folder.id}
+                                            type="button"
+                                            onClick={() => handleSelectTarget({ type: 'folder', id: folder.id, name: folder.name })}
+                                            className={`w-full flex items-center gap-3 p-3 hover:bg-tg-secondary transition-colors ${uploadTarget.type === 'folder' && uploadTarget.id === folder.id ? 'bg-tg-secondary' : ''
+                                                }`}
+                                        >
+                                            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                                                <Folder className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                            </div>
+                                            <span className="font-medium">{folder.name}</span>
+                                            {uploadTarget.type === 'folder' && uploadTarget.id === folder.id && (
+                                                <span className="ml-auto text-tg-button">✓</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </>
                             )}
 
-                            {/* Список групп */}
-                            {groups.map((group) => (
-                                <button
-                                    key={group.id}
-                                    type="button"
-                                    onClick={() => handleSelectTarget({ type: 'group', id: group.id, name: group.name })}
-                                    className={`w-full flex items-center gap-3 p-3 hover:bg-tg-secondary transition-colors ${uploadTarget.type === 'group' && uploadTarget.id === group.id ? 'bg-tg-secondary' : ''
-                                        }`}
-                                >
-                                    <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                                        <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                            {/* Группы */}
+                            {groups.length > 0 && (
+                                <>
+                                    <div className="border-t border-tg-secondary">
+                                        <div className="px-3 py-2 text-xs text-tg-hint uppercase tracking-wider">
+                                            Группы
+                                        </div>
                                     </div>
-                                    <div className="flex-1 text-left">
-                                        <span className="font-medium">{group.name}</span>
-                                        <span className="text-xs text-tg-hint ml-2">
-                                            {group.member_count} чел.
-                                        </span>
-                                    </div>
-                                    {uploadTarget.type === 'group' && uploadTarget.id === group.id && (
-                                        <span className="text-tg-button">✓</span>
-                                    )}
-                                </button>
-                            ))}
-
-                            {/* Если нет групп */}
-                            {groups.length === 0 && (
-                                <div className="p-3 text-center text-tg-hint text-sm">
-                                    У вас пока нет групп
-                                </div>
+                                    {groups.map((group) => (
+                                        <button
+                                            key={group.id}
+                                            type="button"
+                                            onClick={() => handleSelectTarget({ type: 'group', id: group.id, name: group.name })}
+                                            className={`w-full flex items-center gap-3 p-3 hover:bg-tg-secondary transition-colors ${uploadTarget.type === 'group' && uploadTarget.id === group.id ? 'bg-tg-secondary' : ''
+                                                }`}
+                                        >
+                                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                                                <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                            </div>
+                                            <div className="flex-1 text-left">
+                                                <span className="font-medium">{group.name}</span>
+                                                <span className="text-xs text-tg-hint ml-2">
+                                                    {group.member_count} чел.
+                                                </span>
+                                            </div>
+                                            {uploadTarget.type === 'group' && uploadTarget.id === group.id && (
+                                                <span className="text-tg-button">✓</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </>
                             )}
                         </div>
                     )}
@@ -428,9 +481,11 @@ export function UploadModal({ isOpen, onClose, folderId, groupId: initialGroupId
                 >
                     {uploadTarget.type === 'group'
                         ? `👥 Загрузить в "${uploadTarget.name}"`
-                        : mode === 'scan'
-                            ? '📷 Сканировать'
-                            : '📤 Загрузить'
+                        : uploadTarget.type === 'folder'
+                            ? `📁 Загрузить в "${uploadTarget.name}"`
+                            : mode === 'scan'
+                                ? '📷 Сканировать'
+                                : '📤 Загрузить'
                     }
                 </Button>
             </div>
