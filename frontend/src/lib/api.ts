@@ -216,6 +216,17 @@ class ApiClient {
         const { data } = await this.client.post('/groups/referral/generate');
         return data;
     }
+
+    // Materials - Update
+    async updateMaterial(materialId: string, data: { title?: string; folder_id?: string }) {
+        const { data: result } = await this.client.patch(`/materials/${materialId}`, data);
+        return result;
+    }
+
+    async moveMaterialToRoot(materialId: string) {
+        const { data } = await this.client.patch(`/materials/${materialId}/move-to-root`);
+        return data;
+    }
 }
 
 // Создаём и экспортируем синглтон

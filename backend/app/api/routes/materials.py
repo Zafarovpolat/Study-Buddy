@@ -5,8 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from uuid import UUID
+from pydantic import BaseModel
 
-from app.models import get_db, User, Material, AIOutput, ProcessingStatus, MaterialType
+from app.models import get_db, User, Material, Folder, AIOutput, ProcessingStatus, MaterialType
 from app.services import UserService, MaterialService
 from app.api.schemas import MaterialResponse, MaterialDetailResponse, SuccessResponse
 from app.api.deps import get_current_user
@@ -14,6 +15,15 @@ from app.core.config import settings
 
 router = APIRouter(prefix="/materials", tags=["materials"])
 
+
+# ==================== Schemas ====================
+
+class UpdateMaterialRequest(BaseModel):
+    title: Optional[str] = None
+    folder_id: Optional[UUID] = None
+
+
+# ==================== Upload Endpoints ====================
 
 @router.post("/upload", response_model=MaterialResponse)
 async def upload_material(
@@ -91,7 +101,6 @@ async def create_text_material(
     if not can_proceed:
         raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
     
-    # Проверяем минимальную длину текста
     if len(content.strip()) < 10:
         raise HTTPException(status_code=400, detail="Текст слишком короткий (минимум 10 символов)")
     
@@ -116,7 +125,6 @@ async def create_text_material(
     
     await user_service.increment_request_count(current_user)
     
-    # Автоматическая обработка
     try:
         from app.services.processing_service import ProcessingService
         processing_service = ProcessingService(db)
@@ -124,7 +132,6 @@ async def create_text_material(
         await db.refresh(material)
     except Exception as e:
         print(f"Processing error: {e}")
-        # Не падаем - материал создан, можно сгенерировать вручную
     
     return material
 
@@ -191,6 +198,8 @@ async def scan_image(
     return material
 
 
+# ==================== Get Endpoints ====================
+
 @router.get("/", response_model=List[MaterialResponse])
 async def list_materials(
     folder_id: Optional[UUID] = None,
@@ -243,7 +252,6 @@ async def get_material(
 ):
     """Получить материал с AI-выводами"""
     
-    # Загружаем материал С outputs через selectinload
     result = await db.execute(
         select(Material)
         .options(selectinload(Material.outputs))
@@ -254,13 +262,11 @@ async def get_material(
     if not material:
         raise HTTPException(status_code=404, detail="Материал не найден")
     
-    # Проверяем доступ - владелец или участник группы
     has_access = False
     
     if material.user_id == current_user.id:
         has_access = True
     elif material.folder_id:
-        # Проверяем членство в группе
         from app.services.group_service import GroupService
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
@@ -273,7 +279,94 @@ async def get_material(
     return material
 
 
-# backend/app/api/routes/materials.py - ДОБАВЬ временно
+# ==================== Update/Delete Endpoints ====================
+
+@router.patch("/{material_id}", response_model=MaterialResponse)
+async def update_material(
+    material_id: UUID,
+    request: UpdateMaterialRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Обновить материал (название, папка)"""
+    
+    result = await db.execute(
+        select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id
+        )
+    )
+    material = result.scalar_one_or_none()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    if request.title is not None:
+        material.title = request.title.strip()
+    
+    if request.folder_id is not None:
+        folder_result = await db.execute(
+            select(Folder).where(
+                Folder.id == request.folder_id,
+                Folder.user_id == current_user.id
+            )
+        )
+        folder = folder_result.scalar_one_or_none()
+        if not folder:
+            raise HTTPException(status_code=404, detail="Папка не найдена")
+        material.folder_id = request.folder_id
+    
+    await db.commit()
+    await db.refresh(material)
+    
+    return material
+
+
+@router.patch("/{material_id}/move-to-root", response_model=MaterialResponse)
+async def move_material_to_root(
+    material_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Переместить материал в корень"""
+    
+    result = await db.execute(
+        select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id
+        )
+    )
+    material = result.scalar_one_or_none()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    material.folder_id = None
+    await db.commit()
+    await db.refresh(material)
+    
+    return material
+
+
+@router.delete("/{material_id}", response_model=SuccessResponse)
+async def delete_material(
+    material_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить материал"""
+    material_service = MaterialService(db)
+    material = await material_service.get_by_id(material_id, current_user.id)
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    await material_service.delete_material(material)
+    
+    return SuccessResponse(message="Удалено")
+
+
+# ==================== Debug Endpoints ====================
 
 @router.get("/debug/groups-check")
 async def debug_groups_check(
@@ -283,7 +376,6 @@ async def debug_groups_check(
     """Временный endpoint для отладки"""
     from sqlalchemy import text
     
-    # Проверяем группы пользователя
     result = await db.execute(text("""
         SELECT 
             f.id as group_id,
@@ -297,7 +389,6 @@ async def debug_groups_check(
     """))
     groups_data = [dict(row._mapping) for row in result.fetchall()]
     
-    # Проверяем материалы в группах
     result2 = await db.execute(text("""
         SELECT 
             m.id as material_id,
@@ -317,20 +408,3 @@ async def debug_groups_check(
         "groups_and_members": groups_data,
         "materials_in_folders": materials_data
     }
-
-@router.delete("/{material_id}", response_model=SuccessResponse)
-async def delete_material(
-    material_id: UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Удалить материал"""
-    material_service = MaterialService(db)
-    material = await material_service.get_by_id(material_id, current_user.id)
-    
-    if not material:
-        raise HTTPException(status_code=404, detail="Материал не найден")
-    
-    await material_service.delete_material(material)
-    
-    return SuccessResponse(message="Удалено")

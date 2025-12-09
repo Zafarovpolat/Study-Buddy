@@ -33,9 +33,10 @@ export function HomePage() {
         setSelectedMaterial,
         activeTab,
         setActiveTab,
+        removeMaterial,
     } = useStore();
 
-    // ===== ЗАГРУЗКА ГРУПП ПРИ СТАРТЕ (один раз) =====
+    // ===== ЗАГРУЗКА ГРУПП ПРИ СТАРТЕ =====
     useEffect(() => {
         const loadGroups = async () => {
             try {
@@ -46,7 +47,7 @@ export function HomePage() {
             }
         };
         loadGroups();
-    }, []); // Только при монтировании
+    }, []);
 
     // ===== ЗАГРУЗКА ДАННЫХ ПРИ СМЕНЕ ВКЛАДКИ/ПАПКИ =====
     useEffect(() => {
@@ -57,7 +58,6 @@ export function HomePage() {
         try {
             setIsLoading(true);
 
-            // Базовые данные
             const [userData, limitsData] = await Promise.all([
                 !user ? api.getMe() : Promise.resolve(user),
                 api.getMyLimits(),
@@ -66,7 +66,6 @@ export function HomePage() {
             if (!user) setUser(userData);
             setLimits(limitsData);
 
-            // Данные зависящие от вкладки
             if (activeTab === 'personal') {
                 const [materialsData, foldersData] = await Promise.all([
                     api.getMaterials(currentFolderId || undefined),
@@ -75,7 +74,6 @@ export function HomePage() {
                 setMaterials(materialsData);
                 setFolders(foldersData);
             } else {
-                // Обновляем группы при переключении на вкладку
                 const groupsData = await api.getMyGroups();
                 setGroups(groupsData);
             }
@@ -100,6 +98,15 @@ export function HomePage() {
         } else if (material.status === 'failed') {
             telegram.alert('Ошибка обработки. Попробуйте снова.');
         }
+    };
+
+    const handleMaterialUpdate = () => {
+        loadData();
+    };
+
+    const handleMaterialDelete = (materialId: string) => {
+        removeMaterial(materialId);
+        telegram.haptic('success');
     };
 
     const openUpload = (mode: 'file' | 'scan' | 'text', groupId?: string) => {
@@ -179,12 +186,12 @@ export function HomePage() {
                             </div>
                         )}
 
-                        {/* Invite Banner - только на главной, не в папках */}
+                        {/* Invite Banner */}
                         {!currentFolderId && user?.subscription_tier === 'free' && (
                             <InviteBanner />
                         )}
 
-                        {/* Quick Actions - только на главной */}
+                        {/* Quick Actions */}
                         {!currentFolderId && (
                             <section>
                                 <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
@@ -279,6 +286,9 @@ export function HomePage() {
                                             key={material.id}
                                             material={material}
                                             onClick={() => handleMaterialClick(material)}
+                                            onUpdate={handleMaterialUpdate}
+                                            onDelete={() => handleMaterialDelete(material.id)}
+                                            showActions={true}
                                         />
                                     ))}
                                 </div>
@@ -308,7 +318,7 @@ export function HomePage() {
                 )}
             </main>
 
-            {/* FAB - только для личных материалов */}
+            {/* FAB */}
             {activeTab === 'personal' && (
                 <button
                     onClick={() => openUpload('file')}
@@ -324,6 +334,7 @@ export function HomePage() {
                 onClose={() => {
                     setIsUploadOpen(false);
                     setUploadGroupId(undefined);
+                    loadData();
                 }}
                 folderId={currentFolderId || undefined}
                 groupId={uploadGroupId}
