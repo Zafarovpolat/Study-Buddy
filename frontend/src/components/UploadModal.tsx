@@ -30,8 +30,8 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
     const [showTargetDropdown, setShowTargetDropdown] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const cameraInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
+
 
     const { groups, folders } = useStore();
 
@@ -90,6 +90,8 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
         telegram.haptic('light');
     };
 
+    // frontend/src/components/UploadModal.tsx - НАЙДИ функцию handleSubmit и ЗАМЕНИ
+
     const handleSubmit = async () => {
         try {
             setIsLoading(true);
@@ -116,7 +118,6 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     targetGroupId
                 );
             } else if (mode === 'topic' && topicName.trim()) {
-                // Генерация по названию темы
                 await api.generateFromTopic(
                     topicName.trim(),
                     targetFolderId,
@@ -135,13 +136,26 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     ? `папку "${uploadTarget.name}"`
                     : 'личную библиотеку';
 
-            telegram.alert(`✅ Материал загружен в ${targetName}`);
-
-            onClose();
+            // Сначала закрываем модал, потом показываем уведомление
             resetForm();
+            onClose();
+
+            // Показываем уведомление после закрытия
+            setTimeout(() => {
+                telegram.alert(`✅ Материал загружен в ${targetName}`);
+            }, 100);
+
         } catch (error: any) {
+            console.error('Upload error:', error);
             telegram.haptic('error');
-            telegram.alert(error.response?.data?.detail || 'Ошибка загрузки');
+
+            // Проверяем, действительно ли это ошибка
+            const errorMessage = error.response?.data?.detail || error.message || 'Ошибка загрузки';
+
+            // Не показываем ошибку если статус 200 или материал создан
+            if (error.response?.status !== 200) {
+                telegram.alert(errorMessage);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -357,18 +371,11 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 {/* Scan */}
                 {mode === 'scan' && (
                     <div className="space-y-4">
-                        <input
-                            ref={cameraInputRef}
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
-                            onChange={handleImageSelect}
-                            className="hidden"
-                        />
+                        {/* Единый input для изображений */}
                         <input
                             ref={galleryInputRef}
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
                             onChange={handleImageSelect}
                             className="hidden"
                         />
@@ -394,31 +401,22 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                                 </div>
                             </Card>
                         ) : (
-                            <div className="grid grid-cols-2 gap-3">
-                                <Card
-                                    variant="outlined"
-                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                                    onClick={() => cameraInputRef.current?.click()}
-                                >
-                                    <div className="py-6 text-center">
-                                        <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
-                                        <p className="font-medium text-sm">Камера</p>
-                                        <p className="text-xs text-tg-hint mt-1">Сделать фото</p>
+                            <Card
+                                variant="outlined"
+                                className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                                onClick={() => galleryInputRef.current?.click()}
+                            >
+                                <div className="py-10 text-center">
+                                    <div className="flex justify-center gap-4 mb-3">
+                                        <Camera className="w-10 h-10 text-tg-button" />
+                                        <Image className="w-10 h-10 text-tg-button" />
                                     </div>
-                                </Card>
-
-                                <Card
-                                    variant="outlined"
-                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
-                                    onClick={() => galleryInputRef.current?.click()}
-                                >
-                                    <div className="py-6 text-center">
-                                        <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
-                                        <p className="font-medium text-sm">Галерея</p>
-                                        <p className="text-xs text-tg-hint mt-1">Выбрать фото</p>
-                                    </div>
-                                </Card>
-                            </div>
+                                    <p className="font-medium">Выбрать изображение</p>
+                                    <p className="text-sm text-tg-hint mt-1">
+                                        Сделайте фото или выберите из галереи
+                                    </p>
+                                </div>
+                            </Card>
                         )}
 
                         <Input
@@ -429,7 +427,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         />
 
                         <p className="text-xs text-tg-hint">
-                            💡 AI распознает текст с фото
+                            💡 AI распознает текст с фото. На мобильном устройстве система предложит выбор: камера или галерея.
                         </p>
                     </div>
                 )}
