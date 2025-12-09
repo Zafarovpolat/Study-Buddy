@@ -7,7 +7,7 @@ interface Material {
     id: string;
     title: string;
     material_type: string;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+    status: string;
     created_at: string;
     folder_id?: string;
 }
@@ -28,7 +28,7 @@ const typeIcons: Record<string, React.ReactNode> = {
     default: <File className="w-5 h-5 text-tg-hint" />,
 };
 
-const statusConfig = {
+const statusConfig: Record<string, { icon: React.ReactNode; text: string; className: string }> = {
     pending: {
         icon: <Clock className="w-4 h-4" />,
         text: 'Ожидает',
@@ -59,7 +59,7 @@ export function MaterialCard({
     showActions = true
 }: MaterialCardProps) {
     const icon = typeIcons[material.material_type] || typeIcons.default;
-    const status = statusConfig[material.status];
+    const status = statusConfig[material.status] || statusConfig.pending;
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);

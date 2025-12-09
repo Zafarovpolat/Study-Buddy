@@ -1,7 +1,6 @@
-// frontend/src/components/MaterialActions.tsx - СОЗДАЙ НОВЫЙ ФАЙЛ
+// frontend/src/components/MaterialActions.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState } from 'react';
-import { MoreVertical, Edit2, Trash2, FolderInput, X, Check } from 'lucide-react';
-import { Button, Card, Input } from './ui';
+import { MoreVertical, Edit2, Trash2, X, Check } from 'lucide-react';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
 
@@ -45,7 +44,6 @@ export function MaterialActions({ material, onUpdate, onDelete }: MaterialAction
     const handleDelete = async () => {
         setIsMenuOpen(false);
 
-        // Используем Telegram confirm
         const confirmed = confirm(`Удалить "${material.title}"?`);
         if (!confirmed) return;
 
@@ -61,7 +59,6 @@ export function MaterialActions({ material, onUpdate, onDelete }: MaterialAction
         }
     };
 
-    // Режим переименования
     if (isRenaming) {
         return (
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -104,13 +101,11 @@ export function MaterialActions({ material, onUpdate, onDelete }: MaterialAction
 
             {isMenuOpen && (
                 <>
-                    {/* Backdrop */}
                     <div
                         className="fixed inset-0 z-40"
                         onClick={() => setIsMenuOpen(false)}
                     />
 
-                    {/* Menu */}
                     <div className="absolute right-0 top-full mt-1 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
                         <button
                             onClick={() => {

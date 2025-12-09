@@ -21,7 +21,7 @@ interface Material {
     id: string;
     title: string;
     material_type: string;
-    status: string;
+    status: string;  // Было: 'pending' | 'processing' | 'completed' | 'failed'
     created_at: string;
 }
 
