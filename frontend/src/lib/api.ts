@@ -227,6 +227,17 @@ class ApiClient {
         const { data } = await this.client.patch(`/materials/${materialId}/move-to-root`);
         return data;
     }
+
+    // frontend/src/lib/api.ts - ДОБАВЬ метод
+
+    async generateFromTopic(topic: string, folderId?: string, groupId?: string) {
+        const { data } = await this.client.post('/materials/generate-from-topic', {
+            topic,
+            folder_id: folderId,
+            group_id: groupId
+        });
+        return data;
+    }
 }
 
 // Создаём и экспортируем синглтон

@@ -1,6 +1,6 @@
 // frontend/src/pages/HomePage.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useEffect, useState } from 'react';
-import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User, ArrowLeft } from 'lucide-react';
+import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User, ArrowLeft, Sparkles } from 'lucide-react';
 import { Button, Card, Spinner } from '../components/ui';
 import { MaterialCard } from '../components/MaterialCard';
 import { UploadModal } from '../components/UploadModal';
@@ -13,8 +13,7 @@ import { telegram } from '../lib/telegram';
 
 export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [, setUploadMode] = useState<'file' | 'scan' | 'text'>('file');
-    const [isLoading, setIsLoading] = useState(true);
+    const [uploadMode, setUploadMode] = useState<'file' | 'scan' | 'text' | 'topic'>('file'); const [isLoading, setIsLoading] = useState(true);
     const [uploadGroupId, setUploadGroupId] = useState<string | undefined>(undefined);
 
     const {
@@ -191,33 +190,43 @@ export function HomePage() {
                             <InviteBanner />
                         )}
 
+                        // Найди секцию Quick Actions и замени:
+
                         {/* Quick Actions */}
                         {!currentFolderId && (
                             <section>
                                 <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-4 gap-2">
                                     <Card
                                         className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('scan')}
                                     >
-                                        <Camera className="w-8 h-8 text-tg-button mx-auto mb-1" />
-                                        <span className="text-sm font-medium">Скан</span>
+                                        <Camera className="w-6 h-6 text-tg-button mx-auto mb-1" />
+                                        <span className="text-xs font-medium">Скан</span>
                                     </Card>
 
                                     <Card
                                         className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('file')}
                                     >
-                                        <Upload className="w-8 h-8 text-tg-button mx-auto mb-1" />
-                                        <span className="text-sm font-medium">Файл</span>
+                                        <Upload className="w-6 h-6 text-tg-button mx-auto mb-1" />
+                                        <span className="text-xs font-medium">Файл</span>
                                     </Card>
 
                                     <Card
                                         className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('text')}
                                     >
-                                        <Type className="w-8 h-8 text-tg-button mx-auto mb-1" />
-                                        <span className="text-sm font-medium">Текст</span>
+                                        <Type className="w-6 h-6 text-tg-button mx-auto mb-1" />
+                                        <span className="text-xs font-medium">Текст</span>
+                                    </Card>
+
+                                    <Card
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20"
+                                        onClick={() => openUpload('topic')}
+                                    >
+                                        <Sparkles className="w-6 h-6 text-purple-500 mx-auto mb-1" />
+                                        <span className="text-xs font-medium">Тема</span>
                                     </Card>
                                 </div>
                             </section>
@@ -339,6 +348,7 @@ export function HomePage() {
                 }}
                 folderId={currentFolderId || undefined}
                 groupId={uploadGroupId}
+                initialMode={uploadMode}  // ДОБАВЛЕНО
             />
         </div>
     );

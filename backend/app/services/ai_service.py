@@ -12,7 +12,7 @@ class GeminiService:
     
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
-        self.model_name = settings.GEMINI_MODEL  # Читаем из настроек!
+        self.model_name = settings.GEMINI_MODEL
         
         if self.api_key:
             genai.configure(api_key=self.api_key)
@@ -23,6 +23,34 @@ class GeminiService:
     def _get_model(self):
         """Получить модель Gemini"""
         return genai.GenerativeModel(self.model_name)
+    
+    async def generate_content_from_topic(self, topic: str) -> str:
+        """Генерация полного учебного материала по названию темы"""
+        prompt = f"""Ты - эксперт-преподаватель. Создай подробный учебный материал по теме: "{topic}"
+
+Структура материала:
+1. Введение (что это, почему важно)
+2. Основные понятия и определения
+3. Ключевые аспекты темы (3-5 разделов)
+4. Примеры и применение
+5. Интересные факты
+6. Заключение
+
+Требования:
+- Материал должен быть информативным и структурированным
+- Используй понятный язык
+- Добавь конкретные примеры
+- Объём: 2000-3000 слов
+
+Напиши материал:"""
+
+        try:
+            model = self._get_model()
+            response = model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"❌ Generate from topic error: {e}")
+            raise
     
     async def generate_smart_notes(self, content: str, title: str = "") -> str:
         """Генерация умного конспекта"""
@@ -67,12 +95,18 @@ class GeminiService:
             print(f"❌ TLDR error: {e}")
             raise
     
-    async def generate_quiz(self, content: str, num_questions: int = 5) -> str:
-        """Генерация теста"""
-        prompt = f"""Создай тест из {num_questions} вопросов по материалу.
+    async def generate_quiz(self, content: str, num_questions: int = 15) -> str:
+        """Генерация теста с 15-20 вопросами"""
+        prompt = f"""Создай сложный тест из {num_questions} вопросов по материалу.
 
 Материал:
 {content[:25000]}
+
+Требования к вопросам:
+1. Разные типы: определения, понимание, применение, анализ
+2. Разный уровень сложности: 30% лёгкие, 50% средние, 20% сложные
+3. Варианты ответов должны быть правдоподобными
+4. Пояснения должны быть информативными
 
 Формат JSON:
 {{
@@ -81,34 +115,40 @@ class GeminiService:
       "question": "Вопрос?",
       "options": ["A) вариант", "B) вариант", "C) вариант", "D) вариант"],
       "correct": 0,
-      "explanation": "Пояснение"
+      "explanation": "Подробное пояснение почему это правильный ответ",
+      "difficulty": "easy|medium|hard"
     }}
   ]
 }}
 
+ВАЖНО: Создай ровно {num_questions} вопросов!
 Верни ТОЛЬКО валидный JSON без markdown."""
 
         try:
             model = self._get_model()
             response = model.generate_content(prompt)
             
-            # Очищаем от markdown
             text = response.text.strip()
             text = re.sub(r'^```json\s*', '', text)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
-            # Проверяем валидность JSON
-            json.loads(text)
+            # Проверяем JSON
+            parsed = json.loads(text)
+            
+            # Проверяем количество вопросов
+            if len(parsed.get("questions", [])) < 10:
+                print(f"⚠️ Only {len(parsed['questions'])} questions generated, expected {num_questions}")
+            
             return text
         except json.JSONDecodeError:
-            # Возвращаем базовый тест
             return json.dumps({
                 "questions": [{
                     "question": "Тест не удалось сгенерировать",
                     "options": ["Попробуйте снова"],
                     "correct": 0,
-                    "explanation": ""
+                    "explanation": "",
+                    "difficulty": "easy"
                 }]
             }, ensure_ascii=False)
         except Exception as e:
@@ -117,7 +157,7 @@ class GeminiService:
     
     async def generate_glossary(self, content: str) -> str:
         """Генерация глоссария"""
-        prompt = f"""Создай глоссарий ключевых терминов из материала.
+        prompt = f"""Создай подробный глоссарий ключевых терминов из материала.
 
 Материал:
 {content[:25000]}
@@ -127,12 +167,13 @@ class GeminiService:
   "terms": [
     {{
       "term": "Термин",
-      "definition": "Определение"
+      "definition": "Подробное определение с примером использования"
     }}
   ]
 }}
 
-Найди 5-15 важных терминов. Верни ТОЛЬКО JSON."""
+Найди 10-20 важных терминов. Определения должны быть понятными и информативными.
+Верни ТОЛЬКО JSON."""
 
         try:
             model = self._get_model()
@@ -151,9 +192,7 @@ class GeminiService:
             print(f"❌ Glossary error: {e}")
             raise
     
-    # backend/app/services/ai_service.py - ЗАМЕНИ метод generate_flashcards
-
-    async def generate_flashcards(self, content: str, num_cards: int = 10) -> str:
+    async def generate_flashcards(self, content: str, num_cards: int = 15) -> str:
         """Генерация флэш-карточек"""
         prompt = f"""Создай {num_cards} флэш-карточек для запоминания ключевых понятий.
 
@@ -162,22 +201,24 @@ class GeminiService:
 
 ВАЖНО: Создай МИНИМУМ {num_cards} карточек!
 
-Формат JSON (строго соблюдай):
+Типы карточек:
+- Определения терминов
+- Вопрос-ответ
+- Факты и даты
+- Причина-следствие
+
+Формат JSON:
 {{
   "cards": [
     {{
-      "front": "Что такое компьютерная сеть?",
-      "back": "Система связанных компьютеров для обмена данными"
-    }},
-    {{
-      "front": "Какие типы сетей существуют?",
-      "back": "LAN, WAN, MAN, PAN"
+      "front": "Вопрос или термин",
+      "back": "Ответ или определение"
     }}
   ]
 }}
 
-Создай разнообразные карточки: определения, вопросы, факты.
-Верни ТОЛЬКО валидный JSON без markdown и комментариев."""
+Создай разнообразные карточки для эффективного запоминания.
+Верни ТОЛЬКО валидный JSON."""
 
         try:
             model = self._get_model()
@@ -188,26 +229,20 @@ class GeminiService:
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
-            # Проверяем JSON
             parsed = json.loads(text)
             
-            # Проверяем что cards не пустой
             if not parsed.get("cards") or len(parsed["cards"]) == 0:
                 raise ValueError("No cards generated")
             
             return text
         except json.JSONDecodeError as e:
             print(f"❌ Flashcards JSON error: {e}")
-            print(f"Raw response: {response.text[:500]}")
             return json.dumps({
-                "cards": [
-                    {"front": "Карточки не сгенерированы", "back": "Попробуйте снова"}
-                ]
+                "cards": [{"front": "Ошибка генерации", "back": "Попробуйте снова"}]
             }, ensure_ascii=False)
         except Exception as e:
             print(f"❌ Flashcards error: {e}")
             raise
 
 
-# Создаём глобальный экземпляр
 gemini_service = GeminiService()
