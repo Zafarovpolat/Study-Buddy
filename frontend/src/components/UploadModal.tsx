@@ -192,12 +192,6 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
 
             telegram.haptic('success');
 
-            const targetName = uploadTarget.type === 'group'
-                ? `группу "${uploadTarget.name}"`
-                : uploadTarget.type === 'folder'
-                    ? `папку "${uploadTarget.name}"`
-                    : 'личную библиотеку';
-
             resetForm();
             onClose();
 
