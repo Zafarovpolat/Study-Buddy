@@ -105,14 +105,13 @@ export function UploadModal({ isOpen, onClose, folderId, groupId }: UploadModalP
                 targetGroupId = uploadTarget.id;
             }
 
-            let material;
-
+            // СТАЛО:
             if (mode === 'file' && file) {
-                material = await api.uploadFile(file, title || file.name, targetFolderId, targetGroupId);
+                await api.uploadFile(file, title || file.name, targetFolderId, targetGroupId);
             } else if (mode === 'scan' && file) {
-                material = await api.scanImage(file, title || 'Скан', targetFolderId, targetGroupId);
+                await api.scanImage(file, title || 'Скан', targetFolderId, targetGroupId);
             } else if (mode === 'text' && content.trim()) {
-                material = await api.createTextMaterial(
+                await api.createTextMaterial(
                     title || 'Без названия',
                     content,
                     targetFolderId,
