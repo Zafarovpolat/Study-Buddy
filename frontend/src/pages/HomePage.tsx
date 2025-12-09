@@ -108,7 +108,7 @@ export function HomePage() {
         telegram.haptic('success');
     };
 
-    const openUpload = (mode: 'file' | 'scan' | 'text', groupId?: string) => {
+    const openUpload = (mode: 'file' | 'scan' | 'text' | 'topic', groupId?: string) => {
         setUploadMode(mode);
         setUploadGroupId(groupId);
         setIsUploadOpen(true);
