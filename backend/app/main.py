@@ -18,7 +18,7 @@ bot_app = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global bot_app
-    print("🚀 Starting EduAI Backend...")
+    print("🚀 Starting Lecto Backend...")
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     
     # Инициализируем бота
@@ -37,9 +37,24 @@ async def lifespan(app: FastAPI):
     else:
         print("⚠️ TELEGRAM_BOT_TOKEN not set, bot disabled")
     
+    # ===== ЗАПУСК ПЛАНИРОВЩИКА =====
+    try:
+        from app.services.scheduler import start_scheduler
+        start_scheduler()
+    except Exception as e:
+        print(f"⚠️ Scheduler failed to start: {e}")
+        traceback.print_exc()
+    
     yield
     
     # Shutdown
+    # ===== ОСТАНОВКА ПЛАНИРОВЩИКА =====
+    try:
+        from app.services.scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception as e:
+        print(f"⚠️ Scheduler failed to stop: {e}")
+    
     if bot_app:
         await bot_app.shutdown()
     print("👋 Shutting down...")
@@ -95,7 +110,12 @@ async def telegram_webhook(request: Request):
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "bot": bot_app is not None}
+    from app.services.scheduler import scheduler
+    return {
+        "status": "healthy", 
+        "bot": bot_app is not None,
+        "scheduler": scheduler.running if scheduler else False
+    }
 
 # Путь к статическим файлам frontend
 STATIC_DIR = Path(__file__).parent.parent / "static"
@@ -111,10 +131,8 @@ print(f"📁 Index file exists: {INDEX_FILE.exists()}")
 if STATIC_DIR.exists() and ASSETS_DIR.exists() and INDEX_FILE.exists():
     print("✅ Serving static files from:", STATIC_DIR)
     
-    # Раздаём assets (JS, CSS, картинки)
     app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
     
-    # Для других статических файлов в корне (favicon, etc)
     @app.get("/vite.svg")
     async def serve_vite_svg():
         svg_path = STATIC_DIR / "vite.svg"
@@ -122,19 +140,15 @@ if STATIC_DIR.exists() and ASSETS_DIR.exists() and INDEX_FILE.exists():
             return FileResponse(svg_path)
         return JSONResponse({"error": "not found"}, status_code=404)
     
-    # Все остальные роуты -> index.html (SPA)
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        # Пропускаем API роуты
         if full_path.startswith("api/"):
             return JSONResponse({"error": "not found"}, status_code=404)
         
-        # Если файл существует - отдаём его
         file_path = STATIC_DIR / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
         
-        # Иначе отдаём index.html (для SPA роутинга)
         return FileResponse(INDEX_FILE)
 else:
     print("⚠️ Static files not found, running API only mode")
@@ -143,7 +157,7 @@ else:
     @app.get("/")
     async def root():
         return {
-            "message": "EduAI API is running", 
+            "message": "Lecto API is running", 
             "docs": "/docs",
             "note": "Frontend not configured. Copy frontend build to 'static' folder."
         }

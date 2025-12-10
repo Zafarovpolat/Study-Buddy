@@ -86,6 +86,34 @@ async def upload_material(
         except Exception as e:
             print(f"Processing error: {e}")
     
+    # ===== УВЕДОМЛЕНИЕ УЧАСТНИКОВ ГРУППЫ =====
+    if group_id and material.status == ProcessingStatus.COMPLETED:
+        try:
+            from app.services.notification_service import NotificationService
+            from app.services.group_service import GroupService
+            from app.main import bot_app
+            
+            if bot_app:
+                group_service = GroupService(db)
+                members = await group_service.get_group_members(group_id)
+                member_ids = [m.get("telegram_id") for m in members if m.get("telegram_id")]
+                
+                group = await group_service.get_group_by_id(group_id)
+                group_name = group.name if group else "Группа"
+                
+                notification_service = NotificationService(db)
+                sent = await notification_service.send_group_material_notification(
+                    group_name=group_name,
+                    material_title=material.title,
+                    uploader_name=current_user.first_name or "Участник",
+                    member_telegram_ids=member_ids,
+                    exclude_user_id=current_user.telegram_id,
+                    bot=bot_app.bot
+                )
+                print(f"📨 Notified {sent} group members about new material")
+        except Exception as e:
+            print(f"⚠️ Failed to send group notification: {e}")
+    
     return material
 
 

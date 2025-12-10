@@ -151,25 +151,26 @@ class GroupService:
         return groups
     
     async def get_group_members(self, group_id: UUID) -> List[dict]:
-        """Получить участников группы"""
-        result = await self.db.execute(
-            select(GroupMember, User)
-            .join(User, GroupMember.user_id == User.id)
-            .where(GroupMember.group_id == group_id)
-            .order_by(GroupMember.role, GroupMember.joined_at)
-        )
-        
-        members = []
-        for membership, user in result.all():
-            members.append({
-                "id": str(user.id),
-                "telegram_username": user.telegram_username,
-                "first_name": user.first_name,
-                "role": membership.role.value,
-                "joined_at": membership.joined_at.isoformat()
-            })
-        
-        return members
+    """Получить участников группы"""
+    result = await self.db.execute(
+        select(GroupMember, User)
+        .join(User, GroupMember.user_id == User.id)
+        .where(GroupMember.group_id == group_id)
+        .order_by(GroupMember.role, GroupMember.joined_at)
+    )
+    
+    members = []
+    for membership, user in result.all():
+        members.append({
+            "id": str(user.id),
+            "telegram_id": user.telegram_id,  # ← ДОБАВЬ ЭТО
+            "telegram_username": user.telegram_username,
+            "first_name": user.first_name,
+            "role": membership.role.value,
+            "joined_at": membership.joined_at.isoformat()
+        })
+    
+    return members
     
     async def delete_group(self, user: User, group_id: UUID) -> Tuple[bool, str]:
         """Удалить группу"""
