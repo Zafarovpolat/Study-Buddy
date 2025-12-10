@@ -1,4 +1,4 @@
-# backend/alembic/versions/001_initial.py - СОЗДАЙ ЭТОТ ФАЙЛ
+# backend/alembic/versions/001_initial.py - ЗАМЕНИ ПОЛНОСТЬЮ
 """Initial migration with all tables
 
 Revision ID: 001_initial
@@ -27,7 +27,7 @@ def upgrade() -> None:
     # === 1. USERS TABLE ===
     op.create_table(
         'users',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('telegram_id', sa.BigInteger(), nullable=False),
         sa.Column('telegram_username', sa.String(255), nullable=True),
         sa.Column('first_name', sa.String(255), nullable=True),
@@ -65,7 +65,7 @@ def upgrade() -> None:
     # === 2. FOLDERS TABLE ===
     op.create_table(
         'folders',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False),
         sa.Column('parent_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('folders.id'), nullable=True),
         sa.Column('name', sa.String(255), nullable=False),
@@ -86,7 +86,7 @@ def upgrade() -> None:
     # === 3. GROUP MEMBERS TABLE ===
     op.create_table(
         'group_members',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('group_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('folders.id', ondelete='CASCADE'), nullable=False),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('role', postgresql.ENUM('owner', 'admin', 'member', name='grouprole', create_type=False), server_default='member'),
@@ -99,7 +99,7 @@ def upgrade() -> None:
     # === 4. MATERIALS TABLE ===
     op.create_table(
         'materials',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False),
         sa.Column('folder_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('folders.id'), nullable=True),
         sa.Column('title', sa.String(500), nullable=False),
@@ -117,7 +117,7 @@ def upgrade() -> None:
     # === 5. AI OUTPUTS TABLE ===
     op.create_table(
         'ai_outputs',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('material_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('materials.id', ondelete='CASCADE'), nullable=False),
         sa.Column('format', postgresql.ENUM('smart_notes', 'tldr', 'quiz', 'glossary', 'flashcards', 'podcast_script', name='outputformat', create_type=False), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
@@ -126,8 +126,25 @@ def upgrade() -> None:
     )
     op.create_index('ix_ai_outputs_material_id', 'ai_outputs', ['material_id'])
 
+    # === 6. QUIZ RESULTS TABLE ===
+    op.create_table(
+        'quiz_results',
+        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
+        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('material_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('materials.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('group_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('folders.id', ondelete='SET NULL'), nullable=True),
+        sa.Column('score', sa.Integer(), nullable=False),
+        sa.Column('max_score', sa.Integer(), nullable=False),
+        sa.Column('percentage', sa.Integer(), nullable=False),
+        sa.Column('completed_at', sa.DateTime(), server_default=sa.func.now()),
+    )
+    op.create_index('ix_quiz_results_user_id', 'quiz_results', ['user_id'])
+    op.create_index('ix_quiz_results_material_id', 'quiz_results', ['material_id'])
+    op.create_index('ix_quiz_results_group_id', 'quiz_results', ['group_id'])
+
 
 def downgrade() -> None:
+    op.drop_table('quiz_results')
     op.drop_table('ai_outputs')
     op.drop_table('materials')
     op.drop_table('group_members')
