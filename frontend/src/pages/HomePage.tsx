@@ -1,6 +1,6 @@
-// frontend/src/pages/HomePage.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/pages/HomePage.tsx
 import { useEffect, useState } from 'react';
-import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User, ArrowLeft, Sparkles } from 'lucide-react';
+import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User, ArrowLeft, Sparkles, Search, X } from 'lucide-react';
 import { Button, Card, Spinner } from '../components/ui';
 import { MaterialCard } from '../components/MaterialCard';
 import { UploadModal } from '../components/UploadModal';
@@ -13,8 +13,15 @@ import { telegram } from '../lib/telegram';
 
 export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
-    const [uploadMode, setUploadMode] = useState<'file' | 'scan' | 'text' | 'topic'>('file'); const [isLoading, setIsLoading] = useState(true);
+    const [uploadMode, setUploadMode] = useState<'file' | 'scan' | 'text' | 'topic'>('file');
+    const [isLoading, setIsLoading] = useState(true);
     const [uploadGroupId, setUploadGroupId] = useState<string | undefined>(undefined);
+
+    // ===== ПОИСК =====
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
 
     const {
         user,
@@ -52,6 +59,31 @@ export function HomePage() {
     useEffect(() => {
         loadData();
     }, [currentFolderId, activeTab]);
+
+    // ===== ПОИСК С DEBOUNCE =====
+    useEffect(() => {
+        if (!searchQuery.trim()) {
+            setSearchResults([]);
+            return;
+        }
+
+        const timer = setTimeout(async () => {
+            if (searchQuery.trim().length < 2) return;
+
+            setIsSearching(true);
+            try {
+                const results = await api.searchMaterials(searchQuery.trim());
+                setSearchResults(results);
+            } catch (error) {
+                console.error('Search error:', error);
+                setSearchResults([]);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 300);
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
 
     const loadData = async () => {
         try {
@@ -125,6 +157,13 @@ export function HomePage() {
         telegram.haptic('selection');
     };
 
+    const clearSearch = () => {
+        setSearchQuery('');
+        setSearchResults([]);
+        setShowSearch(false);
+        telegram.haptic('light');
+    };
+
     if (isLoading && !materials.length && !groups.length) {
         return (
             <div className="min-h-screen flex items-center justify-center">
@@ -145,6 +184,7 @@ export function HomePage() {
                         onClick={() => {
                             setActiveTab('personal');
                             setCurrentFolderId(null);
+                            clearSearch();
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'personal'
@@ -158,6 +198,7 @@ export function HomePage() {
                     <button
                         onClick={() => {
                             setActiveTab('groups');
+                            clearSearch();
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'groups'
@@ -185,13 +226,78 @@ export function HomePage() {
                             </div>
                         )}
 
+                        {/* ===== ПОИСК ===== */}
+                        {!currentFolderId && (
+                            <div className="relative">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-tg-hint" />
+                                    <input
+                                        type="text"
+                                        placeholder="Поиск материалов..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onFocus={() => setShowSearch(true)}
+                                        className="w-full pl-10 pr-10 py-3 bg-tg-secondary rounded-xl text-tg-text placeholder-tg-hint focus:outline-none focus:ring-2 focus:ring-tg-button"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={clearSearch}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-tg-hint/20 rounded-full"
+                                        >
+                                            <X className="w-4 h-4 text-tg-hint" />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Результаты поиска */}
+                                {showSearch && searchQuery.trim().length >= 2 && (
+                                    <div className="absolute top-full left-0 right-0 mt-2 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-50 max-h-80 overflow-y-auto">
+                                        {isSearching ? (
+                                            <div className="flex items-center justify-center py-8">
+                                                <Spinner size="sm" />
+                                            </div>
+                                        ) : searchResults.length > 0 ? (
+                                            <div className="p-2 space-y-1">
+                                                {searchResults.map((material) => (
+                                                    <button
+                                                        key={material.id}
+                                                        onClick={() => {
+                                                            handleMaterialClick(material);
+                                                            clearSearch();
+                                                        }}
+                                                        className="w-full text-left p-3 hover:bg-tg-secondary rounded-lg transition-colors"
+                                                    >
+                                                        <div className="font-medium truncate">{material.title}</div>
+                                                        <div className="text-xs text-tg-hint flex items-center gap-2 mt-1">
+                                                            <span>{material.material_type.toUpperCase()}</span>
+                                                            {!material.is_own && (
+                                                                <span className="flex items-center gap-1">
+                                                                    <Users className="w-3 h-3" />
+                                                                    Группа
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="py-8 text-center text-tg-hint">
+                                                <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                <p>Ничего не найдено</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {/* Invite Banner */}
-                        {!currentFolderId && user?.subscription_tier === 'free' && (
+                        {!currentFolderId && user?.subscription_tier === 'free' && !showSearch && (
                             <InviteBanner />
                         )}
 
                         {/* Quick Actions */}
-                        {!currentFolderId && (
+                        {!currentFolderId && !showSearch && (
                             <section>
                                 <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
                                 <div className="grid grid-cols-4 gap-2">
@@ -231,7 +337,7 @@ export function HomePage() {
                         )}
 
                         {/* Лимиты */}
-                        {!currentFolderId && limits && user?.subscription_tier === 'free' && (
+                        {!currentFolderId && limits && user?.subscription_tier === 'free' && !showSearch && (
                             <Card className="bg-gradient-to-r from-tg-button/10 to-tg-button/5">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -251,7 +357,7 @@ export function HomePage() {
                         )}
 
                         {/* Папки */}
-                        {folders.length > 0 && (
+                        {folders.length > 0 && !showSearch && (
                             <section>
                                 <h2 className="text-sm font-medium text-tg-hint mb-2">Папки</h2>
                                 <div className="grid grid-cols-2 gap-2">
@@ -273,45 +379,46 @@ export function HomePage() {
                         )}
 
                         {/* Материалы */}
-                        <section>
-                            <div className="flex items-center justify-between mb-2">
-                                <h2 className="text-sm font-medium text-tg-hint">
-                                    {currentFolderId ? 'Материалы в папке' : 'Материалы'}
-                                </h2>
-                                <button
-                                    onClick={loadData}
-                                    className="p-1 text-tg-hint hover:text-tg-text transition-colors"
-                                >
-                                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                                </button>
-                            </div>
-
-                            {materials.length > 0 ? (
-                                <div className="space-y-2">
-                                    {materials.map((material) => (
-                                        <MaterialCard
-                                            key={material.id}
-                                            material={material}
-                                            onClick={() => handleMaterialClick(material)}
-                                            onUpdate={handleMaterialUpdate}
-                                            onDelete={() => handleMaterialDelete(material.id)}
-                                            showActions={true}
-                                        />
-                                    ))}
+                        {!showSearch && (
+                            <section>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h2 className="text-sm font-medium text-tg-hint">
+                                        {currentFolderId ? 'Материалы в папке' : 'Материалы'}
+                                    </h2>
+                                    <button
+                                        onClick={loadData}
+                                        className="p-1 text-tg-hint hover:text-tg-text transition-colors"
+                                    >
+                                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                    </button>
                                 </div>
-                            ) : (
-                                <Card className="text-center py-8">
-                                    <p className="text-tg-hint mb-4">
-                                        {currentFolderId ? 'В папке нет материалов' : 'Нет материалов'}
-                                    </p>
-                                    <Button onClick={() => openUpload('file')}>
-                                        <Plus className="w-4 h-4 mr-2" />
-                                        Добавить
-                                    </Button>
-                                </Card>
-                            )}
 
-                        </section>
+                                {materials.length > 0 ? (
+                                    <div className="space-y-2">
+                                        {materials.map((material) => (
+                                            <MaterialCard
+                                                key={material.id}
+                                                material={material}
+                                                onClick={() => handleMaterialClick(material)}
+                                                onUpdate={handleMaterialUpdate}
+                                                onDelete={() => handleMaterialDelete(material.id)}
+                                                showActions={true}
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <Card className="text-center py-8">
+                                        <p className="text-tg-hint mb-4">
+                                            {currentFolderId ? 'В папке нет материалов' : 'Нет материалов'}
+                                        </p>
+                                        <Button onClick={() => openUpload('file')}>
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Добавить
+                                        </Button>
+                                    </Card>
+                                )}
+                            </section>
+                        )}
                     </>
                 ) : (
                     /* Groups Tab */
@@ -327,13 +434,21 @@ export function HomePage() {
             </main>
 
             {/* FAB */}
-            {activeTab === 'personal' && (
+            {activeTab === 'personal' && !showSearch && (
                 <button
                     onClick={() => openUpload('file')}
                     className="fixed bottom-6 right-6 w-14 h-14 bg-tg-button text-tg-button-text rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-40"
                 >
                     <Plus className="w-6 h-6" />
                 </button>
+            )}
+
+            {/* Overlay для закрытия поиска */}
+            {showSearch && searchQuery && (
+                <div
+                    className="fixed inset-0 z-40"
+                    onClick={clearSearch}
+                />
             )}
 
             {/* Upload Modal */}
@@ -346,7 +461,7 @@ export function HomePage() {
                 }}
                 folderId={currentFolderId || undefined}
                 groupId={uploadGroupId}
-                initialMode={uploadMode}  // ДОБАВЛЕНО
+                initialMode={uploadMode}
             />
         </div>
     );

@@ -504,3 +504,58 @@ async def debug_groups_check(
         "groups_and_members": groups_data,
         "materials_in_folders": materials_data
     }
+
+@router.get("/search/all")
+async def search_materials(
+    q: str,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Поиск по всем доступным материалам"""
+    
+    if not q or len(q.strip()) < 2:
+        return []
+    
+    search_query = f"%{q.strip().lower()}%"
+    
+    # Получаем группы пользователя
+    from app.services.group_service import GroupService
+    group_service = GroupService(db)
+    user_groups = await group_service.get_user_groups(current_user)
+    group_ids = [UUID(g["id"]) for g in user_groups]
+    
+    # Ищем в личных материалах + материалах групп
+    from sqlalchemy import or_, func
+    
+    conditions = [
+        Material.user_id == current_user.id  # Личные материалы
+    ]
+    
+    if group_ids:
+        conditions.append(Material.folder_id.in_(group_ids))  # Материалы групп
+    
+    result = await db.execute(
+        select(Material)
+        .where(
+            or_(*conditions),
+            func.lower(Material.title).like(search_query)
+        )
+        .order_by(Material.created_at.desc())
+        .limit(limit)
+    )
+    
+    materials = result.scalars().all()
+    
+    return [
+        {
+            "id": str(m.id),
+            "title": m.title,
+            "material_type": m.material_type.value,
+            "status": m.status.value,
+            "folder_id": str(m.folder_id) if m.folder_id else None,
+            "created_at": m.created_at.isoformat(),
+            "is_own": m.user_id == current_user.id
+        }
+        for m in materials
+    ]

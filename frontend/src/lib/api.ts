@@ -246,6 +246,13 @@ class ApiClient {
         return data;
     }
 
+    async searchMaterials(query: string) {
+        const { data } = await this.client.get('/materials/search/all', {
+            params: { q: query }
+        });
+        return data;
+    }
+
     async getGroupQuizResults(groupId: string) {
         const { data } = await this.client.get(`/groups/${groupId}/quiz-results`);
         return data;
