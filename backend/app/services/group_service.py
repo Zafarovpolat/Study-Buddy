@@ -151,7 +151,7 @@ class GroupService:
         return groups
     
     async def get_group_members(self, group_id: UUID) -> List[dict]:
-    """Получить участников группы"""
+        """Получить участников группы"""
     result = await self.db.execute(
         select(GroupMember, User)
         .join(User, GroupMember.user_id == User.id)
