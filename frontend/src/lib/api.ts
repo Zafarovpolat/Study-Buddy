@@ -238,6 +238,18 @@ class ApiClient {
         });
         return data;
     }
+
+    async saveQuizResult(groupId: string, materialId: string, score: number, maxScore: number) {
+        const { data } = await this.client.post(`/groups/${groupId}/quiz-result`, null, {
+            params: { material_id: materialId, score, max_score: maxScore }
+        });
+        return data;
+    }
+
+    async getGroupQuizResults(groupId: string) {
+        const { data } = await this.client.get(`/groups/${groupId}/quiz-results`);
+        return data;
+    }
 }
 
 // Создаём и экспортируем синглтон

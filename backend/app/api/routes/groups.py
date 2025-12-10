@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional, List
 from uuid import UUID
+from app.models.quiz_result import QuizResult
 
 from app.models import get_db, User
 from app.services.group_service import GroupService
@@ -192,6 +193,88 @@ async def get_referral_stats(
     service = GroupService(db)
     return await service.get_referral_stats(current_user)
 
+@router.post("/{group_id}/quiz-result")
+async def save_quiz_result(
+    group_id: UUID,
+    material_id: UUID,
+    score: int,
+    max_score: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сохранить результат теста в группе"""
+    service = GroupService(db)
+    groups = await service.get_user_groups(current_user)
+    
+    if not any(g["id"] == str(group_id) for g in groups):
+        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+    
+    percentage = round((score / max_score) * 100) if max_score > 0 else 0
+    
+    result = QuizResult(
+        user_id=current_user.id,
+        material_id=material_id,
+        group_id=group_id,
+        score=score,
+        max_score=max_score,
+        percentage=percentage
+    )
+    db.add(result)
+    await db.commit()
+    
+    return {"success": True, "percentage": percentage}
+
+
+@router.get("/{group_id}/quiz-results")
+async def get_group_quiz_results(
+    group_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить результаты тестов группы (только для owner)"""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    
+    service = GroupService(db)
+    groups = await service.get_user_groups(current_user)
+    
+    user_group = next((g for g in groups if g["id"] == str(group_id)), None)
+    if not user_group:
+        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+    
+    if not user_group["is_owner"]:
+        raise HTTPException(status_code=403, detail="Только владелец может просматривать результаты")
+    
+    result = await db.execute(
+        select(QuizResult)
+        .options(
+            selectinload(QuizResult.user),
+            selectinload(QuizResult.material)
+        )
+        .where(QuizResult.group_id == group_id)
+        .order_by(QuizResult.completed_at.desc())
+    )
+    results = result.scalars().all()
+    
+    return [
+        {
+            "id": str(r.id),
+            "user": {
+                "id": str(r.user.id),
+                "first_name": r.user.first_name,
+                "username": r.user.telegram_username
+            },
+            "material": {
+                "id": str(r.material.id),
+                "title": r.material.title
+            },
+            "score": r.score,
+            "max_score": r.max_score,
+            "percentage": r.percentage,
+            "completed_at": r.completed_at.isoformat()
+        }
+        for r in results
+    ]
 
 @router.post("/referral/generate")
 async def generate_referral_code(
