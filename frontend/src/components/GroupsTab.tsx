@@ -1,7 +1,7 @@
 // frontend/src/components/GroupsTab.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
 import { useState } from 'react';
-import { Users, Plus, Link, Copy, Check, LogOut, Trash2, Crown, ChevronRight, ArrowLeft, Search, SortAsc, SortDesc, Calendar, FileText } from 'lucide-react';
-import { Card, Button, Spinner, Input } from './ui';
+import { Users, Plus, Link, Copy, Check, LogOut, Trash2, Crown, ChevronRight, ArrowLeft, Search, SortAsc, SortDesc, FileText } from 'lucide-react';
+import { Card, Button, Spinner } from './ui';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
 import { MaterialCard } from './MaterialCard';
