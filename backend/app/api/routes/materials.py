@@ -248,7 +248,7 @@ async def get_group_materials(
     return materials
 
 
-@router.get("/{material_id}", response_model=MaterialDetailResponse)
+@router.get("/{material_id}")
 async def get_material(
     material_id: UUID,
     current_user: User = Depends(get_current_user),
@@ -258,7 +258,10 @@ async def get_material(
     
     result = await db.execute(
         select(Material)
-        .options(selectinload(Material.outputs))
+        .options(
+            selectinload(Material.outputs),
+            selectinload(Material.folder)  # ← Загружаем папку
+        )
         .where(Material.id == material_id)
     )
     material = result.scalar_one_or_none()
@@ -267,10 +270,18 @@ async def get_material(
         raise HTTPException(status_code=404, detail="Материал не найден")
     
     has_access = False
+    group_id = None  # ← Будет заполнено только если это группа
     
+    # Владелец имеет доступ
     if material.user_id == current_user.id:
         has_access = True
-    elif material.folder_id:
+    
+    # Проверяем доступ через группу
+    if material.folder_id:
+        # Проверяем, является ли folder группой
+        if material.folder and material.folder.is_group:
+            group_id = material.folder_id  # ← Это группа!
+        
         from app.services.group_service import GroupService
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
@@ -280,9 +291,29 @@ async def get_material(
     if not has_access:
         raise HTTPException(status_code=403, detail="Нет доступа к материалу")
     
-    return material
-
-
+    # Формируем ответ
+    return {
+        "id": str(material.id),
+        "user_id": str(material.user_id),
+        "title": material.title,
+        "material_type": material.material_type.value,
+        "status": material.status.value,
+        "folder_id": str(material.folder_id) if material.folder_id else None,
+        "group_id": str(group_id) if group_id else None,  # ← КЛЮЧЕВОЕ!
+        "raw_content": material.raw_content,
+        "original_filename": material.original_filename,
+        "created_at": material.created_at.isoformat(),
+        "updated_at": material.updated_at.isoformat() if material.updated_at else None,
+        "outputs": [
+            {
+                "id": str(o.id),
+                "format": o.format.value,
+                "content": o.content,
+                "created_at": o.created_at.isoformat()
+            }
+            for o in material.outputs
+        ]
+    }
 # ==================== Update/Delete Endpoints ====================
 
 @router.patch("/{material_id}", response_model=MaterialResponse)

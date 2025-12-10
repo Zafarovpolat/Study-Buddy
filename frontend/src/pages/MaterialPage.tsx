@@ -16,7 +16,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     const [outputs, setOutputs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const groupId = material?.folder_id;
+    const groupId = material?.group_id;  // ✅ Только если это группа
 
     const { removeMaterial, user } = useStore();
 

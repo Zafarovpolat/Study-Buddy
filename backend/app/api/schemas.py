@@ -13,7 +13,6 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     pass
 
-# backend/app/api/schemas.py - ДОБАВЬ в UserResponse
 class UserResponse(BaseModel):
     id: UUID
     telegram_id: int
@@ -49,9 +48,11 @@ class MaterialCreate(BaseModel):
 
 class MaterialResponse(BaseModel):
     id: UUID
+    user_id: Optional[UUID] = None  # ← ДОБАВЬ
     title: str
     material_type: str
     status: str
+    folder_id: Optional[UUID] = None  # ← ДОБАВЬ
     created_at: datetime
     
     class Config:
@@ -67,9 +68,22 @@ class AIOutputResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class MaterialDetailResponse(MaterialResponse):
+class MaterialDetailResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    title: str
+    material_type: str
+    status: str
+    folder_id: Optional[UUID] = None
+    group_id: Optional[UUID] = None  # ← ДОБАВЬ ЭТО!
     raw_content: Optional[str] = None
-    outputs: List["AIOutputResponse"] = []
+    original_filename: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    outputs: List[AIOutputResponse] = []
+    
+    class Config:
+        from_attributes = True
 
 # === API Responses ===
 class SuccessResponse(BaseModel):
