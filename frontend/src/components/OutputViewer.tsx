@@ -16,6 +16,7 @@ interface OutputViewerProps {
     materialId: string;
     outputs: Output[];
     onRefresh: () => void;
+    groupId?: string;  // ДОБАВЛЕНО для сохранения результатов
 }
 
 const formatConfig: Record<string, { icon: typeof FileText; label: string; color: string }> = {
@@ -26,7 +27,7 @@ const formatConfig: Record<string, { icon: typeof FileText; label: string; color
     flashcards: { icon: Layers, label: 'Карточки', color: 'text-pink-500' },
 };
 
-export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerProps) {
+export function OutputViewer({ materialId, outputs, onRefresh, groupId }: OutputViewerProps) {
     const [activeFormat, setActiveFormat] = useState<string>(
         outputs[0]?.format || 'smart_notes'
     );
@@ -79,7 +80,7 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
             </div>
 
             {/* Content */}
-            <Card className="min-h-[300px]">
+            <Card className="min-h-[300px] overflow-hidden">
                 {activeOutput ? (
                     <div className="space-y-4">
                         {/* Actions */}
@@ -99,6 +100,8 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
                         <ContentRenderer
                             content={activeOutput.content}
                             format={activeFormat}
+                            materialId={materialId}
+                            groupId={groupId}
                         />
                     </div>
                 ) : (
@@ -115,14 +118,23 @@ export function OutputViewer({ materialId, outputs, onRefresh }: OutputViewerPro
 }
 
 // Универсальный рендерер контента
-function ContentRenderer({ content, format }: { content: string; format: string }) {
-    // Пробуем распарсить JSON
+function ContentRenderer({
+    content,
+    format,
+    materialId,
+    groupId
+}: {
+    content: string;
+    format: string;
+    materialId: string;
+    groupId?: string;
+}) {
     try {
         const data = JSON.parse(content);
 
         switch (format) {
             case 'quiz':
-                return <QuizViewer data={data} />;
+                return <QuizViewer data={data} materialId={materialId} groupId={groupId} />;
             case 'flashcards':
                 return <FlashcardsViewer data={data} />;
             case 'glossary':
@@ -131,53 +143,39 @@ function ContentRenderer({ content, format }: { content: string; format: string 
                 return <MarkdownViewer content={content} />;
         }
     } catch {
-        // Если не JSON - рендерим как markdown
         return <MarkdownViewer content={content} />;
     }
 }
 
-// Markdown Viewer
-// В файле frontend/src/components/OutputViewer.tsx
-// ЗАМЕНИ функцию MarkdownViewer на эту:
-
+// ============ MARKDOWN VIEWER (исправлен скролл) ============
 function MarkdownViewer({ content }: { content: string }) {
-    // Очищаем markdown артефакты
     let html = content
-        // Убираем ``` блоки кода
         .replace(/```[\s\S]*?```/g, (match) => {
             const code = match.replace(/```\w*\n?/g, '').trim();
-            return `<pre class="bg-tg-secondary p-3 rounded-lg text-sm overflow-x-auto my-2">${code}</pre>`;
+            return `<pre class="bg-tg-secondary p-3 rounded-lg text-sm overflow-x-auto my-2 whitespace-pre-wrap break-words">${code}</pre>`;
         })
-        // Жирный текст **text** или __text__
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/__(.*?)__/g, '<strong>$1</strong>')
-        // Курсив *text* или _text_
         .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
         .replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>')
-        // Инлайн код `code`
-        .replace(/`([^`]+)`/g, '<code class="bg-tg-secondary px-1 rounded text-sm">$1</code>')
-        // Заголовки
+        .replace(/`([^`]+)`/g, '<code class="bg-tg-secondary px-1 rounded text-sm break-all">$1</code>')
         .replace(/^### (.*?)$/gm, '<h3 class="font-semibold text-base mt-3 mb-1">$1</h3>')
         .replace(/^## (.*?)$/gm, '<h2 class="font-bold text-lg mt-4 mb-2">$1</h2>')
         .replace(/^# (.*?)$/gm, '<h1 class="font-bold text-xl mt-4 mb-2">$1</h1>')
-        // Списки
         .replace(/^- (.*?)$/gm, '<li class="ml-4 list-disc">$1</li>')
         .replace(/^\* (.*?)$/gm, '<li class="ml-4 list-disc">$1</li>')
         .replace(/^\d+\. (.*?)$/gm, '<li class="ml-4 list-decimal">$1</li>')
-        // Переносы строк (но не внутри тегов)
         .replace(/\n\n/g, '</p><p class="mt-2">')
         .replace(/\n/g, '<br/>');
 
-    // Оборачиваем в параграф
     html = `<p>${html}</p>`;
-
-    // Группируем li в ul
     html = html.replace(/(<li class="ml-4 list-disc">.*?<\/li>)+/g, '<ul class="my-2">$&</ul>');
     html = html.replace(/(<li class="ml-4 list-decimal">.*?<\/li>)+/g, '<ol class="my-2">$&</ol>');
 
     return (
         <div
-            className="prose prose-sm max-w-none text-tg-text leading-relaxed"
+            className="prose prose-sm max-w-none text-tg-text leading-relaxed overflow-x-hidden break-words"
+            style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
             dangerouslySetInnerHTML={{ __html: html }}
         />
     );
@@ -215,17 +213,17 @@ function GlossaryViewer({ data }: { data: any }) {
                         }}
                         className="w-full p-4 flex items-center justify-between text-left bg-tg-secondary/50 hover:bg-tg-secondary transition-colors"
                     >
-                        <span className="font-medium text-purple-600">{item.term}</span>
+                        <span className="font-medium text-purple-600 break-words">{item.term}</span>
                         {expandedIndex === index ? (
-                            <ChevronUp className="w-4 h-4 text-tg-hint" />
+                            <ChevronUp className="w-4 h-4 text-tg-hint flex-shrink-0 ml-2" />
                         ) : (
-                            <ChevronDown className="w-4 h-4 text-tg-hint" />
+                            <ChevronDown className="w-4 h-4 text-tg-hint flex-shrink-0 ml-2" />
                         )}
                     </button>
 
                     {expandedIndex === index && (
                         <div className="p-4 bg-tg-bg border-t border-tg-hint/20">
-                            <p className="text-sm">{item.definition}</p>
+                            <p className="text-sm break-words">{item.definition}</p>
                         </div>
                     )}
                 </div>
@@ -234,20 +232,29 @@ function GlossaryViewer({ data }: { data: any }) {
     );
 }
 
-// ============ QUIZ VIEWER ============
+// ============ QUIZ VIEWER (с сохранением результатов) ============
 interface Question {
     question: string;
     options: string[] | Record<string, string>;
     correct: number | string;
     explanation?: string;
+    difficulty?: string;
 }
 
-function QuizViewer({ data }: { data: any }) {
+interface QuizViewerProps {
+    data: any;
+    materialId: string;
+    groupId?: string;
+}
+
+function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
     const questions: Question[] = data.questions || [];
     const [currentIndex, setCurrentIndex] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
     const [showResult, setShowResult] = useState(false);
     const [score, setScore] = useState(0);
+    const [isFinished, setIsFinished] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
 
     if (questions.length === 0) {
         return <p className="text-tg-hint text-center">Вопросы не найдены</p>;
@@ -255,12 +262,10 @@ function QuizViewer({ data }: { data: any }) {
 
     const question = questions[currentIndex];
 
-    // Нормализуем options в массив
     const options: string[] = Array.isArray(question.options)
         ? question.options
         : Object.values(question.options || {});
 
-    // Нормализуем correct в индекс
     const correctIndex = typeof question.correct === 'number'
         ? question.correct
         : parseInt(question.correct) || 0;
@@ -272,11 +277,35 @@ function QuizViewer({ data }: { data: any }) {
         setSelectedAnswer(index);
         setShowResult(true);
 
+        const newScore = index === correctIndex ? score + 1 : score;
         if (index === correctIndex) {
-            setScore((s) => s + 1);
+            setScore(newScore);
             telegram.haptic('success');
         } else {
             telegram.haptic('error');
+        }
+
+        // Проверяем, последний ли вопрос
+        if (currentIndex === questions.length - 1) {
+            // Сохраняем результат
+            handleFinish(newScore);
+        }
+    };
+
+    const handleFinish = async (finalScore: number) => {
+        setIsFinished(true);
+
+        // Сохраняем результат если есть groupId
+        if (groupId) {
+            setIsSaving(true);
+            try {
+                await api.saveQuizResult(groupId, materialId, finalScore, questions.length);
+                console.log('✅ Quiz result saved:', { groupId, materialId, score: finalScore, total: questions.length });
+            } catch (error) {
+                console.error('❌ Failed to save quiz result:', error);
+            } finally {
+                setIsSaving(false);
+            }
         }
     };
 
@@ -293,16 +322,17 @@ function QuizViewer({ data }: { data: any }) {
         setSelectedAnswer(null);
         setShowResult(false);
         setScore(0);
+        setIsFinished(false);
     };
 
-    const isFinished = currentIndex === questions.length - 1 && showResult;
+    const showFinalResult = isFinished && showResult;
 
     return (
         <div className="space-y-4">
             {/* Progress */}
             <div className="flex items-center justify-between text-sm text-tg-hint">
                 <span>Вопрос {currentIndex + 1} из {questions.length}</span>
-                <span>Счёт: {score}/{questions.length}</span>
+                <span>Счёт: {score}/{currentIndex + (showResult ? 1 : 0)}</span>
             </div>
 
             {/* Progress bar */}
@@ -313,16 +343,27 @@ function QuizViewer({ data }: { data: any }) {
                 />
             </div>
 
+            {/* Difficulty badge */}
+            {question.difficulty && (
+                <span className={`text-xs px-2 py-1 rounded-full ${question.difficulty === 'hard'
+                        ? 'bg-red-100 text-red-600'
+                        : question.difficulty === 'medium'
+                            ? 'bg-yellow-100 text-yellow-600'
+                            : 'bg-green-100 text-green-600'
+                    }`}>
+                    {question.difficulty === 'hard' ? '🔥 Сложный' :
+                        question.difficulty === 'medium' ? '📝 Средний' : '✅ Лёгкий'}
+                </span>
+            )}
+
             {/* Question */}
-            <p className="text-lg font-medium">{question.question}</p>
+            <p className="text-lg font-medium break-words">{question.question}</p>
 
             {/* Options */}
             <div className="space-y-2">
                 {options.map((option, index) => {
                     const isCorrect = index === correctIndex;
                     const isSelected = index === selectedAnswer;
-
-                    // Убираем префикс типа "A) " если есть
                     const cleanOption = option.replace(/^[A-D]\)\s*/, '');
 
                     return (
@@ -330,7 +371,7 @@ function QuizViewer({ data }: { data: any }) {
                             key={index}
                             onClick={() => handleAnswer(index)}
                             disabled={showResult}
-                            className={`w-full p-4 rounded-xl text-left transition-all ${showResult
+                            className={`w-full p-4 rounded-xl text-left transition-all break-words ${showResult
                                 ? isCorrect
                                     ? 'bg-green-500/20 border-2 border-green-500'
                                     : isSelected
@@ -351,7 +392,7 @@ function QuizViewer({ data }: { data: any }) {
             {/* Explanation */}
             {showResult && question.explanation && (
                 <Card variant="outlined" className="bg-tg-button/5">
-                    <p className="text-sm">
+                    <p className="text-sm break-words">
                         <span className="font-semibold">💡 </span>
                         {question.explanation}
                     </p>
@@ -359,17 +400,17 @@ function QuizViewer({ data }: { data: any }) {
             )}
 
             {/* Next Button */}
-            {showResult && !isFinished && (
+            {showResult && !showFinalResult && (
                 <Button className="w-full" onClick={nextQuestion}>
                     Следующий вопрос →
                 </Button>
             )}
 
             {/* Final Result */}
-            {isFinished && (
+            {showFinalResult && (
                 <Card className="text-center bg-gradient-to-br from-tg-button/20 to-tg-button/5">
                     <p className="text-4xl mb-2">
-                        {score === questions.length ? '🎉' : score >= questions.length / 2 ? '👍' : '📚'}
+                        {score === questions.length ? '🎉' : score >= questions.length * 0.7 ? '👍' : score >= questions.length * 0.5 ? '📚' : '💪'}
                     </p>
                     <p className="text-xl font-bold">
                         {score} из {questions.length}
@@ -377,6 +418,15 @@ function QuizViewer({ data }: { data: any }) {
                     <p className="text-sm text-tg-hint mt-1">
                         {Math.round((score / questions.length) * 100)}% правильных
                     </p>
+
+                    {isSaving && (
+                        <p className="text-xs text-tg-hint mt-2">Сохранение результата...</p>
+                    )}
+
+                    {groupId && !isSaving && (
+                        <p className="text-xs text-green-600 mt-2">✓ Результат сохранён</p>
+                    )}
+
                     <Button className="mt-4" variant="secondary" onClick={restart}>
                         Пройти заново
                     </Button>
@@ -393,7 +443,6 @@ interface Flashcard {
 }
 
 function FlashcardsViewer({ data }: { data: any }) {
-    // Поддерживаем оба формата: cards и flashcards
     const cards: Flashcard[] = data.cards || data.flashcards || [];
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -453,7 +502,7 @@ function FlashcardsViewer({ data }: { data: any }) {
                     <p className="text-xs text-tg-hint mb-2">
                         {isFlipped ? '← Ответ' : 'Вопрос →'}
                     </p>
-                    <p className="text-lg font-medium">
+                    <p className="text-lg font-medium break-words">
                         {isFlipped ? card.back : card.front}
                     </p>
                 </div>

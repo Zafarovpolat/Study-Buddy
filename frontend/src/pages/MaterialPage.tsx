@@ -16,6 +16,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     const [outputs, setOutputs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const groupId = material?.folder_id;
 
     const { removeMaterial, user } = useStore();
 
@@ -178,6 +179,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         materialId={materialId}
                         outputs={outputs}
                         onRefresh={loadMaterial}
+                        groupId={groupId}  // ДОБАВЬ ЭТО
                     />
                 ) : (
                     <Card className="text-center py-12">
