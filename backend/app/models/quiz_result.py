@@ -6,7 +6,6 @@ import uuid
 
 from app.models.base import Base
 
-
 class QuizResult(Base):
     __tablename__ = "quiz_results"
     

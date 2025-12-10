@@ -1,4 +1,4 @@
-# backend/reset_db.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/reset_db.py
 """Reset database for fresh migration"""
 import os
 
@@ -20,6 +20,7 @@ def reset_alembic():
         # Удаляем все таблицы и типы
         cur.execute("""
             DROP TABLE IF EXISTS alembic_version CASCADE;
+            DROP TABLE IF EXISTS quiz_results CASCADE;
             DROP TABLE IF EXISTS ai_outputs CASCADE;
             DROP TABLE IF EXISTS materials CASCADE;
             DROP TABLE IF EXISTS group_members CASCADE;
