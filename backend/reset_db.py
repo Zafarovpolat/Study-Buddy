@@ -12,6 +12,13 @@ def reset_alembic():
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     
+    # SSL для Supabase
+    if "supabase" in database_url and "sslmode" not in database_url:
+        if "?" in database_url:
+            database_url += "&sslmode=require"
+        else:
+            database_url += "?sslmode=require"
+    
     try:
         import psycopg2
         conn = psycopg2.connect(database_url)
