@@ -7,20 +7,12 @@ from app.core.config import settings
 
 database_url = settings.get_database_url()
 
-# Убираем sslmode из URL если есть
-if "sslmode=" in database_url:
-    database_url = database_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
-
 print(f"📦 Connecting to database...")
 
-# Настройки для Supabase Pooler
+# Для Supabase Session Pooler — SSL обязателен
 connect_args = {}
 if "supabase" in database_url or "pooler.supabase" in database_url:
-    connect_args = {
-        "ssl": "require",
-        "prepared_statement_cache_size": 0,  # Отключаем prepared statements
-        "statement_cache_size": 0,           # Отключаем кеш
-    }
+    connect_args = {"ssl": "require"}
 
 engine = create_async_engine(
     database_url, 
