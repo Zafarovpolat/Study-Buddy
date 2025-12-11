@@ -2,24 +2,29 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy.pool import NullPool
+import ssl
 
 from app.core.config import settings
 
 database_url = settings.get_database_url()
 
-# Supabase требует SSL
-if "supabase" in database_url and "sslmode" not in database_url:
-    if "?" in database_url:
-        database_url += "&sslmode=require"
-    else:
-        database_url += "?sslmode=require"
+# Убираем sslmode из URL если есть (asyncpg не понимает)
+if "sslmode=" in database_url:
+    database_url = database_url.replace("?sslmode=require", "").replace("&sslmode=require", "")
 
 print(f"📦 Connecting to database...")
+
+# Для Supabase нужен SSL
+connect_args = {}
+if "supabase" in database_url or "pooler.supabase" in database_url:
+    # asyncpg использует ssl=True или ssl context
+    connect_args = {"ssl": "require"}
 
 engine = create_async_engine(
     database_url, 
     echo=False,
     poolclass=NullPool,
+    connect_args=connect_args,
 )
 
 AsyncSessionLocal = sessionmaker(
