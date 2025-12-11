@@ -24,7 +24,8 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     const { user } = useStore();
-    const isPro = user?.subscription_tier === 'pro' || user?.subscription_tier === 'sos';
+    const isPro = user?.subscription_tier !== 'free' && user?.subscription_tier !== undefined;
+
 
     const handleAsk = async () => {
         if (!question.trim()) return;
