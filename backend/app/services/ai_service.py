@@ -1,14 +1,19 @@
-# backend/app/services/ai_service.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/services/ai_service.py
 import google.generativeai as genai
 from typing import Optional
 import json
 import re
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from app.core.config import settings
 
+# Thread pool для CPU-bound операций (Gemini SDK синхронный!)
+_executor = ThreadPoolExecutor(max_workers=4)
+
 
 class GeminiService:
-    """Сервис для работы с Gemini AI"""
+    """Сервис для работы с Gemini AI — НЕ БЛОКИРУЕТ event loop!"""
     
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
@@ -24,8 +29,19 @@ class GeminiService:
         """Получить модель Gemini"""
         return genai.GenerativeModel(self.model_name)
     
+    def _generate_sync(self, prompt: str) -> str:
+        """Синхронный вызов Gemini — выполняется в thread pool"""
+        model = self._get_model()
+        response = model.generate_content(prompt)
+        return response.text
+    
+    async def _generate_async(self, prompt: str) -> str:
+        """Асинхронная обёртка — НЕ блокирует event loop!"""
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_executor, self._generate_sync, prompt)
+    
     async def generate_content_from_topic(self, topic: str) -> str:
-        """Генерация полного учебного материала по названию темы"""
+        """Генерация учебного материала по теме"""
         prompt = f"""Ты - эксперт-преподаватель. Создай подробный учебный материал по теме: "{topic}"
 
 Структура материала:
@@ -45,9 +61,7 @@ class GeminiService:
 Напиши материал:"""
 
         try:
-            model = self._get_model()
-            response = model.generate_content(prompt)
-            return response.text
+            return await self._generate_async(prompt)
         except Exception as e:
             print(f"❌ Generate from topic error: {e}")
             raise
@@ -71,9 +85,7 @@ class GeminiService:
 Формат: Markdown с заголовками ##, списками -, выделением **жирным**."""
 
         try:
-            model = self._get_model()
-            response = model.generate_content(prompt)
-            return response.text
+            return await self._generate_async(prompt)
         except Exception as e:
             print(f"❌ Smart notes error: {e}")
             raise
@@ -88,25 +100,22 @@ class GeminiService:
 Выдели самое важное. Будь конкретен."""
 
         try:
-            model = self._get_model()
-            response = model.generate_content(prompt)
-            return response.text
+            return await self._generate_async(prompt)
         except Exception as e:
             print(f"❌ TLDR error: {e}")
             raise
     
     async def generate_quiz(self, content: str, num_questions: int = 15) -> str:
-        """Генерация теста с 15-20 вопросами"""
-        prompt = f"""Создай сложный тест из {num_questions} вопросов по материалу.
+        """Генерация теста"""
+        prompt = f"""Создай тест из {num_questions} вопросов по материалу.
 
 Материал:
 {content[:25000]}
 
-Требования к вопросам:
-1. Разные типы: определения, понимание, применение, анализ
-2. Разный уровень сложности: 30% лёгкие, 50% средние, 20% сложные
-3. Варианты ответов должны быть правдоподобными
-4. Пояснения должны быть информативными
+Требования:
+1. Разные типы: определения, понимание, применение
+2. 30% лёгкие, 50% средние, 20% сложные
+3. Правдоподобные варианты ответов
 
 Формат JSON:
 {{
@@ -115,30 +124,25 @@ class GeminiService:
       "question": "Вопрос?",
       "options": ["A) вариант", "B) вариант", "C) вариант", "D) вариант"],
       "correct": 0,
-      "explanation": "Подробное пояснение почему это правильный ответ",
+      "explanation": "Пояснение",
       "difficulty": "easy|medium|hard"
     }}
   ]
 }}
 
-ВАЖНО: Создай ровно {num_questions} вопросов!
-Верни ТОЛЬКО валидный JSON без markdown."""
+Создай ровно {num_questions} вопросов!
+Верни ТОЛЬКО валидный JSON."""
 
         try:
-            model = self._get_model()
-            response = model.generate_content(prompt)
-            
-            text = response.text.strip()
+            text = await self._generate_async(prompt)
+            text = text.strip()
             text = re.sub(r'^```json\s*', '', text)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
-            # Проверяем JSON
             parsed = json.loads(text)
-            
-            # Проверяем количество вопросов
-            if len(parsed.get("questions", [])) < 10:
-                print(f"⚠️ Only {len(parsed['questions'])} questions generated, expected {num_questions}")
+            if len(parsed.get("questions", [])) < num_questions:
+                print(f"⚠️ Only {len(parsed['questions'])} questions generated")
             
             return text
         except json.JSONDecodeError:
@@ -157,7 +161,7 @@ class GeminiService:
     
     async def generate_glossary(self, content: str) -> str:
         """Генерация глоссария"""
-        prompt = f"""Создай подробный глоссарий ключевых терминов из материала.
+        prompt = f"""Создай глоссарий ключевых терминов.
 
 Материал:
 {content[:25000]}
@@ -167,24 +171,21 @@ class GeminiService:
   "terms": [
     {{
       "term": "Термин",
-      "definition": "Подробное определение с примером использования"
+      "definition": "Определение с примером"
     }}
   ]
 }}
 
-Найди 10-20 важных терминов. Определения должны быть понятными и информативными.
-Верни ТОЛЬКО JSON."""
+Найди 10-20 важных терминов. Верни ТОЛЬКО JSON."""
 
         try:
-            model = self._get_model()
-            response = model.generate_content(prompt)
-            
-            text = response.text.strip()
+            text = await self._generate_async(prompt)
+            text = text.strip()
             text = re.sub(r'^```json\s*', '', text)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
-            json.loads(text)
+            json.loads(text)  # Проверка
             return text
         except json.JSONDecodeError:
             return json.dumps({"terms": []}, ensure_ascii=False)
@@ -194,18 +195,10 @@ class GeminiService:
     
     async def generate_flashcards(self, content: str, num_cards: int = 15) -> str:
         """Генерация флэш-карточек"""
-        prompt = f"""Создай {num_cards} флэш-карточек для запоминания ключевых понятий.
+        prompt = f"""Создай {num_cards} флэш-карточек.
 
 Материал:
 {content[:25000]}
-
-ВАЖНО: Создай МИНИМУМ {num_cards} карточек!
-
-Типы карточек:
-- Определения терминов
-- Вопрос-ответ
-- Факты и даты
-- Причина-следствие
 
 Формат JSON:
 {{
@@ -217,28 +210,24 @@ class GeminiService:
   ]
 }}
 
-Создай разнообразные карточки для эффективного запоминания.
-Верни ТОЛЬКО валидный JSON."""
+Создай МИНИМУМ {num_cards} карточек! Верни ТОЛЬКО JSON."""
 
         try:
-            model = self._get_model()
-            response = model.generate_content(prompt)
-            
-            text = response.text.strip()
+            text = await self._generate_async(prompt)
+            text = text.strip()
             text = re.sub(r'^```json\s*', '', text)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
             parsed = json.loads(text)
-            
-            if not parsed.get("cards") or len(parsed["cards"]) == 0:
-                raise ValueError("No cards generated")
+            if not parsed.get("cards"):
+                raise ValueError("No cards")
             
             return text
         except json.JSONDecodeError as e:
             print(f"❌ Flashcards JSON error: {e}")
             return json.dumps({
-                "cards": [{"front": "Ошибка генерации", "back": "Попробуйте снова"}]
+                "cards": [{"front": "Ошибка", "back": "Попробуйте снова"}]
             }, ensure_ascii=False)
         except Exception as e:
             print(f"❌ Flashcards error: {e}")
