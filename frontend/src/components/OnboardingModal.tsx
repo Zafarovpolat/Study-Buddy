@@ -1,6 +1,6 @@
 // frontend/src/components/OnboardingModal.tsx
 import { useState } from 'react';
-import { X, Upload, Sparkles, Users, Zap, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Upload, Sparkles, Users, Zap, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from './ui';
 import { telegram } from '../lib/telegram';
 
@@ -135,9 +135,7 @@ export function OnboardingModal({ isOpen, onClose }: OnboardingModalProps) {
                             size="lg"
                         >
                             {isLastSlide ? (
-                                <>
-                                    🚀 Начать
-                                </>
+                                <>🚀 Начать</>
                             ) : (
                                 <>
                                     Далее

@@ -1,6 +1,6 @@
 // frontend/src/components/LeaderboardTab.tsx
 import { useEffect, useState } from 'react';
-import { Trophy, Medal, User, Target } from 'lucide-react';
+import { Trophy, Target } from 'lucide-react';
 import { Card, Spinner } from './ui';
 import { api } from '../lib/api';
 
