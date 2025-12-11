@@ -11,16 +11,18 @@ engine = create_async_engine(
     database_url, 
     echo=settings.DEBUG,
     pool_pre_ping=True,       # Проверяет соединение перед использованием
-    pool_recycle=280,         # Переподключение каждые 4.5 минуты (до Supabase таймаута)
-    pool_size=5,              # Базовый размер пула
-    max_overflow=10,          # Дополнительные соединения при нагрузке
-    pool_timeout=30,          # Таймаут ожидания соединения
+    pool_recycle=300,         # Переподключение каждые 5 минут
+    pool_size=3,              # Меньше соединений для Free tier
+    max_overflow=7,           # Итого макс 10 соединений
+    pool_timeout=10,          # Быстрый таймаут
+    pool_reset_on_return="rollback",  # Сброс транзакции при возврате в пул
 )
 
 AsyncSessionLocal = sessionmaker(
     engine, 
     class_=AsyncSession, 
-    expire_on_commit=False
+    expire_on_commit=False,
+    autoflush=False,
 )
 
 
@@ -29,11 +31,14 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    session = AsyncSessionLocal()
+    try:
+        yield session
+    except Exception:
+        await session.rollback()
+        raise
+    finally:
+        await session.close()
 
 
 __all__ = ["Base", "get_db", "engine", "AsyncSessionLocal"]

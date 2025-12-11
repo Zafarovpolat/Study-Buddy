@@ -1,7 +1,9 @@
-# backend/app/api/deps.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/api/deps.py
 from fastapi import Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
+import asyncio
 
 from app.models import get_db, User
 from app.services import UserService
@@ -15,8 +17,6 @@ async def get_current_user(
 ) -> User:
     """
     Получение текущего пользователя.
-    В dev режиме - по X-User-ID заголовку.
-    В production - по Telegram initData.
     """
     
     telegram_id = None
@@ -41,22 +41,37 @@ async def get_current_user(
             print(f"Error parsing Telegram data: {e}")
             raise HTTPException(status_code=401, detail="Invalid Telegram init data")
     
-    # Fallback для dev - создаём тестового пользователя
+    # Fallback для dev
     if not telegram_id:
         if settings.DEBUG:
-            telegram_id = 123456789  # Тестовый ID
+            telegram_id = 123456789
         else:
             raise HTTPException(status_code=401, detail="Authentication required")
     
-    # Получаем или создаём пользователя
-    user_service = UserService(db)
-    user, is_new = await user_service.get_or_create(telegram_id=telegram_id)
-    
-    if is_new:
-        print(f"✅ Created new user: {telegram_id}")
-    
-    return user
+    # Получаем или создаём пользователя с retry
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            user_service = UserService(db)
+            user, is_new = await user_service.get_or_create(telegram_id=telegram_id)
+            
+            if is_new:
+                print(f"✅ Created new user: {telegram_id}")
+            
+            return user
+            
+        except SQLAlchemyError as e:
+            print(f"⚠️ DB error (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(0.5)  # Ждём перед retry
+                continue
+            raise HTTPException(
+                status_code=503, 
+                detail="Сервис временно недоступен. Попробуйте снова."
+            )
+        except Exception as e:
+            print(f"❌ Unexpected error: {e}")
+            raise HTTPException(status_code=500, detail="Внутренняя ошибка")
 
 
-# Алиас для совместимости
 get_current_user_dev = get_current_user
