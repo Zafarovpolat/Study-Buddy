@@ -2,25 +2,20 @@
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from typing import Optional
+from typing import List
 
 from app.models import User
-from app.core.config import settings
 
 
 class NotificationService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
-    async def get_users_for_streak_reminder(self) -> list[User]:
+    async def get_users_for_streak_reminder(self) -> List[User]:
         """Получить пользователей, которым нужно напомнить о streak"""
         today = datetime.now().date()
         yesterday = today - timedelta(days=1)
         
-        # Пользователи, которые:
-        # 1. Были активны вчера (есть streak)
-        # 2. Не были активны сегодня
-        # 3. Имеют streak > 0
         result = await self.db.execute(
             select(User).where(
                 and_(
@@ -36,7 +31,7 @@ class NotificationService:
         try:
             message = (
                 f"🔥 Привет, {user.first_name or 'друг'}!\n\n"
-                f"Твой streak: **{user.current_streak} дней**\n"
+                f"Твой streak: *{user.current_streak} дней*\n"
                 f"Не забудь поучиться сегодня, чтобы не потерять прогресс!\n\n"
                 f"📚 Открой приложение и загрузи материал"
             )
@@ -46,6 +41,7 @@ class NotificationService:
                 text=message,
                 parse_mode="Markdown"
             )
+            print(f"✅ Streak reminder sent to {user.telegram_id}")
             return True
         except Exception as e:
             print(f"❌ Failed to send reminder to {user.telegram_id}: {e}")
@@ -56,7 +52,7 @@ class NotificationService:
         group_name: str,
         material_title: str,
         uploader_name: str,
-        member_telegram_ids: list[int],
+        member_telegram_ids: List[int],
         exclude_user_id: int,
         bot
     ) -> int:
@@ -64,14 +60,17 @@ class NotificationService:
         sent_count = 0
         
         message = (
-            f"📚 Новый материал в группе **{group_name}**!\n\n"
+            f"📚 Новый материал в группе *{group_name}*!\n\n"
             f"📄 {material_title}\n"
             f"👤 Добавил: {uploader_name}\n\n"
             f"Открой приложение, чтобы посмотреть"
         )
         
+        print(f"📨 Sending notifications to {len(member_telegram_ids)} members, excluding {exclude_user_id}")
+        
         for telegram_id in member_telegram_ids:
             if telegram_id == exclude_user_id:
+                print(f"⏭️ Skipping uploader: {telegram_id}")
                 continue
             
             try:
@@ -81,6 +80,7 @@ class NotificationService:
                     parse_mode="Markdown"
                 )
                 sent_count += 1
+                print(f"✅ Notification sent to {telegram_id}")
             except Exception as e:
                 print(f"❌ Failed to notify {telegram_id}: {e}")
         

@@ -275,6 +275,13 @@ async def get_group_materials(
     
     return materials
 
+@router.get("/search/all")
+async def search_materials(
+    q: str,
+    limit: int = 20,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
 
 @router.get("/{material_id}")
 async def get_material(
@@ -532,14 +539,6 @@ async def debug_groups_check(
         "groups_and_members": groups_data,
         "materials_in_folders": materials_data
     }
-
-@router.get("/search/all")
-async def search_materials(
-    q: str,
-    limit: int = 20,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
     """Поиск по всем доступным материалам"""
     
     if not q or len(q.strip()) < 2:
