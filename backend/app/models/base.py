@@ -9,7 +9,6 @@ database_url = settings.get_database_url()
 
 print(f"📦 Connecting to database...")
 
-# Для Supabase Session Pooler — SSL обязателен
 connect_args = {}
 if "supabase" in database_url or "pooler.supabase" in database_url:
     connect_args = {"ssl": "require"}
