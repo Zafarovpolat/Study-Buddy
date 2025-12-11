@@ -1,7 +1,7 @@
 // frontend/src/pages/MaterialPage.tsx
 import { useEffect, useState, useRef } from 'react';
 import { ArrowLeft, Trash2, RefreshCw, Loader2 } from 'lucide-react';
-import { Spinner, Button, Card } from '../components/ui';
+import { Button, Card } from '../components/ui';
 import { OutputViewer } from '../components/OutputViewer';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
@@ -16,9 +16,8 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     const [outputs, setOutputs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isPolling, setIsPolling] = useState(false);
 
-    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const groupId = material?.group_id;
 
     const { removeMaterial, user } = useStore();
@@ -32,7 +31,6 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
 
         return () => {
             telegram.hideBackButton();
-            // Очищаем polling при уходе со страницы
             if (pollIntervalRef.current) {
                 clearInterval(pollIntervalRef.current);
             }
@@ -42,8 +40,6 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     // ===== POLLING для processing материалов =====
     useEffect(() => {
         if (material?.status === 'processing' && !pollIntervalRef.current) {
-            setIsPolling(true);
-
             pollIntervalRef.current = setInterval(async () => {
                 try {
                     const updatedMaterial = await api.getMaterial(materialId);
@@ -53,19 +49,17 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         setOutputs(updatedMaterial.outputs);
                     }
 
-                    // Если готово — останавливаем polling
                     if (updatedMaterial.status !== 'processing') {
                         if (pollIntervalRef.current) {
                             clearInterval(pollIntervalRef.current);
                             pollIntervalRef.current = null;
                         }
-                        setIsPolling(false);
                         telegram.haptic('success');
                     }
                 } catch (err) {
                     console.error('Polling error:', err);
                 }
-            }, 3000); // Каждые 3 секунды
+            }, 3000);
         }
 
         return () => {
@@ -90,7 +84,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                 try {
                     const outputsData = await api.getMaterialOutputs(materialId);
                     setOutputs(outputsData.outputs || []);
-                } catch (e) {
+                } catch {
                     console.log('Could not load outputs separately');
                     setOutputs([]);
                 }
@@ -140,13 +134,11 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                     </div>
                 </header>
                 <main className="p-4 space-y-4">
-                    {/* Skeleton tabs */}
                     <div className="flex gap-2 overflow-x-auto pb-2">
                         {[1, 2, 3, 4, 5].map(i => (
                             <div key={i} className="h-10 w-24 bg-tg-secondary rounded-lg animate-pulse flex-shrink-0" />
                         ))}
                     </div>
-                    {/* Skeleton content */}
                     <div className="space-y-3">
                         <div className="h-4 bg-tg-secondary rounded animate-pulse" />
                         <div className="h-4 bg-tg-secondary rounded animate-pulse w-5/6" />
@@ -242,10 +234,11 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                                     </div>
                                 </div>
 
-                                {/* Animated progress bar */}
                                 <div className="h-2 bg-tg-secondary rounded-full overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-pulse"
-                                        style={{ width: '60%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                                    <div
+                                        className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-pulse"
+                                        style={{ width: '60%' }}
+                                    />
                                 </div>
 
                                 <p className="text-xs text-tg-hint mt-3 text-center">
