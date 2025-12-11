@@ -2,6 +2,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy.pool import NullPool
+import ssl
 
 from app.core.config import settings
 
@@ -9,14 +10,23 @@ database_url = settings.get_database_url()
 
 print(f"📦 Connecting to database...")
 
-connect_args = {}
+# Настройки для asyncpg + Supabase PgBouncer
+connect_args = {
+    "statement_cache_size": 0,  # Обязательно для PgBouncer!
+}
+
+# SSL для Supabase
 if "supabase" in database_url or "pooler.supabase" in database_url:
-    connect_args = {"ssl": "require"}
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE  # Supabase использует self-signed
+    connect_args["ssl"] = ssl_context
+    print("🔒 SSL enabled for Supabase")
 
 engine = create_async_engine(
     database_url, 
     echo=False,
-    poolclass=NullPool,
+    poolclass=NullPool,  # Обязательно! Supabase сам делает pooling
     connect_args=connect_args,
 )
 
@@ -33,11 +43,12 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
-    session = AsyncSessionLocal()
-    try:
-        yield session
-    finally:
-        await session.close()
+    """Dependency для роутов"""
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 
 
 __all__ = ["Base", "get_db", "engine", "AsyncSessionLocal"]

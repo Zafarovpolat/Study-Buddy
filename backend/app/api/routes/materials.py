@@ -6,6 +6,8 @@ from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from uuid import UUID
 from pydantic import BaseModel
+import asyncio
+import traceback
 
 from app.models import get_db, User, Material, Folder, AIOutput, ProcessingStatus, MaterialType, AsyncSessionLocal
 from app.services import UserService, MaterialService
@@ -26,6 +28,160 @@ class GenerateFromTopicRequest(BaseModel):
     topic: str
     folder_id: Optional[str] = None
     group_id: Optional[str] = None
+
+
+# ==================== Background Tasks ====================
+
+async def process_material_background(
+    material_id: UUID,
+    group_id: Optional[UUID] = None,
+    user_telegram_id: int = None,
+    user_first_name: Optional[str] = None
+):
+    """Фоновая обработка материала — НЕ блокирует основной поток!"""
+    # Создаём НОВУЮ сессию для background task
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Material).where(Material.id == material_id)
+            )
+            material = result.scalar_one_or_none()
+            
+            if not material:
+                print(f"❌ Material {material_id} not found")
+                return
+            
+            from app.services.processing_service import ProcessingService
+            processing_service = ProcessingService(db)
+            await processing_service.process_material(material)
+            await db.commit()
+            
+            print(f"✅ Background processing complete: {material_id}")
+            
+            # Уведомления группе
+            if group_id and material.status == ProcessingStatus.COMPLETED:
+                await send_group_notification(
+                    db, group_id, material.title, 
+                    user_first_name, user_telegram_id
+                )
+                
+        except Exception as e:
+            print(f"❌ Background processing error: {e}")
+            traceback.print_exc()
+            
+            # Помечаем как failed
+            try:
+                await db.rollback()
+                result = await db.execute(
+                    select(Material).where(Material.id == material_id)
+                )
+                material = result.scalar_one_or_none()
+                if material:
+                    material.status = ProcessingStatus.FAILED
+                    await db.commit()
+            except:
+                pass
+
+
+async def generate_topic_background(
+    material_id: UUID,
+    topic: str,
+    group_id: Optional[UUID] = None,
+    user_telegram_id: int = None,
+    user_first_name: Optional[str] = None
+):
+    """Фоновая генерация по теме"""
+    async with AsyncSessionLocal() as db:
+        try:
+            print(f"🎯 Background generating: {topic}")
+            
+            from app.services.ai_service import gemini_service
+            from app.services.text_extractor import clean_text_for_db
+            
+            # Генерируем контент
+            generated_content = await gemini_service.generate_content_from_topic(topic)
+            generated_content = clean_text_for_db(generated_content)
+            
+            # Обновляем материал
+            result = await db.execute(
+                select(Material).where(Material.id == material_id)
+            )
+            material = result.scalar_one_or_none()
+            
+            if not material:
+                print(f"❌ Material {material_id} not found")
+                return
+            
+            material.raw_content = generated_content
+            await db.commit()
+            
+            # Обрабатываем
+            from app.services.processing_service import ProcessingService
+            processing_service = ProcessingService(db)
+            await processing_service.process_material(material)
+            await db.commit()
+            
+            print(f"✅ Background generation complete: {material_id}")
+            
+            # Уведомления
+            if group_id and material.status == ProcessingStatus.COMPLETED:
+                await send_group_notification(
+                    db, group_id, material.title,
+                    user_first_name, user_telegram_id
+                )
+                
+        except Exception as e:
+            print(f"❌ Background generation error: {e}")
+            traceback.print_exc()
+            
+            try:
+                await db.rollback()
+                result = await db.execute(
+                    select(Material).where(Material.id == material_id)
+                )
+                material = result.scalar_one_or_none()
+                if material:
+                    material.status = ProcessingStatus.FAILED
+                    await db.commit()
+            except:
+                pass
+
+
+async def send_group_notification(
+    db: AsyncSession,
+    group_id: UUID,
+    material_title: str,
+    user_first_name: Optional[str],
+    user_telegram_id: int
+):
+    """Отправка уведомлений группе"""
+    try:
+        from app.services.notification_service import NotificationService
+        from app.services.group_service import GroupService
+        from app.main import bot_app
+        
+        if not bot_app:
+            return
+        
+        group_service = GroupService(db)
+        members = await group_service.get_group_members(group_id)
+        member_ids = [m.get("telegram_id") for m in members if m.get("telegram_id")]
+        
+        group = await group_service.get_group_by_id(group_id)
+        group_name = group.name if group else "Группа"
+        
+        notification_service = NotificationService(db)
+        sent = await notification_service.send_group_material_notification(
+            group_name=group_name,
+            material_title=material_title,
+            uploader_name=user_first_name or "Участник",
+            member_telegram_ids=member_ids,
+            exclude_user_id=user_telegram_id,
+            bot=bot_app.bot
+        )
+        print(f"📨 Notified {sent} members")
+    except Exception as e:
+        print(f"⚠️ Notification error: {e}")
 
 
 # ==================== Upload Endpoints ====================
@@ -76,11 +232,10 @@ async def upload_material(
     )
     
     await user_service.increment_request_count(current_user)
-    await db.commit()  # Сразу коммитим!
+    await db.commit()
     
-    # Запускаем обработку В ФОНЕ — не блокируем ответ
+    # 🚀 Запускаем обработку В ФОНЕ
     if auto_process:
-        import asyncio
         asyncio.create_task(
             process_material_background(
                 material_id=material.id,
@@ -90,160 +245,8 @@ async def upload_material(
             )
         )
     
-    # Возвращаем сразу! Статус будет "pending"
     return material
 
-async def process_material_background(
-    material_id: UUID,
-    group_id: Optional[UUID],
-    user_telegram_id: int,
-    user_first_name: Optional[str]
-):
-    """Фоновая обработка материала"""
-    from app.models import AsyncSessionLocal
-    
-    async with AsyncSessionLocal() as db:
-        try:
-            result = await db.execute(
-                select(Material).where(Material.id == material_id)
-            )
-            material = result.scalar_one_or_none()
-            
-            if not material:
-                print(f"❌ Material {material_id} not found")
-                return
-            
-            from app.services.processing_service import ProcessingService
-            processing_service = ProcessingService(db)
-            await processing_service.process_material(material)
-            await db.commit()
-            
-            print(f"✅ Background processing complete: {material_id}")
-            
-            # Уведомления
-            if group_id and material.status == ProcessingStatus.COMPLETED:
-                await send_group_notification(
-                    db, group_id, material.title, 
-                    user_first_name, user_telegram_id
-                )
-                
-        except Exception as e:
-            print(f"❌ Background processing error: {e}")
-            import traceback
-            traceback.print_exc()
-            
-            # Помечаем как failed
-            try:
-                result = await db.execute(
-                    select(Material).where(Material.id == material_id)
-                )
-                material = result.scalar_one_or_none()
-                if material:
-                    material.status = ProcessingStatus.FAILED
-                    await db.commit()
-            except:
-                pass
-
-async def generate_topic_background(
-    material_id: UUID,
-    topic: str,
-    group_id: Optional[UUID],
-    user_telegram_id: int,
-    user_first_name: Optional[str]
-):
-    """Фоновая генерация по теме"""
-    from app.models import AsyncSessionLocal
-    from app.services.ai_service import gemini_service
-    from app.services.text_extractor import clean_text_for_db
-    
-    async with AsyncSessionLocal() as db:
-        try:
-            print(f"🎯 Background generating: {topic}")
-            
-            # Генерируем контент
-            generated_content = await gemini_service.generate_content_from_topic(topic)
-            generated_content = clean_text_for_db(generated_content)
-            
-            # Обновляем материал
-            result = await db.execute(
-                select(Material).where(Material.id == material_id)
-            )
-            material = result.scalar_one_or_none()
-            
-            if not material:
-                print(f"❌ Material {material_id} not found")
-                return
-            
-            material.raw_content = generated_content
-            await db.commit()
-            
-            # Обрабатываем (генерируем конспекты, тесты и тд)
-            from app.services.processing_service import ProcessingService
-            processing_service = ProcessingService(db)
-            await processing_service.process_material(material)
-            await db.commit()
-            
-            print(f"✅ Background generation complete: {material_id}")
-            
-            # Уведомления
-            if group_id and material.status == ProcessingStatus.COMPLETED:
-                await send_group_notification(
-                    db, group_id, material.title,
-                    user_first_name, user_telegram_id
-                )
-                
-        except Exception as e:
-            print(f"❌ Background generation error: {e}")
-            import traceback
-            traceback.print_exc()
-            
-            # Помечаем как failed
-            try:
-                result = await db.execute(
-                    select(Material).where(Material.id == material_id)
-                )
-                material = result.scalar_one_or_none()
-                if material:
-                    material.status = ProcessingStatus.FAILED
-                    await db.commit()
-            except:
-                pass
-
-async def send_group_notification(
-    db: AsyncSession,
-    group_id: UUID,
-    material_title: str,
-    user_first_name: Optional[str],
-    user_telegram_id: int
-):
-    """Отправка уведомлений группе"""
-    try:
-        from app.services.notification_service import NotificationService
-        from app.services.group_service import GroupService
-        from app.main import bot_app
-        
-        if not bot_app:
-            return
-        
-        group_service = GroupService(db)
-        members = await group_service.get_group_members(group_id)
-        member_ids = [m.get("telegram_id") for m in members if m.get("telegram_id")]
-        
-        group = await group_service.get_group_by_id(group_id)
-        group_name = group.name if group else "Группа"
-        
-        notification_service = NotificationService(db)
-        sent = await notification_service.send_group_material_notification(
-            group_name=group_name,
-            material_title=material_title,
-            uploader_name=user_first_name or "Участник",
-            member_telegram_ids=member_ids,
-            exclude_user_id=user_telegram_id,
-            bot=bot_app.bot
-        )
-        print(f"📨 Notified {sent} members")
-    except Exception as e:
-        print(f"⚠️ Notification error: {e}")
 
 @router.post("/text", response_model=MaterialResponse)
 async def create_text_material(
@@ -254,7 +257,7 @@ async def create_text_material(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Создать материал из текста"""
+    """Создать материал из текста — обработка в фоне"""
     user_service = UserService(db)
     can_proceed, _ = await user_service.check_rate_limit(current_user)
     
@@ -275,6 +278,7 @@ async def create_text_material(
     
     material_service = MaterialService(db)
     
+    # Создаём материал со статусом PROCESSING
     material = await material_service.create_material(
         user=current_user,
         title=title,
@@ -282,16 +286,21 @@ async def create_text_material(
         folder_id=target_folder_id,
         raw_content=content
     )
+    material.status = ProcessingStatus.PROCESSING
     
     await user_service.increment_request_count(current_user)
+    await db.commit()
+    await db.refresh(material)
     
-    try:
-        from app.services.processing_service import ProcessingService
-        processing_service = ProcessingService(db)
-        await processing_service.process_material(material)
-        await db.refresh(material)
-    except Exception as e:
-        print(f"Processing error: {e}")
+    # 🚀 Запускаем обработку В ФОНЕ (НЕ блокируем!)
+    asyncio.create_task(
+        process_material_background(
+            material_id=material.id,
+            group_id=group_id,
+            user_telegram_id=current_user.telegram_id,
+            user_first_name=current_user.first_name
+        )
+    )
     
     return material
 
@@ -305,7 +314,7 @@ async def scan_image(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сканировать изображение"""
+    """Сканировать изображение — обработка в фоне"""
     user_service = UserService(db)
     can_proceed, _ = await user_service.check_rate_limit(current_user)
     
@@ -334,6 +343,7 @@ async def scan_image(
     material_service = MaterialService(db)
     file_path = await material_service.save_uploaded_file(content, file.filename, current_user.id)
     
+    # Создаём материал со статусом PROCESSING
     material = await material_service.create_material(
         user=current_user,
         title=title or "Скан",
@@ -342,18 +352,21 @@ async def scan_image(
         original_filename=file.filename,
         folder_id=target_folder_id
     )
+    material.status = ProcessingStatus.PROCESSING
     
     await user_service.increment_request_count(current_user)
+    await db.commit()
+    await db.refresh(material)
     
-    try:
-        from app.services.processing_service import ProcessingService
-        processing_service = ProcessingService(db)
-        await processing_service.process_material(material)
-        await db.refresh(material)
-    except Exception as e:
-        print(f"Scan processing error: {e}")
-        material.status = ProcessingStatus.FAILED
-        await db.commit()
+    # 🚀 Запускаем обработку В ФОНЕ
+    asyncio.create_task(
+        process_material_background(
+            material_id=material.id,
+            group_id=group_id,
+            user_telegram_id=current_user.telegram_id,
+            user_first_name=current_user.first_name
+        )
+    )
     
     return material
 
@@ -386,25 +399,22 @@ async def generate_from_topic(
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = UUID(request.group_id)
     
-    # Создаём материал со статусом processing
-    material_service = MaterialService(db)
+    # Создаём материал со статусом PROCESSING
     material = Material(
         user_id=current_user.id,
         title=request.topic,
         material_type=MaterialType.TXT,
         folder_id=target_folder_id,
         status=ProcessingStatus.PROCESSING,
-        raw_content=""  # Пока пустой
+        raw_content=""
     )
     db.add(material)
-    await db.commit()
-    await db.refresh(material)
     
     await user_service.increment_request_count(current_user)
     await db.commit()
+    await db.refresh(material)
     
-    # Запускаем генерацию В ФОНЕ
-    import asyncio
+    # 🚀 Запускаем генерацию В ФОНЕ
     asyncio.create_task(
         generate_topic_background(
             material_id=material.id,
@@ -415,8 +425,8 @@ async def generate_from_topic(
         )
     )
     
-    # Возвращаем сразу! Статус "processing"
     return material
+
 
 # ==================== Get Endpoints ====================
 
@@ -513,49 +523,7 @@ async def search_materials(
     ]
 
 
-@router.get("/debug/groups-check")
-async def debug_groups_check(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Временный endpoint для отладки"""
-    from sqlalchemy import text
-    
-    result = await db.execute(text("""
-        SELECT 
-            f.id as group_id,
-            f.name as group_name,
-            f.is_group,
-            gm.user_id as member_id,
-            gm.role
-        FROM folders f
-        LEFT JOIN group_members gm ON f.id = gm.group_id
-        WHERE f.is_group = true
-    """))
-    groups_data = [dict(row._mapping) for row in result.fetchall()]
-    
-    result2 = await db.execute(text("""
-        SELECT 
-            m.id as material_id,
-            m.title,
-            m.folder_id,
-            m.user_id as owner_id,
-            f.name as folder_name,
-            f.is_group
-        FROM materials m
-        LEFT JOIN folders f ON m.folder_id = f.id
-        WHERE m.folder_id IS NOT NULL
-    """))
-    materials_data = [dict(row._mapping) for row in result2.fetchall()]
-    
-    return {
-        "current_user_id": str(current_user.id),
-        "groups_and_members": groups_data,
-        "materials_in_folders": materials_data
-    }
-
-
-# ==================== Get Material by ID (должен быть ПОСЛЕ /search/all) ====================
+# ==================== Get Material by ID ====================
 
 @router.get("/{material_id}")
 async def get_material(
@@ -731,5 +699,31 @@ async def test_notification(
         )
         return {"success": True, "sent_to": current_user.telegram_id}
     except Exception as e:
-        import traceback
         return {"error": str(e), "trace": traceback.format_exc()}
+
+
+@router.get("/debug/groups-check")
+async def debug_groups_check(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Отладка групп"""
+    from sqlalchemy import text
+    
+    result = await db.execute(text("""
+        SELECT 
+            f.id as group_id,
+            f.name as group_name,
+            f.is_group,
+            gm.user_id as member_id,
+            gm.role
+        FROM folders f
+        LEFT JOIN group_members gm ON f.id = gm.group_id
+        WHERE f.is_group = true
+    """))
+    groups_data = [dict(row._mapping) for row in result.fetchall()]
+    
+    return {
+        "current_user_id": str(current_user.id),
+        "groups_and_members": groups_data
+    }
