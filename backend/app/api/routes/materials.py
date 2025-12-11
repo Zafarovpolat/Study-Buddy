@@ -1,7 +1,7 @@
-# backend/app/api/routes/materials.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/api/routes/materials.py
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
 from typing import Optional, List
 from uuid import UUID
@@ -26,6 +26,7 @@ class GenerateFromTopicRequest(BaseModel):
     topic: str
     folder_id: Optional[str] = None
     group_id: Optional[str] = None
+
 
 # ==================== Upload Endpoints ====================
 
@@ -230,167 +231,6 @@ async def scan_image(
     return material
 
 
-# ==================== Get Endpoints ====================
-
-@router.get("/", response_model=List[MaterialResponse])
-async def list_materials(
-    folder_id: Optional[UUID] = None,
-    limit: int = 50,
-    offset: int = 0,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Получить материалы пользователя"""
-    material_service = MaterialService(db)
-    materials = await material_service.get_user_materials(
-        user_id=current_user.id,
-        folder_id=folder_id,
-        limit=limit,
-        offset=offset
-    )
-    return materials
-
-
-@router.get("/group/{group_id}", response_model=List[MaterialResponse])
-async def get_group_materials(
-    group_id: UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Получить материалы группы"""
-    from app.services.group_service import GroupService
-    
-    group_service = GroupService(db)
-    groups = await group_service.get_user_groups(current_user)
-    
-    if not any(g["id"] == str(group_id) for g in groups):
-        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
-    result = await db.execute(
-        select(Material)
-        .where(Material.folder_id == group_id)
-        .order_by(Material.created_at.desc())
-    )
-    materials = result.scalars().all()
-    
-    return materials
-
-@router.get("/search/all")
-async def search_materials(
-    q: str,
-    limit: int = 20,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-
-@router.get("/{material_id}")
-async def get_material(
-    material_id: UUID,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Получить материал с AI-выводами"""
-    
-    result = await db.execute(
-        select(Material)
-        .options(
-            selectinload(Material.outputs),
-            selectinload(Material.folder)  # ← Загружаем папку
-        )
-        .where(Material.id == material_id)
-    )
-    material = result.scalar_one_or_none()
-    
-    if not material:
-        raise HTTPException(status_code=404, detail="Материал не найден")
-    
-    has_access = False
-    group_id = None  # ← Будет заполнено только если это группа
-    
-    # Владелец имеет доступ
-    if material.user_id == current_user.id:
-        has_access = True
-    
-    # Проверяем доступ через группу
-    if material.folder_id:
-        # Проверяем, является ли folder группой
-        if material.folder and material.folder.is_group:
-            group_id = material.folder_id  # ← Это группа!
-        
-        from app.services.group_service import GroupService
-        group_service = GroupService(db)
-        groups = await group_service.get_user_groups(current_user)
-        if any(g["id"] == str(material.folder_id) for g in groups):
-            has_access = True
-    
-    if not has_access:
-        raise HTTPException(status_code=403, detail="Нет доступа к материалу")
-    
-    # Формируем ответ
-    return {
-        "id": str(material.id),
-        "user_id": str(material.user_id),
-        "title": material.title,
-        "material_type": material.material_type.value,
-        "status": material.status.value,
-        "folder_id": str(material.folder_id) if material.folder_id else None,
-        "group_id": str(group_id) if group_id else None,  # ← КЛЮЧЕВОЕ!
-        "raw_content": material.raw_content,
-        "original_filename": material.original_filename,
-        "created_at": material.created_at.isoformat(),
-        "updated_at": material.updated_at.isoformat() if material.updated_at else None,
-        "outputs": [
-            {
-                "id": str(o.id),
-                "format": o.format.value,
-                "content": o.content,
-                "created_at": o.created_at.isoformat()
-            }
-            for o in material.outputs
-        ]
-    }
-# ==================== Update/Delete Endpoints ====================
-
-@router.patch("/{material_id}", response_model=MaterialResponse)
-async def update_material(
-    material_id: UUID,
-    request: UpdateMaterialRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Обновить материал (название, папка)"""
-    
-    result = await db.execute(
-        select(Material).where(
-            Material.id == material_id,
-            Material.user_id == current_user.id
-        )
-    )
-    material = result.scalar_one_or_none()
-    
-    if not material:
-        raise HTTPException(status_code=404, detail="Материал не найден")
-    
-    if request.title is not None:
-        material.title = request.title.strip()
-    
-    if request.folder_id is not None:
-        folder_result = await db.execute(
-            select(Folder).where(
-                Folder.id == request.folder_id,
-                Folder.user_id == current_user.id
-            )
-        )
-        folder = folder_result.scalar_one_or_none()
-        if not folder:
-            raise HTTPException(status_code=404, detail="Папка не найдена")
-        material.folder_id = request.folder_id
-    
-    await db.commit()
-    await db.refresh(material)
-    
-    return material
-
 @router.post("/generate-from-topic", response_model=MaterialResponse)
 async def generate_from_topic(
     request: GenerateFromTopicRequest,
@@ -453,51 +293,101 @@ async def generate_from_topic(
     
     return material
 
-@router.patch("/{material_id}/move-to-root", response_model=MaterialResponse)
-async def move_material_to_root(
-    material_id: UUID,
+
+# ==================== Get Endpoints ====================
+
+@router.get("/", response_model=List[MaterialResponse])
+async def list_materials(
+    folder_id: Optional[UUID] = None,
+    limit: int = 50,
+    offset: int = 0,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Переместить материал в корень"""
+    """Получить материалы пользователя"""
+    material_service = MaterialService(db)
+    materials = await material_service.get_user_materials(
+        user_id=current_user.id,
+        folder_id=folder_id,
+        limit=limit,
+        offset=offset
+    )
+    return materials
+
+
+@router.get("/group/{group_id}", response_model=List[MaterialResponse])
+async def get_group_materials(
+    group_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить материалы группы"""
+    from app.services.group_service import GroupService
+    
+    group_service = GroupService(db)
+    groups = await group_service.get_user_groups(current_user)
+    
+    if not any(g["id"] == str(group_id) for g in groups):
+        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
     
     result = await db.execute(
-        select(Material).where(
-            Material.id == material_id,
-            Material.user_id == current_user.id
-        )
+        select(Material)
+        .where(Material.folder_id == group_id)
+        .order_by(Material.created_at.desc())
     )
-    material = result.scalar_one_or_none()
+    materials = result.scalars().all()
     
-    if not material:
-        raise HTTPException(status_code=404, detail="Материал не найден")
-    
-    material.folder_id = None
-    await db.commit()
-    await db.refresh(material)
-    
-    return material
+    return materials
 
 
-@router.delete("/{material_id}", response_model=SuccessResponse)
-async def delete_material(
-    material_id: UUID,
+@router.get("/search/all")
+async def search_materials(
+    q: str,
+    limit: int = 20,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Удалить материал"""
-    material_service = MaterialService(db)
-    material = await material_service.get_by_id(material_id, current_user.id)
+    """Поиск по всем доступным материалам"""
+    if not q or len(q.strip()) < 2:
+        return []
     
-    if not material:
-        raise HTTPException(status_code=404, detail="Материал не найден")
+    search_query = f"%{q.strip().lower()}%"
     
-    await material_service.delete_material(material)
+    from app.services.group_service import GroupService
+    group_service = GroupService(db)
+    user_groups = await group_service.get_user_groups(current_user)
+    group_ids = [UUID(g["id"]) for g in user_groups]
     
-    return SuccessResponse(message="Удалено")
+    conditions = [Material.user_id == current_user.id]
+    
+    if group_ids:
+        conditions.append(Material.folder_id.in_(group_ids))
+    
+    result = await db.execute(
+        select(Material)
+        .where(
+            or_(*conditions),
+            func.lower(Material.title).like(search_query)
+        )
+        .order_by(Material.created_at.desc())
+        .limit(limit)
+    )
+    
+    materials = result.scalars().all()
+    
+    return [
+        {
+            "id": str(m.id),
+            "title": m.title,
+            "material_type": m.material_type.value,
+            "status": m.status.value,
+            "folder_id": str(m.folder_id) if m.folder_id else None,
+            "created_at": m.created_at.isoformat(),
+            "is_own": m.user_id == current_user.id
+        }
+        for m in materials
+    ]
 
-
-# ==================== Debug Endpoints ====================
 
 @router.get("/debug/groups-check")
 async def debug_groups_check(
@@ -539,50 +429,183 @@ async def debug_groups_check(
         "groups_and_members": groups_data,
         "materials_in_folders": materials_data
     }
-    """Поиск по всем доступным материалам"""
-    
-    if not q or len(q.strip()) < 2:
-        return []
-    
-    search_query = f"%{q.strip().lower()}%"
-    
-    # Получаем группы пользователя
-    from app.services.group_service import GroupService
-    group_service = GroupService(db)
-    user_groups = await group_service.get_user_groups(current_user)
-    group_ids = [UUID(g["id"]) for g in user_groups]
-    
-    # Ищем в личных материалах + материалах групп
-    from sqlalchemy import or_, func
-    
-    conditions = [
-        Material.user_id == current_user.id  # Личные материалы
-    ]
-    
-    if group_ids:
-        conditions.append(Material.folder_id.in_(group_ids))  # Материалы групп
-    
+
+
+# ==================== Get Material by ID (должен быть ПОСЛЕ /search/all) ====================
+
+@router.get("/{material_id}")
+async def get_material(
+    material_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить материал с AI-выводами"""
     result = await db.execute(
         select(Material)
-        .where(
-            or_(*conditions),
-            func.lower(Material.title).like(search_query)
+        .options(
+            selectinload(Material.outputs),
+            selectinload(Material.folder)
         )
-        .order_by(Material.created_at.desc())
-        .limit(limit)
+        .where(Material.id == material_id)
     )
+    material = result.scalar_one_or_none()
     
-    materials = result.scalars().all()
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
     
-    return [
-        {
-            "id": str(m.id),
-            "title": m.title,
-            "material_type": m.material_type.value,
-            "status": m.status.value,
-            "folder_id": str(m.folder_id) if m.folder_id else None,
-            "created_at": m.created_at.isoformat(),
-            "is_own": m.user_id == current_user.id
-        }
-        for m in materials
-    ]
+    has_access = False
+    group_id = None
+    
+    if material.user_id == current_user.id:
+        has_access = True
+    
+    if material.folder_id:
+        if material.folder and material.folder.is_group:
+            group_id = material.folder_id
+        
+        from app.services.group_service import GroupService
+        group_service = GroupService(db)
+        groups = await group_service.get_user_groups(current_user)
+        if any(g["id"] == str(material.folder_id) for g in groups):
+            has_access = True
+    
+    if not has_access:
+        raise HTTPException(status_code=403, detail="Нет доступа к материалу")
+    
+    return {
+        "id": str(material.id),
+        "user_id": str(material.user_id),
+        "title": material.title,
+        "material_type": material.material_type.value,
+        "status": material.status.value,
+        "folder_id": str(material.folder_id) if material.folder_id else None,
+        "group_id": str(group_id) if group_id else None,
+        "raw_content": material.raw_content,
+        "original_filename": material.original_filename,
+        "created_at": material.created_at.isoformat(),
+        "updated_at": material.updated_at.isoformat() if material.updated_at else None,
+        "outputs": [
+            {
+                "id": str(o.id),
+                "format": o.format.value,
+                "content": o.content,
+                "created_at": o.created_at.isoformat()
+            }
+            for o in material.outputs
+        ]
+    }
+
+
+# ==================== Update/Delete Endpoints ====================
+
+@router.patch("/{material_id}", response_model=MaterialResponse)
+async def update_material(
+    material_id: UUID,
+    request: UpdateMaterialRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Обновить материал"""
+    result = await db.execute(
+        select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id
+        )
+    )
+    material = result.scalar_one_or_none()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    if request.title is not None:
+        material.title = request.title.strip()
+    
+    if request.folder_id is not None:
+        folder_result = await db.execute(
+            select(Folder).where(
+                Folder.id == request.folder_id,
+                Folder.user_id == current_user.id
+            )
+        )
+        folder = folder_result.scalar_one_or_none()
+        if not folder:
+            raise HTTPException(status_code=404, detail="Папка не найдена")
+        material.folder_id = request.folder_id
+    
+    await db.commit()
+    await db.refresh(material)
+    
+    return material
+
+
+@router.patch("/{material_id}/move-to-root", response_model=MaterialResponse)
+async def move_material_to_root(
+    material_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Переместить материал в корень"""
+    result = await db.execute(
+        select(Material).where(
+            Material.id == material_id,
+            Material.user_id == current_user.id
+        )
+    )
+    material = result.scalar_one_or_none()
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    material.folder_id = None
+    await db.commit()
+    await db.refresh(material)
+    
+    return material
+
+
+@router.delete("/{material_id}", response_model=SuccessResponse)
+async def delete_material(
+    material_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить материал"""
+    material_service = MaterialService(db)
+    material = await material_service.get_by_id(material_id, current_user.id)
+    
+    if not material:
+        raise HTTPException(status_code=404, detail="Материал не найден")
+    
+    await material_service.delete_material(material)
+    
+    return SuccessResponse(message="Удалено")
+
+
+# ==================== Debug/Test Endpoints ====================
+
+@router.post("/debug/test-notification")
+async def test_notification(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Тестовая отправка уведомления себе"""
+    from app.main import bot_app
+    
+    if not bot_app:
+        return {"error": "Bot not initialized"}
+    
+    try:
+        await bot_app.bot.send_message(
+            chat_id=current_user.telegram_id,
+            text=(
+                f"🧪 *Тестовое уведомление!*\n\n"
+                f"Привет, {current_user.first_name or 'друг'}!\n"
+                f"Твой telegram\\_id: `{current_user.telegram_id}`\n\n"
+                f"✅ Уведомления работают!"
+            ),
+            parse_mode="Markdown"
+        )
+        return {"success": True, "sent_to": current_user.telegram_id}
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "trace": traceback.format_exc()}
