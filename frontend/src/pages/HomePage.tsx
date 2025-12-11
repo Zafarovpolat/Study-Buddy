@@ -11,6 +11,7 @@ import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
 import { telegram } from '../lib/telegram';
 import { OnboardingModal } from '../components/OnboardingModal';
+import { AskLibrary } from '../components/AskLibrary';
 
 
 export function HomePage() {
@@ -497,6 +498,9 @@ export function HomePage() {
                 isOpen={showOnboarding}
                 onClose={() => setShowOnboarding(false)}
             />
+
+            {/* Ask Library FAB */}
+            <AskLibrary />
         </div>
     );
 }

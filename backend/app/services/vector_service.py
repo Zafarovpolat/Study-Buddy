@@ -11,7 +11,6 @@ from app.core.config import settings
 
 _executor = ThreadPoolExecutor(max_workers=2)
 
-# Размер chunk в символах
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
 
@@ -24,32 +23,28 @@ class VectorService:
         if settings.GEMINI_API_KEY:
             genai.configure(api_key=settings.GEMINI_API_KEY)
     
-    def _split_into_chunks(self, text: str) -> List[Dict[str, Any]]:
+    def _split_into_chunks(self, text_content: str) -> List[Dict[str, Any]]:
         """Разбивает текст на chunks с перекрытием"""
         chunks = []
         start = 0
         chunk_index = 0
         
-        while start < len(text):
+        while start < len(text_content):
             end = start + CHUNK_SIZE
             
-            # Пытаемся разбить по предложению
-            if end < len(text):
-                # Ищем конец предложения
+            if end < len(text_content):
                 for sep in ['. ', '.\n', '! ', '? ', '\n\n']:
-                    last_sep = text[start:end].rfind(sep)
+                    last_sep = text_content[start:end].rfind(sep)
                     if last_sep > CHUNK_SIZE // 2:
                         end = start + last_sep + len(sep)
                         break
             
-            chunk_text = text[start:end].strip()
+            chunk_text = text_content[start:end].strip()
             
             if chunk_text:
                 chunks.append({
                     "content": chunk_text,
                     "chunk_index": chunk_index,
-                    "char_start": start,
-                    "char_end": end
                 })
                 chunk_index += 1
             
@@ -59,19 +54,19 @@ class VectorService:
         
         return chunks
     
-    def _get_embedding_sync(self, text: str) -> List[float]:
+    def _get_embedding_sync(self, text_content: str) -> List[float]:
         """Синхронное получение embedding"""
         result = genai.embed_content(
             model="models/text-embedding-004",
-            content=text,
+            content=text_content,
             task_type="retrieval_document"
         )
         return result['embedding']
     
-    async def _get_embedding(self, text: str) -> List[float]:
+    async def _get_embedding(self, text_content: str) -> List[float]:
         """Асинхронное получение embedding"""
         loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(_executor, self._get_embedding_sync, text)
+        return await loop.run_in_executor(_executor, self._get_embedding_sync, text_content)
     
     async def index_material(self, material_id: UUID, user_id: UUID, content: str) -> int:
         """Индексирует материал — создаёт chunks с embeddings"""
@@ -84,36 +79,38 @@ class VectorService:
             {"material_id": str(material_id)}
         )
         
-        # Разбиваем на chunks
         chunks = self._split_into_chunks(content)
-        
         print(f"📊 Indexing {len(chunks)} chunks for material {material_id}")
         
-        # Получаем embeddings и сохраняем
+        indexed = 0
         for chunk in chunks:
             try:
                 embedding = await self._get_embedding(chunk["content"])
                 
+                # Конвертируем в строку для pgvector
+                embedding_str = "[" + ",".join(map(str, embedding)) + "]"
+                
                 await self.db.execute(
                     text("""
                         INSERT INTO text_chunks (material_id, user_id, content, chunk_index, embedding)
-                        VALUES (:material_id, :user_id, :content, :chunk_index, :embedding)
+                        VALUES (:material_id, :user_id, :content, :chunk_index, :embedding::vector)
                     """),
                     {
                         "material_id": str(material_id),
                         "user_id": str(user_id),
                         "content": chunk["content"],
                         "chunk_index": chunk["chunk_index"],
-                        "embedding": embedding
+                        "embedding": embedding_str
                     }
                 )
+                indexed += 1
             except Exception as e:
                 print(f"⚠️ Failed to index chunk {chunk['chunk_index']}: {e}")
         
         await self.db.commit()
-        print(f"✅ Indexed {len(chunks)} chunks")
+        print(f"✅ Indexed {indexed}/{len(chunks)} chunks")
         
-        return len(chunks)
+        return indexed
     
     async def search(
         self, 
@@ -123,12 +120,10 @@ class VectorService:
         material_id: Optional[UUID] = None
     ) -> List[Dict[str, Any]]:
         """Поиск по векторам"""
-        # Получаем embedding запроса
         query_embedding = await self._get_embedding(query)
+        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
         
-        # Поиск похожих chunks
         if material_id:
-            # Поиск в конкретном материале
             result = await self.db.execute(
                 text("""
                     SELECT 
@@ -137,21 +132,20 @@ class VectorService:
                         tc.content,
                         tc.chunk_index,
                         m.title as material_title,
-                        1 - (tc.embedding <=> :embedding) as similarity
+                        1 - (tc.embedding <=> :embedding::vector) as similarity
                     FROM text_chunks tc
                     JOIN materials m ON m.id = tc.material_id
                     WHERE tc.material_id = :material_id
-                    ORDER BY tc.embedding <=> :embedding
+                    ORDER BY tc.embedding <=> :embedding::vector
                     LIMIT :limit
                 """),
                 {
-                    "embedding": query_embedding,
+                    "embedding": embedding_str,
                     "material_id": str(material_id),
                     "limit": limit
                 }
             )
         else:
-            # Поиск по всем материалам пользователя
             result = await self.db.execute(
                 text("""
                     SELECT 
@@ -160,15 +154,15 @@ class VectorService:
                         tc.content,
                         tc.chunk_index,
                         m.title as material_title,
-                        1 - (tc.embedding <=> :embedding) as similarity
+                        1 - (tc.embedding <=> :embedding::vector) as similarity
                     FROM text_chunks tc
                     JOIN materials m ON m.id = tc.material_id
                     WHERE tc.user_id = :user_id
-                    ORDER BY tc.embedding <=> :embedding
+                    ORDER BY tc.embedding <=> :embedding::vector
                     LIMIT :limit
                 """),
                 {
-                    "embedding": query_embedding,
+                    "embedding": embedding_str,
                     "user_id": str(user_id),
                     "limit": limit
                 }
@@ -183,14 +177,13 @@ class VectorService:
                 "material_title": row.material_title,
                 "content": row.content,
                 "chunk_index": row.chunk_index,
-                "similarity": float(row.similarity)
+                "similarity": float(row.similarity) if row.similarity else 0
             }
             for row in rows
         ]
     
     async def ask_library(self, user_id: UUID, question: str) -> Dict[str, Any]:
         """Спроси свою библиотеку — RAG"""
-        # Находим релевантные chunks
         chunks = await self.search(user_id, question, limit=5)
         
         if not chunks:
@@ -199,7 +192,6 @@ class VectorService:
                 "sources": []
             }
         
-        # Формируем контекст
         context_parts = []
         for chunk in chunks:
             context_parts.append(
@@ -208,20 +200,18 @@ class VectorService:
         
         context = "\n\n---\n\n".join(context_parts)
         
-        # Генерируем ответ
-        prompt = f"""Ты — умный ассистент для учёбы. Отвечай на вопрос пользователя, 
-используя ТОЛЬКО информацию из предоставленного контекста.
+        prompt = f"""Ты — умный ассистент для учёбы. Отвечай на вопрос, используя ТОЛЬКО информацию из контекста.
 
-Контекст из материалов пользователя:
+Контекст из материалов:
 {context}
 
 Вопрос: {question}
 
 Правила:
 1. Отвечай только на основе контекста
-2. Если информации недостаточно — скажи об этом
-3. Указывай из какого материала информация
-4. Будь конкретен и полезен
+2. Если информации нет — скажи об этом
+3. Укажи из какого материала информация
+4. Будь конкретен
 
 Ответ:"""
 
@@ -243,6 +233,6 @@ class VectorService:
         except Exception as e:
             print(f"❌ RAG error: {e}")
             return {
-                "answer": f"Ошибка генерации ответа: {str(e)}",
+                "answer": f"Ошибка: {str(e)}",
                 "sources": []
             }
