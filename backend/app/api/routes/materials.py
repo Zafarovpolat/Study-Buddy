@@ -78,17 +78,30 @@ async def upload_material(
     
     await user_service.increment_request_count(current_user)
     
+    # Сохраняем ID до долгой операции
+    material_id = material.id
+    user_telegram_id = current_user.telegram_id
+    user_first_name = current_user.first_name
+    
     if auto_process:
         try:
             from app.services.processing_service import ProcessingService
             processing_service = ProcessingService(db)
             await processing_service.process_material(material)
-            await db.refresh(material)
+            
+            # Перезагружаем материал после обработки
+            result = await db.execute(
+                select(Material).where(Material.id == material_id)
+            )
+            material = result.scalar_one_or_none()
+            if material:
+                await db.refresh(material)
         except Exception as e:
             print(f"Processing error: {e}")
+            # Не падаем — материал создан, просто не обработан
     
     # ===== УВЕДОМЛЕНИЕ УЧАСТНИКОВ ГРУППЫ =====
-    if group_id and material.status == ProcessingStatus.COMPLETED:
+    if group_id and material and material.status == ProcessingStatus.COMPLETED:
         try:
             from app.services.notification_service import NotificationService
             from app.services.group_service import GroupService
@@ -106,9 +119,9 @@ async def upload_material(
                 sent = await notification_service.send_group_material_notification(
                     group_name=group_name,
                     material_title=material.title,
-                    uploader_name=current_user.first_name or "Участник",
+                    uploader_name=user_first_name or "Участник",
                     member_telegram_ids=member_ids,
-                    exclude_user_id=current_user.telegram_id,
+                    exclude_user_id=user_telegram_id,
                     bot=bot_app.bot
                 )
                 print(f"📨 Notified {sent} group members about new material")
@@ -116,7 +129,6 @@ async def upload_material(
             print(f"⚠️ Failed to send group notification: {e}")
     
     return material
-
 
 @router.post("/text", response_model=MaterialResponse)
 async def create_text_material(
@@ -262,8 +274,12 @@ async def generate_from_topic(
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = UUID(request.group_id)
     
+    # Сохраняем user_id до долгой AI операции
+    user_id = current_user.id
+    
     print(f"🎯 Generating content for topic: {request.topic}")
     
+    # === AI ГЕНЕРАЦИЯ (долгая операция, БД не используется) ===
     try:
         generated_content = await gemini_service.generate_content_from_topic(request.topic)
         generated_content = clean_text_for_db(generated_content)
@@ -271,29 +287,42 @@ async def generate_from_topic(
         print(f"❌ AI generation error: {e}")
         raise HTTPException(status_code=500, detail="Ошибка генерации контента")
     
+    # === Теперь работаем с БД (быстрые операции) ===
+    # Перезагружаем user (сессия могла протухнуть за время AI)
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Сессия истекла")
+    
     material_service = MaterialService(db)
+    user_service = UserService(db)
     
     material = await material_service.create_material(
-        user=current_user,
+        user=user,
         title=request.topic,
         material_type=MaterialType.TXT,
         folder_id=target_folder_id,
         raw_content=generated_content
     )
     
-    await user_service.increment_request_count(current_user)
+    await user_service.increment_request_count(user)
+    
+    # Сохраняем ID перед processing
+    material_id = material.id
     
     try:
         from app.services.processing_service import ProcessingService
         processing_service = ProcessingService(db)
         await processing_service.process_material(material)
-        await db.refresh(material)
+        
+        # Перезагружаем после обработки
+        result = await db.execute(select(Material).where(Material.id == material_id))
+        material = result.scalar_one_or_none()
     except Exception as e:
         print(f"Processing error: {e}")
     
     return material
-
-
 # ==================== Get Endpoints ====================
 
 @router.get("/", response_model=List[MaterialResponse])

@@ -1,18 +1,20 @@
-# backend/app/models/base.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/models/base.py
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
 from app.core.config import settings
 
-# Получаем правильный URL для asyncpg
 database_url = settings.get_database_url()
-print(f"📦 Connecting to database...")  # Не выводим URL с паролем в логи
+print(f"📦 Connecting to database...")
 
 engine = create_async_engine(
     database_url, 
     echo=settings.DEBUG,
-    pool_pre_ping=True,  # Проверяет соединение перед использованием
-    pool_recycle=300,    # Переподключение каждые 5 минут
+    pool_pre_ping=True,       # Проверяет соединение перед использованием
+    pool_recycle=280,         # Переподключение каждые 4.5 минуты (до Supabase таймаута)
+    pool_size=5,              # Базовый размер пула
+    max_overflow=10,          # Дополнительные соединения при нагрузке
+    pool_timeout=30,          # Таймаут ожидания соединения
 )
 
 AsyncSessionLocal = sessionmaker(
@@ -25,7 +27,6 @@ AsyncSessionLocal = sessionmaker(
 class Base(DeclarativeBase):
     pass
 
-__all__ = ["Base", "get_db", "engine", "AsyncSessionLocal"]
 
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -33,3 +34,6 @@ async def get_db():
             yield session
         finally:
             await session.close()
+
+
+__all__ = ["Base", "get_db", "engine", "AsyncSessionLocal"]
