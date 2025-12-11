@@ -62,7 +62,9 @@ export function MaterialCard({
     const status = statusConfig[material.status] || statusConfig.pending;
 
     const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
+        // Добавляем Z если нет — сервер отдаёт UTC
+        const isoString = dateString.endsWith('Z') ? dateString : dateString + 'Z';
+        const date = new Date(isoString);
         const now = new Date();
         const diffMs = now.getTime() - date.getTime();
         const diffMins = Math.floor(diffMs / 60000);

@@ -40,7 +40,7 @@ async def upload_material(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Загрузить и обработать материал"""
+    """Загрузить материал — обработка в фоне"""
     user_service = UserService(db)
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
     
@@ -76,31 +76,22 @@ async def upload_material(
     )
     
     await user_service.increment_request_count(current_user)
+    await db.commit()  # Сразу коммитим!
     
-    # Коммитим создание материала СРАЗУ
-    await db.commit()
-    
-    # Сохраняем данные для фоновой обработки
-    material_id = material.id
-    user_telegram_id = current_user.telegram_id
-    user_first_name = current_user.first_name
-    
-    # Возвращаем материал пользователю БЫСТРО (статус pending)
-    # Обработка будет в фоне
+    # Запускаем обработку В ФОНЕ — не блокируем ответ
     if auto_process:
-        # Запускаем обработку в фоне
         import asyncio
         asyncio.create_task(
             process_material_background(
-                material_id=material_id,
+                material_id=material.id,
                 group_id=group_id,
-                user_telegram_id=user_telegram_id,
-                user_first_name=user_first_name
+                user_telegram_id=current_user.telegram_id,
+                user_first_name=current_user.first_name
             )
         )
     
+    # Возвращаем сразу! Статус будет "pending"
     return material
-
 
 async def process_material_background(
     material_id: UUID,
@@ -108,61 +99,151 @@ async def process_material_background(
     user_telegram_id: int,
     user_first_name: Optional[str]
 ):
-    """Фоновая обработка материала — не блокирует основной поток"""
+    """Фоновая обработка материала"""
     from app.models import AsyncSessionLocal
     
-    # Создаём НОВУЮ сессию для фоновой задачи
     async with AsyncSessionLocal() as db:
         try:
-            # Загружаем материал
             result = await db.execute(
                 select(Material).where(Material.id == material_id)
             )
             material = result.scalar_one_or_none()
             
             if not material:
-                print(f"❌ Material {material_id} not found for processing")
+                print(f"❌ Material {material_id} not found")
                 return
             
-            # Обрабатываем
             from app.services.processing_service import ProcessingService
             processing_service = ProcessingService(db)
             await processing_service.process_material(material)
             await db.commit()
             
-            print(f"✅ Background processing complete for {material_id}")
+            print(f"✅ Background processing complete: {material_id}")
             
             # Уведомления
             if group_id and material.status == ProcessingStatus.COMPLETED:
-                try:
-                    from app.services.notification_service import NotificationService
-                    from app.services.group_service import GroupService
-                    from app.main import bot_app
-                    
-                    if bot_app:
-                        group_service = GroupService(db)
-                        members = await group_service.get_group_members(group_id)
-                        member_ids = [m.get("telegram_id") for m in members if m.get("telegram_id")]
-                        
-                        group = await group_service.get_group_by_id(group_id)
-                        group_name = group.name if group else "Группа"
-                        
-                        notification_service = NotificationService(db)
-                        await notification_service.send_group_material_notification(
-                            group_name=group_name,
-                            material_title=material.title,
-                            uploader_name=user_first_name or "Участник",
-                            member_telegram_ids=member_ids,
-                            exclude_user_id=user_telegram_id,
-                            bot=bot_app.bot
-                        )
-                except Exception as e:
-                    print(f"⚠️ Notification error: {e}")
-                    
+                await send_group_notification(
+                    db, group_id, material.title, 
+                    user_first_name, user_telegram_id
+                )
+                
         except Exception as e:
             print(f"❌ Background processing error: {e}")
             import traceback
             traceback.print_exc()
+            
+            # Помечаем как failed
+            try:
+                result = await db.execute(
+                    select(Material).where(Material.id == material_id)
+                )
+                material = result.scalar_one_or_none()
+                if material:
+                    material.status = ProcessingStatus.FAILED
+                    await db.commit()
+            except:
+                pass
+
+async def generate_topic_background(
+    material_id: UUID,
+    topic: str,
+    group_id: Optional[UUID],
+    user_telegram_id: int,
+    user_first_name: Optional[str]
+):
+    """Фоновая генерация по теме"""
+    from app.models import AsyncSessionLocal
+    from app.services.ai_service import gemini_service
+    from app.services.text_extractor import clean_text_for_db
+    
+    async with AsyncSessionLocal() as db:
+        try:
+            print(f"🎯 Background generating: {topic}")
+            
+            # Генерируем контент
+            generated_content = await gemini_service.generate_content_from_topic(topic)
+            generated_content = clean_text_for_db(generated_content)
+            
+            # Обновляем материал
+            result = await db.execute(
+                select(Material).where(Material.id == material_id)
+            )
+            material = result.scalar_one_or_none()
+            
+            if not material:
+                print(f"❌ Material {material_id} not found")
+                return
+            
+            material.raw_content = generated_content
+            await db.commit()
+            
+            # Обрабатываем (генерируем конспекты, тесты и тд)
+            from app.services.processing_service import ProcessingService
+            processing_service = ProcessingService(db)
+            await processing_service.process_material(material)
+            await db.commit()
+            
+            print(f"✅ Background generation complete: {material_id}")
+            
+            # Уведомления
+            if group_id and material.status == ProcessingStatus.COMPLETED:
+                await send_group_notification(
+                    db, group_id, material.title,
+                    user_first_name, user_telegram_id
+                )
+                
+        except Exception as e:
+            print(f"❌ Background generation error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Помечаем как failed
+            try:
+                result = await db.execute(
+                    select(Material).where(Material.id == material_id)
+                )
+                material = result.scalar_one_or_none()
+                if material:
+                    material.status = ProcessingStatus.FAILED
+                    await db.commit()
+            except:
+                pass
+
+async def send_group_notification(
+    db: AsyncSession,
+    group_id: UUID,
+    material_title: str,
+    user_first_name: Optional[str],
+    user_telegram_id: int
+):
+    """Отправка уведомлений группе"""
+    try:
+        from app.services.notification_service import NotificationService
+        from app.services.group_service import GroupService
+        from app.main import bot_app
+        
+        if not bot_app:
+            return
+        
+        group_service = GroupService(db)
+        members = await group_service.get_group_members(group_id)
+        member_ids = [m.get("telegram_id") for m in members if m.get("telegram_id")]
+        
+        group = await group_service.get_group_by_id(group_id)
+        group_name = group.name if group else "Группа"
+        
+        notification_service = NotificationService(db)
+        sent = await notification_service.send_group_material_notification(
+            group_name=group_name,
+            material_title=material_title,
+            uploader_name=user_first_name or "Участник",
+            member_telegram_ids=member_ids,
+            exclude_user_id=user_telegram_id,
+            bot=bot_app.bot
+        )
+        print(f"📨 Notified {sent} members")
+    except Exception as e:
+        print(f"⚠️ Notification error: {e}")
 
 @router.post("/text", response_model=MaterialResponse)
 async def create_text_material(
@@ -283,10 +364,7 @@ async def generate_from_topic(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сгенерировать материал по названию темы"""
-    from app.services.ai_service import gemini_service
-    from app.services.text_extractor import clean_text_for_db
-    
+    """Генерация по теме — в фоне"""
     user_service = UserService(db)
     can_proceed, _ = await user_service.check_rate_limit(current_user)
     
@@ -308,55 +386,38 @@ async def generate_from_topic(
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = UUID(request.group_id)
     
-    # Сохраняем user_id до долгой AI операции
-    user_id = current_user.id
-    
-    print(f"🎯 Generating content for topic: {request.topic}")
-    
-    # === AI ГЕНЕРАЦИЯ (долгая операция, БД не используется) ===
-    try:
-        generated_content = await gemini_service.generate_content_from_topic(request.topic)
-        generated_content = clean_text_for_db(generated_content)
-    except Exception as e:
-        print(f"❌ AI generation error: {e}")
-        raise HTTPException(status_code=500, detail="Ошибка генерации контента")
-    
-    # === Теперь работаем с БД (быстрые операции) ===
-    # Перезагружаем user (сессия могла протухнуть за время AI)
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(status_code=401, detail="Сессия истекла")
-    
+    # Создаём материал со статусом processing
     material_service = MaterialService(db)
-    user_service = UserService(db)
-    
-    material = await material_service.create_material(
-        user=user,
+    material = Material(
+        user_id=current_user.id,
         title=request.topic,
         material_type=MaterialType.TXT,
         folder_id=target_folder_id,
-        raw_content=generated_content
+        status=ProcessingStatus.PROCESSING,
+        raw_content=""  # Пока пустой
+    )
+    db.add(material)
+    await db.commit()
+    await db.refresh(material)
+    
+    await user_service.increment_request_count(current_user)
+    await db.commit()
+    
+    # Запускаем генерацию В ФОНЕ
+    import asyncio
+    asyncio.create_task(
+        generate_topic_background(
+            material_id=material.id,
+            topic=request.topic,
+            group_id=UUID(request.group_id) if request.group_id else None,
+            user_telegram_id=current_user.telegram_id,
+            user_first_name=current_user.first_name
+        )
     )
     
-    await user_service.increment_request_count(user)
-    
-    # Сохраняем ID перед processing
-    material_id = material.id
-    
-    try:
-        from app.services.processing_service import ProcessingService
-        processing_service = ProcessingService(db)
-        await processing_service.process_material(material)
-        
-        # Перезагружаем после обработки
-        result = await db.execute(select(Material).where(Material.id == material_id))
-        material = result.scalar_one_or_none()
-    except Exception as e:
-        print(f"Processing error: {e}")
-    
+    # Возвращаем сразу! Статус "processing"
     return material
+
 # ==================== Get Endpoints ====================
 
 @router.get("/", response_model=List[MaterialResponse])

@@ -1,4 +1,4 @@
-# backend/app/models/__init__.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/models/__init__.py
 from app.models.base import Base, get_db, engine, AsyncSessionLocal
 from app.models.user import User, SubscriptionTier
 from app.models.material import Material, MaterialType, ProcessingStatus
@@ -7,7 +7,6 @@ from app.models.group_member import GroupMember, GroupRole
 from app.models.ai_output import AIOutput, OutputFormat
 from app.models.quiz_result import QuizResult
 
-# Алиас для совместимости
 async_session = AsyncSessionLocal
 
 __all__ = [
@@ -26,4 +25,5 @@ __all__ = [
     "GroupRole",
     "AIOutput",
     "OutputFormat",
+    "QuizResult",
 ]

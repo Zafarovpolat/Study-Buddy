@@ -11,7 +11,7 @@ class ApiClient {
     constructor() {
         this.client = axios.create({
             baseURL: API_URL,
-            timeout: 60000, // 60 секунд для AI обработки
+            timeout: 30000, // 60 секунд для AI обработки
         });
 
         // Добавляем заголовки авторизации

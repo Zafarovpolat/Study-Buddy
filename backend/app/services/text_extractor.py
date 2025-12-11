@@ -1,4 +1,4 @@
-# backend/app/services/text_extractor.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/services/text_extractor.py
 import os
 import re
 from pathlib import Path
@@ -9,13 +9,8 @@ def clean_text_for_db(text: str) -> str:
     if not text:
         return ""
     
-    # Удаляем null-байты (главная причина ошибки!)
     text = text.replace('\x00', '')
-    
-    # Удаляем другие проблемные control characters (кроме \n, \r, \t)
     text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
-    
-    # Заменяем суррогатные пары на пробелы
     text = text.encode('utf-8', errors='replace').decode('utf-8')
     
     return text
@@ -26,7 +21,7 @@ class TextExtractor:
     
     @staticmethod
     async def extract_from_pdf(file_path: str) -> str:
-        """Извлечь текст из PDF"""
+        """Извлечь текст из PDF, с fallback на OCR"""
         try:
             import pypdf
             
@@ -40,14 +35,49 @@ class TextExtractor:
             
             text = "\n\n".join(text_parts)
             
-            if not text.strip():
-                raise ValueError("PDF не содержит текста")
+            # Если текста нет или слишком мало — пробуем OCR
+            if not text.strip() or len(text.strip()) < 50:
+                print("📷 PDF без текста, пробуем OCR через Gemini...")
+                try:
+                    text = await TextExtractor._pdf_ocr_gemini(file_path)
+                except Exception as ocr_error:
+                    print(f"❌ OCR failed: {ocr_error}")
+                    raise ValueError("PDF не содержит текста. Попробуйте загрузить как изображение.")
             
-            # ОЧИСТКА!
             return clean_text_for_db(text)
             
+        except ValueError:
+            raise
         except Exception as e:
             raise ValueError(f"Ошибка чтения PDF: {str(e)}")
+    
+    @staticmethod
+    async def _pdf_ocr_gemini(file_path: str) -> str:
+        """OCR для PDF через Gemini"""
+        import google.generativeai as genai
+        from app.core.config import settings
+        import base64
+        
+        with open(file_path, 'rb') as f:
+            pdf_data = f.read()
+        
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        model = genai.GenerativeModel(settings.GEMINI_MODEL)
+        
+        response = model.generate_content([
+            {
+                "mime_type": "application/pdf",
+                "data": base64.b64encode(pdf_data).decode('utf-8')
+            },
+            "Извлеки весь текст из этого PDF документа. Сохрани структуру. Только текст, без комментариев."
+        ])
+        
+        text = response.text.strip()
+        
+        if not text or len(text) < 10:
+            raise ValueError("Не удалось распознать текст")
+        
+        return text
     
     @staticmethod
     async def extract_from_docx(file_path: str) -> str:
@@ -73,7 +103,6 @@ class TextExtractor:
             if not text.strip():
                 raise ValueError("DOCX не содержит текста")
             
-            # ОЧИСТКА!
             return clean_text_for_db(text)
             
         except KeyError:
@@ -85,10 +114,10 @@ class TextExtractor:
     
     @staticmethod
     async def extract_from_doc(file_path: str) -> str:
-        """Извлечь текст из DOC через Gemini OCR"""
+        """DOC не поддерживается"""
         raise ValueError(
-            "Формат .doc (Word 97-2003) не поддерживается. "
-            "Откройте в Word → Файл → Сохранить как → выберите .docx"
+            "Формат .doc не поддерживается. "
+            "Откройте в Word → Файл → Сохранить как → .docx"
         )
     
     @staticmethod
@@ -101,7 +130,6 @@ class TextExtractor:
                 with open(file_path, 'r', encoding=encoding) as f:
                     text = f.read()
                     if text.strip():
-                        # ОЧИСТКА!
                         return clean_text_for_db(text)
             except UnicodeDecodeError:
                 continue
@@ -133,8 +161,6 @@ class TextExtractor:
             
             model = genai.GenerativeModel(settings.GEMINI_MODEL)
             
-            print(f"🔍 Using model: {settings.GEMINI_MODEL}")
-            
             response = model.generate_content([
                 {
                     "mime_type": mime_type,
@@ -148,13 +174,12 @@ class TextExtractor:
             if not text or len(text) < 3:
                 raise ValueError("Текст не распознан")
             
-            # ОЧИСТКА!
             return clean_text_for_db(text)
             
         except Exception as e:
             error = str(e)
             if "404" in error or "not found" in error.lower():
-                raise ValueError(f"Модель {settings.GEMINI_MODEL} недоступна")
+                raise ValueError(f"Модель недоступна")
             raise ValueError(f"Ошибка OCR: {error[:100]}")
     
     @classmethod
@@ -188,8 +213,6 @@ class TextExtractor:
         print(f"📂 Extracting {ext} from {file_path}")
         
         text = await extractor(file_path)
-        
-        # Финальная очистка
         text = clean_text_for_db(text)
         text = re.sub(r'\n{3,}', '\n\n', text.strip())
         

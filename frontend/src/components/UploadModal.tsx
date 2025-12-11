@@ -187,19 +187,29 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 );
             } else {
                 telegram.alert('Заполните необходимые поля');
+                setIsLoading(false);
                 return;
             }
 
+            // Успех! Закрываем сразу, не ждём обработки
             telegram.haptic('success');
-
             resetForm();
             onClose();
 
         } catch (error: any) {
             console.error('Upload error:', error);
             telegram.haptic('error');
-            const errorMessage = error.response?.data?.detail || error.message || 'Ошибка загрузки';
-            telegram.alert(errorMessage);
+
+            // Проверяем тип ошибки
+            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+                // Timeout — но материал скорее всего создан
+                telegram.alert('Материал загружен, обработка идёт в фоне. Обновите страницу.');
+                resetForm();
+                onClose();
+            } else {
+                const errorMessage = error.response?.data?.detail || error.message || 'Ошибка загрузки';
+                telegram.alert(errorMessage);
+            }
         } finally {
             setIsLoading(false);
         }
