@@ -1,17 +1,17 @@
 # backend/app/models/user.py
-from sqlalchemy import Column, String, Integer, DateTime, Enum as SQLEnum, BigInteger
+from sqlalchemy import Column, String, Integer, DateTime, BigInteger
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
-import enum
 import secrets
 from datetime import datetime
 
 from app.models.base import Base
 
 
-class SubscriptionTier(str, enum.Enum):
+# Используем простой String вместо ENUM — проще и надёжнее!
+class SubscriptionTier:
     FREE = "free"
     PRO = "pro"
     SOS = "sos"
@@ -26,8 +26,9 @@ class User(Base):
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
     
+    # String вместо ENUM — избегаем проблем с PostgreSQL ENUM
     subscription_tier = Column(
-        SQLEnum(SubscriptionTier), 
+        String(20),
         default=SubscriptionTier.FREE,
         nullable=False
     )
@@ -51,7 +52,7 @@ class User(Base):
     materials = relationship("Material", back_populates="user")
     folders = relationship("Folder", back_populates="user")
     quiz_results = relationship("QuizResult", back_populates="user")
-    group_memberships = relationship("GroupMember", back_populates="user")  # ДОБАВЛЕНО
+    group_memberships = relationship("GroupMember", back_populates="user")
     
     def generate_referral_code(self) -> str:
         if not self.referral_code:
