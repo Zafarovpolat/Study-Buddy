@@ -465,16 +465,6 @@ export function HomePage() {
                 )}
             </main>
 
-            {/* FAB */}
-            {activeTab === 'personal' && !showSearch && (
-                <button
-                    onClick={() => openUpload('file')}
-                    className="fixed bottom-6 right-6 w-14 h-14 bg-tg-button text-tg-button-text rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform z-40"
-                >
-                    <Plus className="w-6 h-6" />
-                </button>
-            )}
-
             {/* Overlay для закрытия поиска */}
             {showSearch && searchQuery && (
                 <div className="fixed inset-0 z-40" onClick={clearSearch} />

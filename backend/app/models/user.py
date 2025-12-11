@@ -51,6 +51,7 @@ class User(Base):
     materials = relationship("Material", back_populates="user")
     folders = relationship("Folder", back_populates="user")
     quiz_results = relationship("QuizResult", back_populates="user")
+    group_memberships = relationship("GroupMember", back_populates="user")  # ДОБАВЛЕНО
     
     def generate_referral_code(self) -> str:
         if not self.referral_code:
