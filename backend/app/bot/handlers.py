@@ -10,7 +10,7 @@ from app.core.config import settings
 
 
 WELCOME_TEXT = """
-🎓 *Добро пожаловать в Study Buddy!*
+🎓 *Добро пожаловать в Lecto!*
 
 📝 *Smart Notes* — умные конспекты
 ⚡ *TL;DR* — краткое содержание
@@ -77,7 +77,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tier = "⭐ Pro" if db_user.is_pro else "🆓 Free"
         daily_limit = settings.FREE_DAILY_LIMIT
     
-    webapp_url = settings.FRONTEND_URL or "https://studybuddyai-qd2m.onrender.com"
+    webapp_url = settings.FRONTEND_URL or "https://eduai-api-tlyf.onrender.com"
     
     keyboard = [
         [InlineKeyboardButton("📱 Открыть приложение", web_app=WebAppInfo(url=webapp_url))],
@@ -111,7 +111,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /stats — твоя статистика
 /invite — пригласить друзей
 
-*Поддержка:* @studybuddy_support
+*Поддержка:* @zafarovpolat
 """
     await update.message.reply_text(text, parse_mode="Markdown")
 

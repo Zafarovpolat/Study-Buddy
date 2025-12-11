@@ -37,7 +37,7 @@ export function InviteBanner() {
     const handleCopy = async () => {
         if (!referralStats) return;
 
-        const text = `📚 Присоединяйся к Study Buddy — ИИ-помощник для учёбы!\n\n${referralStats.referral_link}`;
+        const text = `📚 Присоединяйся к Lecto — ИИ-помощник для учёбы!\n\n${referralStats.referral_link}`;
         await navigator.clipboard.writeText(text);
         setCopied(true);
         telegram.haptic('success');
@@ -47,7 +47,7 @@ export function InviteBanner() {
     const handleShare = () => {
         if (!referralStats) return;
 
-        const text = `📚 Присоединяйся к Study Buddy — ИИ-помощник для учёбы!`;
+        const text = `📚 Присоединяйся к Lecto — ИИ-помощник для учёбы!`;
         const url = referralStats.referral_link;
 
         window.open(

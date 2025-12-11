@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
-    TELEGRAM_BOT_USERNAME: str = "studybuddy_uzbot"  # ДОБАВЬ ЭТО
+    TELEGRAM_BOT_USERNAME: str = "lectoaibot"  # ДОБАВЬ ЭТО
 
     # AI - Gemini
     GEMINI_API_KEY: str = ""

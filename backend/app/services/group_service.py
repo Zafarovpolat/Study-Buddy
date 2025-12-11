@@ -228,7 +228,7 @@ class GroupService:
         """Статистика рефералов"""
         await self.get_or_create_referral_code(user)
         
-        bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'studybuddy_uzbot')
+        bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'lectoaibot')
         
         return {
             "referral_code": user.referral_code,
