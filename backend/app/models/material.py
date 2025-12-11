@@ -1,4 +1,4 @@
-# backend/app/models/material.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/models/material.py — ЗАМЕНИ ПОЛНОСТЬЮ
 from sqlalchemy import Column, String, Text, Enum, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -52,3 +52,4 @@ class Material(Base):
     user = relationship("User", back_populates="materials")
     folder = relationship("Folder", back_populates="materials")
     outputs = relationship("AIOutput", back_populates="material", cascade="all, delete-orphan")
+    quiz_results = relationship("QuizResult", back_populates="material", cascade="all, delete-orphan")

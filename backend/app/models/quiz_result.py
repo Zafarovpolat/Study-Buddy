@@ -1,10 +1,11 @@
-# backend/app/models/quiz_result.py - СОЗДАЙ НОВЫЙ ФАЙЛ
+# backend/app/models/quiz_result.py
 from sqlalchemy import Column, Integer, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 
 from app.models.base import Base
+
 
 class QuizResult(Base):
     __tablename__ = "quiz_results"
@@ -20,7 +21,7 @@ class QuizResult(Base):
     
     completed_at = Column(DateTime, server_default=func.now())
     
-    # Relationships
-    user = relationship("User", backref="quiz_results")
-    material = relationship("Material", backref="quiz_results")
-    group = relationship("Folder", backref="quiz_results")
+    # Relationships — используем back_populates
+    user = relationship("User", back_populates="quiz_results")
+    material = relationship("Material", back_populates="quiz_results")
+    group = relationship("Folder", back_populates="quiz_results")

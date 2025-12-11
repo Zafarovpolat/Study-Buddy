@@ -1,4 +1,4 @@
-# backend/app/models/folder.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/models/folder.py — ЗАМЕНИ ПОЛНОСТЬЮ
 from sqlalchemy import Column, String, DateTime, ForeignKey, func, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -30,12 +30,10 @@ class Folder(Base):
     user = relationship("User", back_populates="folders", foreign_keys=[user_id])
     materials = relationship("Material", back_populates="folder")
     children = relationship("Folder", backref="parent", remote_side=[id])
-    
-    # Участники группы
     members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
+    quiz_results = relationship("QuizResult", back_populates="group")
     
     def generate_invite_code(self) -> str:
-        """Генерация уникального кода приглашения"""
         if not self.invite_code:
             self.invite_code = secrets.token_urlsafe(8)[:10].upper()
         return self.invite_code
