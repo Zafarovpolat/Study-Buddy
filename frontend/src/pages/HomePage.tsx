@@ -15,34 +15,53 @@ export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [uploadMode, setUploadMode] = useState<'file' | 'scan' | 'text' | 'topic'>('file');
     const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [uploadGroupId, setUploadGroupId] = useState<string | undefined>(undefined);
 
-    // ===== ПОИСК =====
+    // Поиск
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [showSearch, setShowSearch] = useState(false);
 
     const {
-        user,
-        setUser,
-        limits,
-        setLimits,
-        materials,
-        setMaterials,
-        folders,
-        setFolders,
-        groups,
-        setGroups,
-        currentFolderId,
-        setCurrentFolderId,
+        user, setUser,
+        limits, setLimits,
+        materials, setMaterials,
+        folders, setFolders,
+        groups, setGroups,
+        currentFolderId, setCurrentFolderId,
         setSelectedMaterial,
-        activeTab,
-        setActiveTab,
+        activeTab, setActiveTab,
         removeMaterial,
     } = useStore();
 
-    // ===== ЗАГРУЗКА ГРУПП ПРИ СТАРТЕ =====
+    // ===== POLLING для обновления статусов материалов =====
+    useEffect(() => {
+        const processingMaterials = materials.filter(m => m.status === 'processing');
+
+        if (processingMaterials.length === 0) return;
+
+        const pollInterval = setInterval(async () => {
+            try {
+                const updatedMaterials = await api.getMaterials(currentFolderId || undefined);
+                setMaterials(updatedMaterials);
+
+                // Если все обработаны — останавливаем
+                const stillProcessing = updatedMaterials.filter((m: any) => m.status === 'processing');
+                if (stillProcessing.length === 0) {
+                    clearInterval(pollInterval);
+                    telegram.haptic('success');
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+            }
+        }, 3000);
+
+        return () => clearInterval(pollInterval);
+    }, [materials, currentFolderId]);
+
+    // Загрузка групп при старте
     useEffect(() => {
         const loadGroups = async () => {
             try {
@@ -55,12 +74,12 @@ export function HomePage() {
         loadGroups();
     }, []);
 
-    // ===== ЗАГРУЗКА ДАННЫХ ПРИ СМЕНЕ ВКЛАДКИ/ПАПКИ =====
+    // Загрузка данных при смене вкладки/папки
     useEffect(() => {
         loadData();
     }, [currentFolderId, activeTab]);
 
-    // ===== ПОИСК С DEBOUNCE =====
+    // Поиск с debounce
     useEffect(() => {
         if (!searchQuery.trim()) {
             setSearchResults([]);
@@ -85,9 +104,10 @@ export function HomePage() {
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    const loadData = async () => {
+    const loadData = async (showLoader = true) => {
         try {
-            setIsLoading(true);
+            if (showLoader && !materials.length) setIsLoading(true);
+            setIsRefreshing(true);
 
             const [userData, limitsData] = await Promise.all([
                 !user ? api.getMe() : Promise.resolve(user),
@@ -112,27 +132,23 @@ export function HomePage() {
             console.error('Failed to load data:', error);
         } finally {
             setIsLoading(false);
+            setIsRefreshing(false);
         }
     };
 
     const handleMaterialClick = async (material: any) => {
-        if (material.status === 'completed') {
-            try {
-                const fullMaterial = await api.getMaterial(material.id);
-                setSelectedMaterial(fullMaterial);
-                window.location.hash = `#/material/${material.id}`;
-            } catch (error) {
-                telegram.alert('Ошибка загрузки материала');
-            }
-        } else if (material.status === 'processing') {
-            telegram.alert('Материал ещё обрабатывается...');
-        } else if (material.status === 'failed') {
-            telegram.alert('Ошибка обработки. Попробуйте снова.');
+        // Открываем СРАЗУ — даже если processing
+        try {
+            const fullMaterial = await api.getMaterial(material.id);
+            setSelectedMaterial(fullMaterial);
+            window.location.hash = `#/material/${material.id}`;
+        } catch (error) {
+            telegram.alert('Ошибка загрузки материала');
         }
     };
 
     const handleMaterialUpdate = () => {
-        loadData();
+        loadData(false);
     };
 
     const handleMaterialDelete = (materialId: string) => {
@@ -164,10 +180,29 @@ export function HomePage() {
         telegram.haptic('light');
     };
 
+    const handleRefresh = () => {
+        telegram.haptic('light');
+        loadData(false);
+    };
+
+    // ===== Skeleton для первой загрузки =====
     if (isLoading && !materials.length && !groups.length) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Spinner size="lg" />
+            <div className="min-h-screen bg-tg-bg">
+                <Header />
+                <main className="p-4 space-y-4">
+                    <div className="h-10 bg-tg-secondary rounded-lg animate-pulse" />
+                    <div className="grid grid-cols-4 gap-2">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="h-20 bg-tg-secondary rounded-xl animate-pulse" />
+                        ))}
+                    </div>
+                    <div className="space-y-2">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-20 bg-tg-secondary rounded-xl animate-pulse" />
+                        ))}
+                    </div>
+                </main>
             </div>
         );
     }
@@ -177,7 +212,6 @@ export function HomePage() {
             <Header />
 
             <main className="p-4 pb-24 space-y-4">
-
                 {/* Tabs */}
                 <div className="flex bg-tg-secondary rounded-lg p-1">
                     <button
@@ -188,8 +222,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'personal'
-                            ? 'bg-tg-bg shadow text-tg-text'
-                            : 'text-tg-hint'
+                                ? 'bg-tg-bg shadow text-tg-text'
+                                : 'text-tg-hint'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -202,8 +236,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'groups'
-                            ? 'bg-tg-bg shadow text-tg-text'
-                            : 'text-tg-hint'
+                                ? 'bg-tg-bg shadow text-tg-text'
+                                : 'text-tg-hint'
                             }`}
                     >
                         <Users className="w-4 h-4" />
@@ -213,20 +247,18 @@ export function HomePage() {
 
                 {activeTab === 'personal' ? (
                     <>
-                        {/* Кнопка назад из папки */}
+                        {/* Кнопка назад */}
                         {currentFolderId && (
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleBackFromFolder}
-                                    className="flex items-center gap-2 text-tg-button font-medium py-2"
-                                >
-                                    <ArrowLeft className="w-5 h-5" />
-                                    <span>Назад</span>
-                                </button>
-                            </div>
+                            <button
+                                onClick={handleBackFromFolder}
+                                className="flex items-center gap-2 text-tg-button font-medium py-2"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                                <span>Назад</span>
+                            </button>
                         )}
 
-                        {/* ===== ПОИСК ===== */}
+                        {/* Поиск */}
                         {!currentFolderId && (
                             <div className="relative">
                                 <div className="relative">
@@ -308,7 +340,6 @@ export function HomePage() {
                                         <Camera className="w-6 h-6 text-tg-button mx-auto mb-1" />
                                         <span className="text-xs font-medium">Скан</span>
                                     </Card>
-
                                     <Card
                                         className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('file')}
@@ -316,7 +347,6 @@ export function HomePage() {
                                         <Upload className="w-6 h-6 text-tg-button mx-auto mb-1" />
                                         <span className="text-xs font-medium">Файл</span>
                                     </Card>
-
                                     <Card
                                         className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('text')}
@@ -324,7 +354,6 @@ export function HomePage() {
                                         <Type className="w-6 h-6 text-tg-button mx-auto mb-1" />
                                         <span className="text-xs font-medium">Текст</span>
                                     </Card>
-
                                     <Card
                                         className="cursor-pointer active:scale-95 transition-transform text-center py-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20"
                                         onClick={() => openUpload('topic')}
@@ -344,9 +373,7 @@ export function HomePage() {
                                         <p className="text-sm text-tg-hint">Осталось сегодня</p>
                                         <p className="text-2xl font-bold">
                                             {limits.remaining_today}
-                                            <span className="text-sm font-normal text-tg-hint">
-                                                /{limits.daily_limit}
-                                            </span>
+                                            <span className="text-sm font-normal text-tg-hint">/{limits.daily_limit}</span>
                                         </p>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={handleGetPro}>
@@ -386,10 +413,10 @@ export function HomePage() {
                                         {currentFolderId ? 'Материалы в папке' : 'Материалы'}
                                     </h2>
                                     <button
-                                        onClick={loadData}
+                                        onClick={handleRefresh}
                                         className="p-1 text-tg-hint hover:text-tg-text transition-colors"
                                     >
-                                        <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                        <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                                     </button>
                                 </div>
 
@@ -421,10 +448,9 @@ export function HomePage() {
                         )}
                     </>
                 ) : (
-                    /* Groups Tab */
                     <GroupsTab
                         groups={groups}
-                        onRefresh={loadData}
+                        onRefresh={() => loadData(false)}
                         onUploadToGroup={(groupId) => {
                             setUploadGroupId(groupId);
                             setIsUploadOpen(true);
@@ -445,10 +471,7 @@ export function HomePage() {
 
             {/* Overlay для закрытия поиска */}
             {showSearch && searchQuery && (
-                <div
-                    className="fixed inset-0 z-40"
-                    onClick={clearSearch}
-                />
+                <div className="fixed inset-0 z-40" onClick={clearSearch} />
             )}
 
             {/* Upload Modal */}
@@ -457,7 +480,7 @@ export function HomePage() {
                 onClose={() => {
                     setIsUploadOpen(false);
                     setUploadGroupId(undefined);
-                    loadData();
+                    loadData(false);
                 }}
                 folderId={currentFolderId || undefined}
                 groupId={uploadGroupId}

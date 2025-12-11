@@ -1,4 +1,4 @@
-// frontend/src/components/MaterialCard.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/components/MaterialCard.tsx
 import { FileText, Image, File, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Card } from './ui';
 import { MaterialActions } from './MaterialActions';
@@ -36,7 +36,7 @@ const statusConfig: Record<string, { icon: React.ReactNode; text: string; classN
     },
     processing: {
         icon: <Loader2 className="w-4 h-4 animate-spin" />,
-        text: 'Обработка',
+        text: 'Обработка...',
         className: 'text-blue-500 bg-blue-100 dark:bg-blue-900/30',
     },
     completed: {
@@ -62,7 +62,6 @@ export function MaterialCard({
     const status = statusConfig[material.status] || statusConfig.pending;
 
     const formatDate = (dateString: string) => {
-        // Добавляем Z если нет — сервер отдаёт UTC
         const isoString = dateString.endsWith('Z') ? dateString : dateString + 'Z';
         const date = new Date(isoString);
         const now = new Date();
@@ -78,10 +77,16 @@ export function MaterialCard({
         return date.toLocaleDateString('ru-RU');
     };
 
+    // Можно кликать даже если processing — откроется страница с прогрессом
+    const isClickable = material.status !== 'pending';
+
     return (
         <Card
-            className="flex items-center gap-3 p-4 cursor-pointer hover:bg-tg-secondary/50 active:scale-[0.99] transition-all"
-            onClick={onClick}
+            className={`flex items-center gap-3 p-4 transition-all ${isClickable
+                    ? 'cursor-pointer hover:bg-tg-secondary/50 active:scale-[0.99]'
+                    : 'opacity-70'
+                } ${material.status === 'processing' ? 'border-l-4 border-l-blue-400' : ''}`}
+            onClick={isClickable ? onClick : undefined}
         >
             {/* Icon */}
             <div className="flex-shrink-0 w-10 h-10 bg-tg-secondary rounded-lg flex items-center justify-center">
@@ -102,8 +107,8 @@ export function MaterialCard({
                 </div>
             </div>
 
-            {/* Actions */}
-            {showActions && onUpdate && onDelete && (
+            {/* Actions — только для completed и владельца */}
+            {showActions && material.status === 'completed' && onUpdate && onDelete && (
                 <MaterialActions
                     material={material}
                     onUpdate={onUpdate}

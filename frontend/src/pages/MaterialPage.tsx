@@ -1,6 +1,6 @@
-// frontend/src/pages/MaterialPage.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Trash2, RefreshCw } from 'lucide-react';
+// frontend/src/pages/MaterialPage.tsx
+import { useEffect, useState, useRef } from 'react';
+import { ArrowLeft, Trash2, RefreshCw, Loader2 } from 'lucide-react';
 import { Spinner, Button, Card } from '../components/ui';
 import { OutputViewer } from '../components/OutputViewer';
 import { api } from '../lib/api';
@@ -16,7 +16,10 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     const [outputs, setOutputs] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const groupId = material?.group_id;  // ✅ Только если это группа
+    const [isPolling, setIsPolling] = useState(false);
+
+    const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const groupId = material?.group_id;
 
     const { removeMaterial, user } = useStore();
 
@@ -29,19 +32,58 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
 
         return () => {
             telegram.hideBackButton();
+            // Очищаем polling при уходе со страницы
+            if (pollIntervalRef.current) {
+                clearInterval(pollIntervalRef.current);
+            }
         };
     }, [materialId]);
+
+    // ===== POLLING для processing материалов =====
+    useEffect(() => {
+        if (material?.status === 'processing' && !pollIntervalRef.current) {
+            setIsPolling(true);
+
+            pollIntervalRef.current = setInterval(async () => {
+                try {
+                    const updatedMaterial = await api.getMaterial(materialId);
+                    setMaterial(updatedMaterial);
+
+                    if (updatedMaterial.outputs?.length > 0) {
+                        setOutputs(updatedMaterial.outputs);
+                    }
+
+                    // Если готово — останавливаем polling
+                    if (updatedMaterial.status !== 'processing') {
+                        if (pollIntervalRef.current) {
+                            clearInterval(pollIntervalRef.current);
+                            pollIntervalRef.current = null;
+                        }
+                        setIsPolling(false);
+                        telegram.haptic('success');
+                    }
+                } catch (err) {
+                    console.error('Polling error:', err);
+                }
+            }, 3000); // Каждые 3 секунды
+        }
+
+        return () => {
+            if (pollIntervalRef.current && material?.status !== 'processing') {
+                clearInterval(pollIntervalRef.current);
+                pollIntervalRef.current = null;
+            }
+        };
+    }, [material?.status, materialId]);
 
     const loadMaterial = async () => {
         try {
             setIsLoading(true);
             setError(null);
 
-            // Загружаем материал (включает outputs)
             const materialData = await api.getMaterial(materialId);
             setMaterial(materialData);
 
-            // Outputs из материала или загружаем отдельно
             if (materialData.outputs && Array.isArray(materialData.outputs)) {
                 setOutputs(materialData.outputs);
             } else {
@@ -80,13 +122,39 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
         window.location.hash = '#/';
     };
 
-    // Проверяем, является ли текущий пользователь владельцем
     const isOwner = material && user && material.user_id === user.id;
 
+    // ===== Skeleton для первой загрузки =====
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-tg-bg">
-                <Spinner size="lg" />
+            <div className="min-h-screen bg-tg-bg">
+                <header className="sticky top-0 z-10 bg-tg-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+                    <div className="px-4 py-3 flex items-center gap-3">
+                        <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <div className="flex-1">
+                            <div className="h-5 w-48 bg-tg-secondary rounded animate-pulse" />
+                            <div className="h-3 w-24 bg-tg-secondary rounded animate-pulse mt-1" />
+                        </div>
+                    </div>
+                </header>
+                <main className="p-4 space-y-4">
+                    {/* Skeleton tabs */}
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className="h-10 w-24 bg-tg-secondary rounded-lg animate-pulse flex-shrink-0" />
+                        ))}
+                    </div>
+                    {/* Skeleton content */}
+                    <div className="space-y-3">
+                        <div className="h-4 bg-tg-secondary rounded animate-pulse" />
+                        <div className="h-4 bg-tg-secondary rounded animate-pulse w-5/6" />
+                        <div className="h-4 bg-tg-secondary rounded animate-pulse w-4/6" />
+                        <div className="h-20 bg-tg-secondary rounded animate-pulse mt-4" />
+                        <div className="h-4 bg-tg-secondary rounded animate-pulse w-3/4" />
+                    </div>
+                </main>
             </div>
         );
     }
@@ -135,14 +203,20 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
 
                     <div className="flex-1 min-w-0">
                         <h1 className="font-semibold truncate">{material.title}</h1>
-                        <p className="text-xs text-tg-hint">
-                            {new Date(material.created_at).toLocaleDateString('ru-RU')}
-                            {material.status === 'processing' && ' • ⏳ Обработка...'}
-                            {material.status === 'failed' && ' • ❌ Ошибка'}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-tg-hint">
+                            <span>{new Date(material.created_at).toLocaleDateString('ru-RU')}</span>
+                            {material.status === 'processing' && (
+                                <span className="flex items-center gap-1 text-yellow-500">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    Обработка...
+                                </span>
+                            )}
+                            {material.status === 'failed' && (
+                                <span className="text-red-500">❌ Ошибка</span>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Удалить может только владелец */}
                     {isOwner && (
                         <button onClick={handleDelete} className="p-2 text-red-500">
                             <Trash2 className="w-5 h-5" />
@@ -154,15 +228,48 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
             {/* Content */}
             <main className="p-4">
                 {material.status === 'processing' ? (
-                    <Card className="text-center py-12">
-                        <Spinner size="lg" />
-                        <p className="mt-4 text-tg-hint">Обработка материала...</p>
-                        <p className="text-xs text-tg-hint mt-2">Это может занять минуту</p>
-                        <Button variant="secondary" className="mt-4" onClick={loadMaterial}>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Проверить статус
-                        </Button>
-                    </Card>
+                    <div className="space-y-4">
+                        {/* Прогресс-бар */}
+                        <Card className="overflow-hidden">
+                            <div className="p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                                        <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium">AI обрабатывает материал</p>
+                                        <p className="text-sm text-tg-hint">Обычно занимает 30-60 секунд</p>
+                                    </div>
+                                </div>
+
+                                {/* Animated progress bar */}
+                                <div className="h-2 bg-tg-secondary rounded-full overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-pulse"
+                                        style={{ width: '60%', animation: 'pulse 1.5s ease-in-out infinite' }} />
+                                </div>
+
+                                <p className="text-xs text-tg-hint mt-3 text-center">
+                                    Страница обновится автоматически
+                                </p>
+                            </div>
+                        </Card>
+
+                        {/* Skeleton для будущего контента */}
+                        <div className="space-y-3 opacity-50">
+                            <div className="flex gap-2">
+                                {['Конспект', 'TL;DR', 'Тест', 'Глоссарий', 'Карточки'].map((tab, i) => (
+                                    <div key={i} className="px-4 py-2 bg-tg-secondary rounded-lg text-sm text-tg-hint">
+                                        {tab}
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="space-y-2">
+                                <div className="h-4 bg-tg-secondary rounded w-full" />
+                                <div className="h-4 bg-tg-secondary rounded w-5/6" />
+                                <div className="h-4 bg-tg-secondary rounded w-4/6" />
+                            </div>
+                        </div>
+                    </div>
                 ) : material.status === 'failed' ? (
                     <Card className="text-center py-12">
                         <p className="text-4xl mb-2">😕</p>
@@ -179,7 +286,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         materialId={materialId}
                         outputs={outputs}
                         onRefresh={loadMaterial}
-                        groupId={groupId}  // ДОБАВЬ ЭТО
+                        groupId={groupId}
                     />
                 ) : (
                     <Card className="text-center py-12">
