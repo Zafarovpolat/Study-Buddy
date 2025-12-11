@@ -10,6 +10,8 @@ import { InviteBanner } from '../components/InviteBanner';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
 import { telegram } from '../lib/telegram';
+import { OnboardingModal } from '../components/OnboardingModal';
+
 
 export function HomePage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -17,6 +19,9 @@ export function HomePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [uploadGroupId, setUploadGroupId] = useState<string | undefined>(undefined);
+    const [showOnboarding, setShowOnboarding] = useState(() => {
+        return !localStorage.getItem('lecto_onboarding_completed');
+    });
 
     // Поиск
     const [searchQuery, setSearchQuery] = useState('');
@@ -222,8 +227,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'personal'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <User className="w-4 h-4" />
@@ -236,8 +241,8 @@ export function HomePage() {
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${activeTab === 'groups'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <Users className="w-4 h-4" />
@@ -485,6 +490,12 @@ export function HomePage() {
                 folderId={currentFolderId || undefined}
                 groupId={uploadGroupId}
                 initialMode={uploadMode}
+            />
+
+            {/* Onboarding */}
+            <OnboardingModal
+                isOpen={showOnboarding}
+                onClose={() => setShowOnboarding(false)}
             />
         </div>
     );

@@ -1,12 +1,13 @@
-# backend/app/api/routes/groups.py - СОЗДАЙ НОВЫЙ ФАЙЛ
+# backend/app/api/routes/groups.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from pydantic import BaseModel
 from typing import Optional, List
 from uuid import UUID
-from app.models.quiz_result import QuizResult
 
-from app.models import get_db, User
+from app.models import get_db, User, QuizResult
 from app.services.group_service import GroupService
 from app.api.deps import get_current_user
 
@@ -83,31 +84,25 @@ async def get_my_groups(
     return await service.get_user_groups(current_user)
 
 
-@router.get("/{group_id}")
-async def get_group(
-    group_id: UUID,
+@router.get("/referral/stats", response_model=ReferralStatsResponse)
+async def get_referral_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить информацию о группе"""
+    """Получить статистику рефералов"""
     service = GroupService(db)
-    group = await service.get_group_by_id(group_id)
-    
-    if not group:
-        raise HTTPException(status_code=404, detail="Группа не найдена")
-    
-    # Проверяем, состоит ли пользователь в группе
-    groups = await service.get_user_groups(current_user)
-    user_group = next((g for g in groups if g["id"] == str(group_id)), None)
-    
-    if not user_group:
-        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
-    # Добавляем список участников
-    members = await service.get_group_members(group_id)
-    user_group["members"] = members
-    
-    return user_group
+    return await service.get_referral_stats(current_user)
+
+
+@router.post("/referral/generate")
+async def generate_referral_code(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Сгенерировать реферальный код"""
+    service = GroupService(db)
+    await service.get_or_create_referral_code(current_user)
+    return await service.get_referral_stats(current_user)
 
 
 @router.post("/join")
@@ -126,11 +121,33 @@ async def join_group(
     return {
         "success": True,
         "message": message,
-        "group": {
-            "id": str(group.id),
-            "name": group.name
-        }
+        "group": {"id": str(group.id), "name": group.name}
     }
+
+
+@router.get("/{group_id}")
+async def get_group(
+    group_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить информацию о группе"""
+    service = GroupService(db)
+    group = await service.get_group_by_id(group_id)
+    
+    if not group:
+        raise HTTPException(status_code=404, detail="Группа не найдена")
+    
+    groups = await service.get_user_groups(current_user)
+    user_group = next((g for g in groups if g["id"] == str(group_id)), None)
+    
+    if not user_group:
+        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+    
+    members = await service.get_group_members(group_id)
+    user_group["members"] = members
+    
+    return user_group
 
 
 @router.post("/{group_id}/leave")
@@ -174,7 +191,6 @@ async def get_group_members(
     """Получить участников группы"""
     service = GroupService(db)
     
-    # Проверяем членство
     groups = await service.get_user_groups(current_user)
     if not any(g["id"] == str(group_id) for g in groups):
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
@@ -182,16 +198,7 @@ async def get_group_members(
     return await service.get_group_members(group_id)
 
 
-# ==================== Referral Endpoints ====================
-
-@router.get("/referral/stats", response_model=ReferralStatsResponse)
-async def get_referral_stats(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Получить статистику рефералов"""
-    service = GroupService(db)
-    return await service.get_referral_stats(current_user)
+# ==================== Quiz Results ====================
 
 @router.post("/{group_id}/quiz-result")
 async def save_quiz_result(
@@ -232,9 +239,6 @@ async def get_group_quiz_results(
     db: AsyncSession = Depends(get_db)
 ):
     """Получить результаты тестов группы (только для owner)"""
-    from sqlalchemy import select
-    from sqlalchemy.orm import selectinload
-    
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
     
@@ -276,13 +280,48 @@ async def get_group_quiz_results(
         for r in results
     ]
 
-@router.post("/referral/generate")
-async def generate_referral_code(
+
+@router.get("/{group_id}/leaderboard")
+async def get_group_leaderboard(
+    group_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сгенерировать реферальный код"""
+    """Получить рейтинг участников группы по результатам тестов"""
     service = GroupService(db)
-    code = await service.get_or_create_referral_code(current_user)
-    stats = await service.get_referral_stats(current_user)
-    return stats
+    groups = await service.get_user_groups(current_user)
+    
+    if not any(g["id"] == str(group_id) for g in groups):
+        raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
+    
+    result = await db.execute(
+        select(
+            QuizResult.user_id,
+            User.first_name,
+            User.telegram_username.label('username'),
+            func.count(QuizResult.id).label('tests_count'),
+            func.sum(QuizResult.score).label('total_score'),
+            func.sum(QuizResult.max_score).label('total_max_score'),
+            func.avg(QuizResult.percentage).label('avg_percentage')
+        )
+        .join(User, User.id == QuizResult.user_id)
+        .where(QuizResult.group_id == group_id)
+        .group_by(QuizResult.user_id, User.first_name, User.telegram_username)
+        .order_by(func.avg(QuizResult.percentage).desc())
+        .limit(50)
+    )
+    
+    leaderboard = []
+    for i, row in enumerate(result.fetchall()):
+        leaderboard.append({
+            "rank": i + 1,
+            "user_id": str(row.user_id),
+            "first_name": row.first_name,
+            "username": row.username,
+            "tests_count": row.tests_count,
+            "total_score": int(row.total_score or 0),
+            "total_max_score": int(row.total_max_score or 0),
+            "avg_percentage": round(float(row.avg_percentage or 0), 1)
+        })
+    
+    return leaderboard

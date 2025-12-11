@@ -1,9 +1,9 @@
-// frontend/src/lib/api.ts - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/lib/api.ts
 import axios from 'axios';
 import type { AxiosInstance, AxiosError } from 'axios';
 import { telegram } from './telegram';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
 class ApiClient {
     private client: AxiosInstance;
@@ -11,26 +11,22 @@ class ApiClient {
     constructor() {
         this.client = axios.create({
             baseURL: API_URL,
-            timeout: 30000, // 60 секунд для AI обработки
+            timeout: 30000,
         });
 
-        // Добавляем заголовки авторизации
         this.client.interceptors.request.use((config) => {
             if (telegram.isAvailable && telegram.initData) {
                 config.headers['X-Telegram-Init-Data'] = telegram.initData;
             } else {
-                // Dev режим
                 config.headers['X-User-ID'] = import.meta.env.VITE_DEV_USER_ID || '123456789';
             }
             return config;
         });
 
-        // Обработка ошибок
         this.client.interceptors.response.use(
             (response) => response,
             (error: AxiosError<{ detail?: string }>) => {
                 console.error('API Error:', error.response?.data || error.message);
-
                 if (error.response?.status === 429) {
                     telegram.alert('Достигнут дневной лимит. Оформите Pro подписку для безлимитного доступа.');
                 }
@@ -39,7 +35,7 @@ class ApiClient {
         );
     }
 
-    // Users
+    // ==================== Users ====================
     async getMe() {
         const { data } = await this.client.get('/users/me');
         return data;
@@ -50,7 +46,12 @@ class ApiClient {
         return data;
     }
 
-    // Folders
+    async getMyStreak() {
+        const { data } = await this.client.get('/users/me/streak');
+        return data;
+    }
+
+    // ==================== Folders ====================
     async getFolders(parentId?: string) {
         const params = parentId ? { parent_id: parentId } : {};
         const { data } = await this.client.get('/folders/', { params });
@@ -58,10 +59,7 @@ class ApiClient {
     }
 
     async createFolder(name: string, parentId?: string) {
-        const { data } = await this.client.post('/folders/', {
-            name,
-            parent_id: parentId,
-        });
+        const { data } = await this.client.post('/folders/', { name, parent_id: parentId });
         return data;
     }
 
@@ -70,7 +68,7 @@ class ApiClient {
         return data;
     }
 
-    // Materials
+    // ==================== Materials ====================
     async getMaterials(folderId?: string) {
         const params = folderId ? { folder_id: folderId } : {};
         const { data } = await this.client.get('/materials/', { params });
@@ -109,42 +107,6 @@ class ApiClient {
         return data;
     }
 
-    async deleteMaterial(materialId: string) {
-        const { data } = await this.client.delete(`/materials/${materialId}`);
-        return data;
-    }
-
-    // Processing
-    async processMaterial(materialId: string) {
-        const { data } = await this.client.post(`/processing/material/${materialId}`);
-        return data;
-    }
-
-    async getProcessingStatus(materialId: string) {
-        const { data } = await this.client.get(`/processing/material/${materialId}/status`);
-        return data;
-    }
-
-    async regenerateOutput(materialId: string, format: string) {
-        const { data } = await this.client.post(
-            `/processing/material/${materialId}/regenerate/${format}`
-        );
-        return data;
-    }
-
-    // Outputs
-    async getMaterialOutputs(materialId: string, format?: string) {
-        const params = format ? { format } : {};
-        const { data } = await this.client.get(`/outputs/material/${materialId}`, { params });
-        return data;
-    }
-
-    async getOutput(outputId: string) {
-        const { data } = await this.client.get(`/outputs/${outputId}`);
-        return data;
-    }
-
-
     async scanImage(file: File, title?: string, folderId?: string, groupId?: string) {
         const formData = new FormData();
         formData.append('file', file);
@@ -158,13 +120,69 @@ class ApiClient {
         return data;
     }
 
-    async getMyStreak() {
-        const { data } = await this.client.get('/users/me/streak');
+    async generateFromTopic(topic: string, folderId?: string, groupId?: string) {
+        const { data } = await this.client.post('/materials/generate-from-topic', {
+            topic,
+            folder_id: folderId,
+            group_id: groupId
+        });
+        return data;
+    }
+
+    async updateMaterial(materialId: string, updateData: { title?: string; folder_id?: string }) {
+        const { data } = await this.client.patch(`/materials/${materialId}`, updateData);
+        return data;
+    }
+
+    async moveMaterialToRoot(materialId: string) {
+        const { data } = await this.client.patch(`/materials/${materialId}/move-to-root`);
+        return data;
+    }
+
+    async deleteMaterial(materialId: string) {
+        const { data } = await this.client.delete(`/materials/${materialId}`);
+        return data;
+    }
+
+    async searchMaterials(query: string) {
+        const { data } = await this.client.get('/materials/search/all', { params: { q: query } });
+        return data;
+    }
+
+    async getGroupMaterials(groupId: string) {
+        const { data } = await this.client.get(`/materials/group/${groupId}`);
+        return data;
+    }
+
+    // ==================== Processing ====================
+    async processMaterial(materialId: string) {
+        const { data } = await this.client.post(`/processing/material/${materialId}`);
+        return data;
+    }
+
+    async getProcessingStatus(materialId: string) {
+        const { data } = await this.client.get(`/processing/material/${materialId}/status`);
+        return data;
+    }
+
+    async regenerateOutput(materialId: string, format: string) {
+        const { data } = await this.client.post(`/processing/material/${materialId}/regenerate/${format}`);
+        return data;
+    }
+
+    // ==================== Outputs ====================
+    async getMaterialOutputs(materialId: string, format?: string) {
+        const params = format ? { format } : {};
+        const { data } = await this.client.get(`/outputs/material/${materialId}`, { params });
+        return data;
+    }
+
+    async getOutput(outputId: string) {
+        const { data } = await this.client.get(`/outputs/${outputId}`);
         return data;
     }
 
     // ==================== Groups ====================
-
     async getMyGroups() {
         const { data } = await this.client.get('/groups/');
         return data;
@@ -200,13 +218,25 @@ class ApiClient {
         return data;
     }
 
-    async getGroupMaterials(groupId: string) {
-        const { data } = await this.client.get(`/materials/group/${groupId}`);
+    // ==================== Quiz Results ====================
+    async saveQuizResult(groupId: string, materialId: string, score: number, maxScore: number) {
+        const { data } = await this.client.post(`/groups/${groupId}/quiz-result`, null, {
+            params: { material_id: materialId, score, max_score: maxScore }
+        });
+        return data;
+    }
+
+    async getGroupQuizResults(groupId: string) {
+        const { data } = await this.client.get(`/groups/${groupId}/quiz-results`);
+        return data;
+    }
+
+    async getGroupLeaderboard(groupId: string) {
+        const { data } = await this.client.get(`/groups/${groupId}/leaderboard`);
         return data;
     }
 
     // ==================== Referrals ====================
-
     async getReferralStats() {
         const { data } = await this.client.get('/groups/referral/stats');
         return data;
@@ -216,48 +246,6 @@ class ApiClient {
         const { data } = await this.client.post('/groups/referral/generate');
         return data;
     }
-
-    // Materials - Update
-    async updateMaterial(materialId: string, data: { title?: string; folder_id?: string }) {
-        const { data: result } = await this.client.patch(`/materials/${materialId}`, data);
-        return result;
-    }
-
-    async moveMaterialToRoot(materialId: string) {
-        const { data } = await this.client.patch(`/materials/${materialId}/move-to-root`);
-        return data;
-    }
-
-    // frontend/src/lib/api.ts - ДОБАВЬ метод
-
-    async generateFromTopic(topic: string, folderId?: string, groupId?: string) {
-        const { data } = await this.client.post('/materials/generate-from-topic', {
-            topic,
-            folder_id: folderId,
-            group_id: groupId
-        });
-        return data;
-    }
-
-    async saveQuizResult(groupId: string, materialId: string, score: number, maxScore: number) {
-        const { data } = await this.client.post(`/groups/${groupId}/quiz-result`, null, {
-            params: { material_id: materialId, score, max_score: maxScore }
-        });
-        return data;
-    }
-
-    async searchMaterials(query: string) {
-        const { data } = await this.client.get('/materials/search/all', {
-            params: { q: query }
-        });
-        return data;
-    }
-
-    async getGroupQuizResults(groupId: string) {
-        const { data } = await this.client.get(`/groups/${groupId}/quiz-results`);
-        return data;
-    }
 }
 
-// Создаём и экспортируем синглтон
 export const api = new ApiClient();
