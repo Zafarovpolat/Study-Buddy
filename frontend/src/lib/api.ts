@@ -246,6 +246,26 @@ class ApiClient {
         const { data } = await this.client.post('/groups/referral/generate');
         return data;
     }
+
+    async askLibrary(question: string, materialId?: string) {
+        const { data } = await this.client.post('/search/ask', {
+            question,
+            material_id: materialId
+        });
+        return data;
+    }
+
+    async semanticSearch(query: string, limit?: number, materialId?: string) {
+        const { data } = await this.client.get('/search/semantic', {
+            params: { q: query, limit, material_id: materialId }
+        });
+        return data;
+    }
+
+    async indexMaterial(materialId: string) {
+        const { data } = await this.client.post(`/search/index/${materialId}`);
+        return data;
+    }
 }
 
 export const api = new ApiClient();

@@ -6,6 +6,7 @@ from app.api.routes.folders import router as folders_router
 from app.api.routes.processing import router as processing_router
 from app.api.routes.outputs import router as outputs_router
 from app.api.routes.groups import router as groups_router  # ДОБАВЬ
+from app.api.routes.search import router as search_router
 
 api_router = APIRouter()
 
@@ -15,3 +16,4 @@ api_router.include_router(folders_router)
 api_router.include_router(processing_router)
 api_router.include_router(outputs_router)
 api_router.include_router(groups_router)  # ДОБАВЬ
+api_router.include_router(search_router)
