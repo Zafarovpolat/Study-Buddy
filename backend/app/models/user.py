@@ -1,5 +1,5 @@
 # backend/app/models/user.py
-from sqlalchemy import Column, String, Integer, DateTime, BigInteger
+from sqlalchemy import Column, String, Integer, DateTime, BigInteger, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -10,7 +10,6 @@ from datetime import datetime
 from app.models.base import Base
 
 
-# Используем простой String вместо ENUM — проще и надёжнее!
 class SubscriptionTier:
     FREE = "free"
     PRO = "pro"
@@ -26,7 +25,6 @@ class User(Base):
     first_name = Column(String(255), nullable=True)
     last_name = Column(String(255), nullable=True)
     
-    # String вместо ENUM — избегаем проблем с PostgreSQL ENUM
     subscription_tier = Column(
         String(20),
         default=SubscriptionTier.FREE,
@@ -44,6 +42,7 @@ class User(Base):
     referral_code = Column(String(10), unique=True, nullable=True)
     referred_by_id = Column(UUID(as_uuid=True), nullable=True)
     referral_count = Column(Integer, default=0)
+    referral_pro_granted = Column(Boolean, default=False)  # ← ДОБАВЛЕНО
     
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
