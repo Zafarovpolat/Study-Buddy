@@ -13,7 +13,7 @@ import {
     Minus,
     Crown,
 } from 'lucide-react';
-import { Button, Input, Card } from './ui';
+import { Button, Input } from './ui';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
 import { useStore } from '../store/useStore';
