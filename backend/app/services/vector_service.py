@@ -87,20 +87,17 @@ class VectorService:
             try:
                 embedding = await self._get_embedding(chunk["content"])
                 
-                # Конвертируем в строку для pgvector
-                embedding_str = "[" + ",".join(map(str, embedding)) + "]"
-                
+                # Сохраняем как ARRAY (без pgvector)
                 await self.db.execute(
                     text("""
-                        INSERT INTO text_chunks (material_id, user_id, content, chunk_index, embedding)
-                        VALUES (:material_id, :user_id, :content, :chunk_index, :embedding::vector)
+                        INSERT INTO text_chunks (material_id, content, chunk_index, embedding)
+                        VALUES (:material_id, :content, :chunk_index, :embedding)
                     """),
                     {
                         "material_id": str(material_id),
-                        "user_id": str(user_id),
                         "content": chunk["content"],
                         "chunk_index": chunk["chunk_index"],
-                        "embedding": embedding_str
+                        "embedding": embedding  # PostgreSQL ARRAY
                     }
                 )
                 indexed += 1
@@ -119,11 +116,11 @@ class VectorService:
         limit: int = 5,
         material_id: Optional[UUID] = None
     ) -> List[Dict[str, Any]]:
-        """Поиск по векторам"""
+        """Поиск по векторам (cosine similarity без pgvector)"""
         query_embedding = await self._get_embedding(query)
-        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
         
         if material_id:
+            # Поиск в конкретном материале
             result = await self.db.execute(
                 text("""
                     SELECT 
@@ -131,21 +128,17 @@ class VectorService:
                         tc.material_id,
                         tc.content,
                         tc.chunk_index,
-                        m.title as material_title,
-                        1 - (tc.embedding <=> :embedding::vector) as similarity
+                        tc.embedding,
+                        m.title as material_title
                     FROM text_chunks tc
                     JOIN materials m ON m.id = tc.material_id
                     WHERE tc.material_id = :material_id
-                    ORDER BY tc.embedding <=> :embedding::vector
-                    LIMIT :limit
+                      AND tc.embedding IS NOT NULL
                 """),
-                {
-                    "embedding": embedding_str,
-                    "material_id": str(material_id),
-                    "limit": limit
-                }
+                {"material_id": str(material_id)}
             )
         else:
+            # Поиск по всем материалам пользователя (через JOIN с materials)
             result = await self.db.execute(
                 text("""
                     SELECT 
@@ -153,34 +146,50 @@ class VectorService:
                         tc.material_id,
                         tc.content,
                         tc.chunk_index,
-                        m.title as material_title,
-                        1 - (tc.embedding <=> :embedding::vector) as similarity
+                        tc.embedding,
+                        m.title as material_title
                     FROM text_chunks tc
                     JOIN materials m ON m.id = tc.material_id
-                    WHERE tc.user_id = :user_id
-                    ORDER BY tc.embedding <=> :embedding::vector
-                    LIMIT :limit
+                    WHERE m.user_id = :user_id
+                      AND tc.embedding IS NOT NULL
                 """),
-                {
-                    "embedding": embedding_str,
-                    "user_id": str(user_id),
-                    "limit": limit
-                }
+                {"user_id": str(user_id)}
             )
         
         rows = result.fetchall()
         
-        return [
-            {
-                "id": str(row.id),
-                "material_id": str(row.material_id),
-                "material_title": row.material_title,
-                "content": row.content,
-                "chunk_index": row.chunk_index,
-                "similarity": float(row.similarity) if row.similarity else 0
-            }
-            for row in rows
-        ]
+        # Вычисляем cosine similarity в Python
+        results_with_similarity = []
+        for row in rows:
+            if row.embedding:
+                similarity = self._cosine_similarity(query_embedding, row.embedding)
+                results_with_similarity.append({
+                    "id": str(row.id),
+                    "material_id": str(row.material_id),
+                    "material_title": row.material_title,
+                    "content": row.content,
+                    "chunk_index": row.chunk_index,
+                    "similarity": similarity
+                })
+        
+        # Сортируем по similarity и берём top N
+        results_with_similarity.sort(key=lambda x: x["similarity"], reverse=True)
+        
+        return results_with_similarity[:limit]
+    
+    def _cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:
+        """Вычисляет cosine similarity между двумя векторами"""
+        if not vec1 or not vec2 or len(vec1) != len(vec2):
+            return 0.0
+        
+        dot_product = sum(a * b for a, b in zip(vec1, vec2))
+        norm1 = sum(a * a for a in vec1) ** 0.5
+        norm2 = sum(b * b for b in vec2) ** 0.5
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        
+        return dot_product / (norm1 * norm2)
     
     async def ask_library(self, user_id: UUID, question: str) -> Dict[str, Any]:
         """Спроси свою библиотеку — RAG"""
