@@ -4,10 +4,11 @@ import re
 from typing import Dict, Any, List, Optional
 from io import BytesIO
 from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.dml.color import RgbColor
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.util import Inches, Pt, Emu
+from pptx.util import Pt
+from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.dml.color import RGBColor  # Правильный импорт!
 
 from app.services.ai_service import gemini_service
 
@@ -18,32 +19,32 @@ class PresentationService:
     # Цветовые схемы
     THEMES = {
         "blue": {
-            "primary": RgbColor(0x1E, 0x40, 0xAF),
-            "secondary": RgbColor(0x3B, 0x82, 0xF6),
-            "accent": RgbColor(0x60, 0xA5, 0xFA),
-            "text": RgbColor(0x1F, 0x29, 0x37),
-            "light": RgbColor(0xEF, 0xF6, 0xFF),
+            "primary": RGBColor(0x1E, 0x40, 0xAF),
+            "secondary": RGBColor(0x3B, 0x82, 0xF6),
+            "accent": RGBColor(0x60, 0xA5, 0xFA),
+            "text": RGBColor(0x1F, 0x29, 0x37),
+            "light": RGBColor(0xEF, 0xF6, 0xFF),
         },
         "green": {
-            "primary": RgbColor(0x05, 0x96, 0x69),
-            "secondary": RgbColor(0x10, 0xB9, 0x81),
-            "accent": RgbColor(0x34, 0xD3, 0x99),
-            "text": RgbColor(0x1F, 0x29, 0x37),
-            "light": RgbColor(0xEC, 0xFD, 0xF5),
+            "primary": RGBColor(0x05, 0x96, 0x69),
+            "secondary": RGBColor(0x10, 0xB9, 0x81),
+            "accent": RGBColor(0x34, 0xD3, 0x99),
+            "text": RGBColor(0x1F, 0x29, 0x37),
+            "light": RGBColor(0xEC, 0xFD, 0xF5),
         },
         "purple": {
-            "primary": RgbColor(0x7C, 0x3A, 0xED),
-            "secondary": RgbColor(0x8B, 0x5C, 0xF6),
-            "accent": RgbColor(0xA7, 0x8B, 0xFA),
-            "text": RgbColor(0x1F, 0x29, 0x37),
-            "light": RgbColor(0xF5, 0xF3, 0xFF),
+            "primary": RGBColor(0x7C, 0x3A, 0xED),
+            "secondary": RGBColor(0x8B, 0x5C, 0xF6),
+            "accent": RGBColor(0xA7, 0x8B, 0xFA),
+            "text": RGBColor(0x1F, 0x29, 0x37),
+            "light": RGBColor(0xF5, 0xF3, 0xFF),
         },
         "orange": {
-            "primary": RgbColor(0xEA, 0x58, 0x0C),
-            "secondary": RgbColor(0xF9, 0x73, 0x16),
-            "accent": RgbColor(0xFB, 0x92, 0x3C),
-            "text": RgbColor(0x1F, 0x29, 0x37),
-            "light": RgbColor(0xFF, 0xF7, 0xED),
+            "primary": RGBColor(0xEA, 0x58, 0x0C),
+            "secondary": RGBColor(0xF9, 0x73, 0x16),
+            "accent": RGBColor(0xFB, 0x92, 0x3C),
+            "text": RGBColor(0x1F, 0x29, 0x37),
+            "light": RGBColor(0xFF, 0xF7, 0xED),
         },
     }
     
@@ -109,8 +110,8 @@ class PresentationService:
 }}
 
 Требования:
-1. Первый слайд — титульный (type: "title")
-2. Последний слайд — заключение (type: "conclusion")
+1. Первый слайд - титульный (type: "title")
+2. Последний слайд - заключение (type: "conclusion")
 3. Используй разные типы слайдов для разнообразия
 4. Каждый слайд: 3-5 пунктов максимум
 5. Заметки докладчика для каждого слайда
@@ -122,14 +123,12 @@ class PresentationService:
             text = await gemini_service._generate_async(prompt)
             text = text.strip()
             
-            # Очистка от markdown
             text = re.sub(r'^```json\s*', '', text)
             text = re.sub(r'^```\s*', '', text)
             text = re.sub(r'\s*```$', '', text)
             
             structure = json.loads(text)
             
-            # Валидация
             if "slides" not in structure or not structure["slides"]:
                 raise ValueError("No slides generated")
             
@@ -184,7 +183,7 @@ class PresentationService:
         """Создает PPTX файл из структуры"""
         
         prs = Presentation()
-        prs.slide_width = Inches(13.333)  # 16:9
+        prs.slide_width = Inches(13.333)
         prs.slide_height = Inches(7.5)
         
         colors = self.THEMES.get(theme, self.THEMES["blue"])
@@ -214,7 +213,6 @@ class PresentationService:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # Фоновая полоса
         shape = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             Inches(0), Inches(2.5),
@@ -224,7 +222,6 @@ class PresentationService:
         shape.fill.fore_color.rgb = colors["primary"]
         shape.line.fill.background()
         
-        # Заголовок
         title_box = slide.shapes.add_textbox(
             Inches(0.5), Inches(2.7),
             Inches(12.333), Inches(1.2)
@@ -234,10 +231,9 @@ class PresentationService:
         p.text = data.get("title", "Презентация")
         p.font.size = Pt(44)
         p.font.bold = True
-        p.font.color.rgb = RgbColor(0xFF, 0xFF, 0xFF)
+        p.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
         p.alignment = PP_ALIGN.CENTER
         
-        # Подзаголовок
         if data.get("subtitle"):
             subtitle_box = slide.shapes.add_textbox(
                 Inches(0.5), Inches(4),
@@ -247,7 +243,7 @@ class PresentationService:
             p = tf.paragraphs[0]
             p.text = data.get("subtitle", "")
             p.font.size = Pt(24)
-            p.font.color.rgb = RgbColor(0xFF, 0xFF, 0xFF)
+            p.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
             p.alignment = PP_ALIGN.CENTER
     
     def _add_content_slide(self, prs, data: Dict, colors: Dict):
@@ -255,7 +251,6 @@ class PresentationService:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # Заголовок с цветной полосой
         header_shape = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             Inches(0), Inches(0),
@@ -274,9 +269,8 @@ class PresentationService:
         p.text = data.get("title", "")
         p.font.size = Pt(32)
         p.font.bold = True
-        p.font.color.rgb = RgbColor(0xFF, 0xFF, 0xFF)
+        p.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
         
-        # Контент
         content_box = slide.shapes.add_textbox(
             Inches(0.7), Inches(1.6),
             Inches(12), Inches(5.5)
@@ -295,7 +289,6 @@ class PresentationService:
             p.space_before = Pt(12)
             p.space_after = Pt(6)
         
-        # Заметки докладчика
         if data.get("notes"):
             notes_slide = slide.notes_slide
             notes_slide.notes_text_frame.text = data["notes"]
@@ -305,7 +298,6 @@ class PresentationService:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # Заголовок
         header_shape = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             Inches(0), Inches(0),
@@ -324,9 +316,8 @@ class PresentationService:
         p.text = data.get("title", "")
         p.font.size = Pt(32)
         p.font.bold = True
-        p.font.color.rgb = RgbColor(0xFF, 0xFF, 0xFF)
+        p.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
         
-        # Левая колонка - заголовок
         left_title = slide.shapes.add_textbox(
             Inches(0.5), Inches(1.5),
             Inches(6), Inches(0.6)
@@ -338,7 +329,6 @@ class PresentationService:
         p.font.bold = True
         p.font.color.rgb = colors["secondary"]
         
-        # Левая колонка - контент
         left_content = slide.shapes.add_textbox(
             Inches(0.5), Inches(2.2),
             Inches(6), Inches(4.5)
@@ -355,7 +345,6 @@ class PresentationService:
             p.font.color.rgb = colors["text"]
             p.space_before = Pt(8)
         
-        # Разделитель
         divider = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             Inches(6.5), Inches(1.5),
@@ -365,7 +354,6 @@ class PresentationService:
         divider.fill.fore_color.rgb = colors["accent"]
         divider.line.fill.background()
         
-        # Правая колонка - заголовок
         right_title = slide.shapes.add_textbox(
             Inches(6.833), Inches(1.5),
             Inches(6), Inches(0.6)
@@ -377,7 +365,6 @@ class PresentationService:
         p.font.bold = True
         p.font.color.rgb = colors["secondary"]
         
-        # Правая колонка - контент
         right_content = slide.shapes.add_textbox(
             Inches(6.833), Inches(2.2),
             Inches(6), Inches(4.5)
@@ -403,7 +390,6 @@ class PresentationService:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # Фон
         bg_shape = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             Inches(0), Inches(0),
@@ -413,7 +399,6 @@ class PresentationService:
         bg_shape.fill.fore_color.rgb = colors["light"]
         bg_shape.line.fill.background()
         
-        # Кавычка (используем обычные кавычки вместо типографских)
         quote_mark = slide.shapes.add_textbox(
             Inches(0.5), Inches(1.5),
             Inches(2), Inches(2)
@@ -424,7 +409,6 @@ class PresentationService:
         p.font.size = Pt(120)
         p.font.color.rgb = colors["accent"]
         
-        # Цитата
         quote_box = slide.shapes.add_textbox(
             Inches(1.5), Inches(2.5),
             Inches(10.333), Inches(3)
@@ -438,7 +422,6 @@ class PresentationService:
         p.font.color.rgb = colors["text"]
         p.alignment = PP_ALIGN.CENTER
         
-        # Автор
         if data.get("author"):
             author_box = slide.shapes.add_textbox(
                 Inches(1.5), Inches(5.5),
@@ -460,7 +443,6 @@ class PresentationService:
         slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
-        # Заголовок
         header_shape = slide.shapes.add_shape(
             MSO_SHAPE.RECTANGLE,
             Inches(0), Inches(0),
@@ -479,9 +461,8 @@ class PresentationService:
         p.text = data.get("title", "Заключение")
         p.font.size = Pt(32)
         p.font.bold = True
-        p.font.color.rgb = RgbColor(0xFF, 0xFF, 0xFF)
+        p.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
         
-        # Выводы
         content_box = slide.shapes.add_textbox(
             Inches(0.7), Inches(1.6),
             Inches(12), Inches(4)
@@ -499,7 +480,6 @@ class PresentationService:
             p.font.color.rgb = colors["text"]
             p.space_before = Pt(12)
         
-        # Call to action
         if data.get("call_to_action"):
             cta_box = slide.shapes.add_textbox(
                 Inches(0.5), Inches(6),
