@@ -1,7 +1,8 @@
-// frontend/src/components/OutputViewer.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/components/OutputViewer.tsx
 import { useState } from 'react';
-import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp, Swords } from 'lucide-react';
 import { Button, Card } from './ui';
+import { DebateTab } from './DebateTab';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
 
@@ -16,7 +17,9 @@ interface OutputViewerProps {
     materialId: string;
     outputs: Output[];
     onRefresh: () => void;
-    groupId?: string;  // ДОБАВЛЕНО для сохранения результатов
+    groupId?: string;
+    materialTitle?: string;
+    materialContent?: string;
 }
 
 const formatConfig: Record<string, { icon: typeof FileText; label: string; color: string }> = {
@@ -25,15 +28,17 @@ const formatConfig: Record<string, { icon: typeof FileText; label: string; color
     quiz: { icon: HelpCircle, label: 'Тест', color: 'text-green-500' },
     glossary: { icon: BookOpen, label: 'Глоссарий', color: 'text-purple-500' },
     flashcards: { icon: Layers, label: 'Карточки', color: 'text-pink-500' },
+    debate: { icon: Swords, label: 'Дебаты', color: 'text-red-500' },
 };
 
-export function OutputViewer({ materialId, outputs, onRefresh, groupId }: OutputViewerProps) {
+export function OutputViewer({ materialId, outputs, onRefresh, groupId, materialTitle, materialContent }: OutputViewerProps) {
     const [activeFormat, setActiveFormat] = useState<string>(
         outputs[0]?.format || 'smart_notes'
     );
     const [isRegenerating, setIsRegenerating] = useState(false);
 
     const activeOutput = outputs.find((o) => o.format === activeFormat);
+    const isDebateTab = activeFormat === 'debate';
 
     const handleRegenerate = async () => {
         try {
@@ -50,13 +55,19 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId }: Output
         }
     };
 
+    // Все форматы + дебаты
+    const allFormats = [...Object.keys(formatConfig).filter(f => f !== 'debate'), 'debate'];
+
     return (
         <div className="space-y-4">
             {/* Format Tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {Object.entries(formatConfig).map(([format, config]) => {
+                {allFormats.map((format) => {
+                    const config = formatConfig[format];
+                    if (!config) return null;
+
                     const Icon = config.icon;
-                    const hasOutput = outputs.some((o) => o.format === format);
+                    const hasOutput = format === 'debate' || outputs.some((o) => o.format === format);
 
                     return (
                         <button
@@ -66,10 +77,12 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId }: Output
                                 setActiveFormat(format);
                             }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${activeFormat === format
-                                ? 'bg-tg-button text-tg-button-text'
-                                : hasOutput
-                                    ? 'bg-tg-secondary text-tg-text'
-                                    : 'bg-tg-secondary/50 text-tg-hint'
+                                    ? format === 'debate'
+                                        ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                                        : 'bg-tg-button text-tg-button-text'
+                                    : hasOutput
+                                        ? 'bg-tg-secondary text-tg-text'
+                                        : 'bg-tg-secondary/50 text-tg-hint'
                                 }`}
                         >
                             <Icon className={`w-4 h-4 ${activeFormat === format ? '' : config.color}`} />
@@ -81,7 +94,13 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId }: Output
 
             {/* Content */}
             <Card className="min-h-[300px] overflow-hidden">
-                {activeOutput ? (
+                {isDebateTab ? (
+                    <DebateTab
+                        materialId={materialId}
+                        materialTitle={materialTitle || 'Материал'}
+                        materialContent={materialContent}
+                    />
+                ) : activeOutput ? (
                     <div className="space-y-4">
                         {/* Actions */}
                         <div className="flex justify-end">
@@ -147,7 +166,7 @@ function ContentRenderer({
     }
 }
 
-// ============ MARKDOWN VIEWER (исправлен скролл) ============
+// ============ MARKDOWN VIEWER ============
 function MarkdownViewer({ content }: { content: string }) {
     let html = content
         .replace(/```[\s\S]*?```/g, (match) => {
@@ -232,7 +251,7 @@ function GlossaryViewer({ data }: { data: any }) {
     );
 }
 
-// ============ QUIZ VIEWER (с сохранением результатов) ============
+// ============ QUIZ VIEWER ============
 interface Question {
     question: string;
     options: string[] | Record<string, string>;
@@ -285,9 +304,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             telegram.haptic('error');
         }
 
-        // Проверяем, последний ли вопрос
         if (currentIndex === questions.length - 1) {
-            // Сохраняем результат
             handleFinish(newScore);
         }
     };
@@ -295,14 +312,12 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
     const handleFinish = async (finalScore: number) => {
         setIsFinished(true);
 
-        // Сохраняем результат если есть groupId
         if (groupId) {
             setIsSaving(true);
             try {
                 await api.saveQuizResult(groupId, materialId, finalScore, questions.length);
-                console.log('✅ Quiz result saved:', { groupId, materialId, score: finalScore, total: questions.length });
             } catch (error) {
-                console.error('❌ Failed to save quiz result:', error);
+                console.error('Failed to save quiz result:', error);
             } finally {
                 setIsSaving(false);
             }
@@ -329,13 +344,11 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
 
     return (
         <div className="space-y-4">
-            {/* Progress */}
             <div className="flex items-center justify-between text-sm text-tg-hint">
                 <span>Вопрос {currentIndex + 1} из {questions.length}</span>
                 <span>Счёт: {score}/{currentIndex + (showResult ? 1 : 0)}</span>
             </div>
 
-            {/* Progress bar */}
             <div className="h-1 bg-tg-secondary rounded-full overflow-hidden">
                 <div
                     className="h-full bg-tg-button transition-all"
@@ -343,7 +356,6 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                 />
             </div>
 
-            {/* Difficulty badge */}
             {question.difficulty && (
                 <span className={`text-xs px-2 py-1 rounded-full ${question.difficulty === 'hard'
                         ? 'bg-red-100 text-red-600'
@@ -356,10 +368,8 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                 </span>
             )}
 
-            {/* Question */}
             <p className="text-lg font-medium break-words">{question.question}</p>
 
-            {/* Options */}
             <div className="space-y-2">
                 {options.map((option, index) => {
                     const isCorrect = index === correctIndex;
@@ -372,12 +382,12 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                             onClick={() => handleAnswer(index)}
                             disabled={showResult}
                             className={`w-full p-4 rounded-xl text-left transition-all break-words ${showResult
-                                ? isCorrect
-                                    ? 'bg-green-500/20 border-2 border-green-500'
-                                    : isSelected
-                                        ? 'bg-red-500/20 border-2 border-red-500'
-                                        : 'bg-tg-secondary'
-                                : 'bg-tg-secondary hover:bg-tg-hint/20'
+                                    ? isCorrect
+                                        ? 'bg-green-500/20 border-2 border-green-500'
+                                        : isSelected
+                                            ? 'bg-red-500/20 border-2 border-red-500'
+                                            : 'bg-tg-secondary'
+                                    : 'bg-tg-secondary hover:bg-tg-hint/20'
                                 }`}
                         >
                             <span className="font-medium mr-2">
@@ -389,7 +399,6 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                 })}
             </div>
 
-            {/* Explanation */}
             {showResult && question.explanation && (
                 <Card variant="outlined" className="bg-tg-button/5">
                     <p className="text-sm break-words">
@@ -399,14 +408,12 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                 </Card>
             )}
 
-            {/* Next Button */}
             {showResult && !showFinalResult && (
                 <Button className="w-full" onClick={nextQuestion}>
                     Следующий вопрос →
                 </Button>
             )}
 
-            {/* Final Result */}
             {showFinalResult && (
                 <Card className="text-center bg-gradient-to-br from-tg-button/20 to-tg-button/5">
                     <p className="text-4xl mb-2">
@@ -484,18 +491,16 @@ function FlashcardsViewer({ data }: { data: any }) {
 
     return (
         <div className="space-y-4">
-            {/* Progress */}
             <div className="flex items-center justify-between text-sm text-tg-hint">
                 <span>Карточка {currentIndex + 1} из {cards.length}</span>
                 <span>Выучено: {known.size}/{cards.length}</span>
             </div>
 
-            {/* Card */}
             <div
                 onClick={flip}
                 className={`min-h-[200px] p-6 rounded-2xl flex items-center justify-center cursor-pointer transition-all transform hover:scale-[1.02] ${isFlipped
-                    ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
-                    : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
+                        ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
+                        : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
                     } ${known.has(currentIndex) ? 'ring-2 ring-green-500' : ''}`}
             >
                 <div className="text-center">
@@ -512,7 +517,6 @@ function FlashcardsViewer({ data }: { data: any }) {
                 👆 Нажмите, чтобы перевернуть
             </p>
 
-            {/* Actions */}
             <div className="flex gap-2">
                 <Button variant="secondary" className="flex-1" onClick={prev}>
                     ←

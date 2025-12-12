@@ -379,21 +379,50 @@ export function HomePage() {
                                     </Card>
                                 </div>
 
-                                {/* Второй ряд — длинная кнопка */}
+                                {/* Второй ряд — Генератор презентаций */}
                                 <Card
-                                    className={`cursor-pointer active:scale-[0.98] transition-transform py-3 px-4 flex items-center justify-center gap-3 ${isPro
-                                            ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20'
-                                            : 'bg-tg-secondary'
+                                    className={`cursor-pointer active:scale-[0.98] transition-all py-4 px-4 overflow-hidden relative ${isPro
+                                            ? 'bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white shadow-lg shadow-orange-500/25'
+                                            : 'bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700'
                                         }`}
                                     onClick={openPresentationGenerator}
                                 >
-                                    <Presentation className={`w-5 h-5 ${isPro ? 'text-orange-500' : 'text-tg-hint'}`} />
-                                    <span className="font-medium">Генератор презентаций</span>
-                                    {!isPro && (
-                                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full">
-                                            Pro
-                                        </span>
+                                    {/* Декоративные элементы */}
+                                    {isPro && (
+                                        <>
+                                            <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+                                            <div className="absolute bottom-0 left-10 w-16 h-16 bg-white/10 rounded-full translate-y-1/2" />
+                                        </>
                                     )}
+
+                                    <div className="relative flex items-center justify-center gap-3">
+                                        <div className={`p-2 rounded-xl ${isPro ? 'bg-white/20' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
+                                            <Presentation className={`w-6 h-6 ${isPro ? 'text-white' : 'text-orange-500'}`} />
+                                        </div>
+                                        <div className="text-left">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`font-bold ${isPro ? 'text-white' : 'text-tg-text'}`}>
+                                                    Генератор презентаций
+                                                </span>
+                                                {isPro && <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />}
+                                            </div>
+                                            <span className={`text-xs ${isPro ? 'text-white/80' : 'text-tg-hint'}`}>
+                                                {isPro ? 'AI создаст слайды за секунды' : 'Доступно в Pro'}
+                                            </span>
+                                        </div>
+                                        {!isPro && (
+                                            <span className="ml-auto text-xs bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-3 py-1 rounded-full font-medium shadow-sm">
+                                                ⭐ Pro
+                                            </span>
+                                        )}
+                                        {isPro && (
+                                            <div className="ml-auto">
+                                                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                                                    <span className="text-white text-lg">→</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </Card>
                             </section>
                         )}

@@ -280,6 +280,8 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         outputs={outputs}
                         onRefresh={loadMaterial}
                         groupId={groupId}
+                        materialTitle={material.title}
+                        materialContent={material.raw_content}
                     />
                 ) : (
                     <Card className="text-center py-12">

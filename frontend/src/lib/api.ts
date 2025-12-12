@@ -279,7 +279,7 @@ class ApiClient {
             num_slides: numSlides,
             style
         }, {
-            timeout: 60000 // 60 секунд для генерации
+            timeout: 60000
         });
         return data;
     }
@@ -297,10 +297,9 @@ class ApiClient {
             theme
         }, {
             responseType: 'blob',
-            timeout: 90000 // 90 секунд
+            timeout: 90000
         });
 
-        // Скачивание файла
         const url = window.URL.createObjectURL(new Blob([response.data]));
         const link = document.createElement('a');
         link.href = url;
@@ -311,6 +310,60 @@ class ApiClient {
         link.remove();
         window.URL.revokeObjectURL(url);
     }
+
+    // ==================== AI Debate ====================
+    // ==================== AI Debate ====================
+    async startDebate(
+        topic: string,
+        userPosition: 'ЗА' | 'ПРОТИВ' = 'ЗА',
+        difficulty: 'easy' | 'medium' | 'hard' = 'medium',
+        materialId?: string
+    ) {
+        const { data } = await this.client.post('/debate/start', {
+            topic,
+            user_position: userPosition,
+            difficulty,
+            material_id: materialId
+        }, {
+            timeout: 60000
+        });
+        return data;
+    }
+
+    async continueDebate(
+        topic: string,
+        aiPosition: string,
+        difficulty: 'easy' | 'medium' | 'hard',
+        history: Array<{ role: string; content: string }>,
+        userMessage: string,
+        materialId?: string
+    ) {
+        const { data } = await this.client.post('/debate/continue', {
+            topic,
+            ai_position: aiPosition,
+            difficulty,
+            history,
+            user_message: userMessage,
+            material_id: materialId
+        }, {
+            timeout: 60000
+        });
+        return data;
+    }
+
+    async judgeDebate(
+        topic: string,
+        history: Array<{ role: string; content: string }>
+    ) {
+        const { data } = await this.client.post('/debate/judge', {
+            topic,
+            history
+        }, {
+            timeout: 60000
+        });
+        return data;
+    }
+
 }
 
 export const api = new ApiClient();
