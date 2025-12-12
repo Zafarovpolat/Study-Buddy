@@ -342,51 +342,59 @@ export function HomePage() {
                             <InviteBanner />
                         )}
 
-                        {/* Quick Actions — ОБНОВЛЕНО: 5 кнопок */}
+                        {/* Quick Actions */}
                         {!currentFolderId && !showSearch && (
                             <section>
                                 <h2 className="text-sm font-medium text-tg-hint mb-2">Быстрые действия</h2>
-                                <div className="grid grid-cols-5 gap-2">
+
+                                {/* Первый ряд — 4 кнопки */}
+                                <div className="grid grid-cols-4 gap-2 mb-2">
                                     <Card
-                                        className="cursor-pointer active:scale-95 transition-transform text-center py-3"
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('scan')}
                                     >
-                                        <Camera className="w-5 h-5 text-tg-button mx-auto mb-1" />
+                                        <Camera className="w-6 h-6 text-tg-button mx-auto mb-1" />
                                         <span className="text-xs font-medium">Скан</span>
                                     </Card>
                                     <Card
-                                        className="cursor-pointer active:scale-95 transition-transform text-center py-3"
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('file')}
                                     >
-                                        <Upload className="w-5 h-5 text-tg-button mx-auto mb-1" />
+                                        <Upload className="w-6 h-6 text-tg-button mx-auto mb-1" />
                                         <span className="text-xs font-medium">Файл</span>
                                     </Card>
                                     <Card
-                                        className="cursor-pointer active:scale-95 transition-transform text-center py-3"
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4"
                                         onClick={() => openUpload('text')}
                                     >
-                                        <Type className="w-5 h-5 text-tg-button mx-auto mb-1" />
+                                        <Type className="w-6 h-6 text-tg-button mx-auto mb-1" />
                                         <span className="text-xs font-medium">Текст</span>
                                     </Card>
                                     <Card
-                                        className="cursor-pointer active:scale-95 transition-transform text-center py-3 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20"
+                                        className="cursor-pointer active:scale-95 transition-transform text-center py-4 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20"
                                         onClick={() => openUpload('topic')}
                                     >
-                                        <Sparkles className="w-5 h-5 text-purple-500 mx-auto mb-1" />
+                                        <Sparkles className="w-6 h-6 text-purple-500 mx-auto mb-1" />
                                         <span className="text-xs font-medium">Тема</span>
                                     </Card>
-                                    <Card
-                                        className={`cursor-pointer active:scale-95 transition-transform text-center py-3 ${isPro
-                                                ? 'bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20'
-                                                : 'opacity-60'
-                                            }`}
-                                        onClick={openPresentationGenerator}
-                                    >
-                                        <Presentation className={`w-5 h-5 mx-auto mb-1 ${isPro ? 'text-orange-500' : 'text-tg-hint'}`} />
-                                        <span className="text-xs font-medium">Слайды</span>
-                                        {!isPro && <span className="text-[10px] text-tg-hint block">Pro</span>}
-                                    </Card>
                                 </div>
+
+                                {/* Второй ряд — длинная кнопка */}
+                                <Card
+                                    className={`cursor-pointer active:scale-[0.98] transition-transform py-3 px-4 flex items-center justify-center gap-3 ${isPro
+                                            ? 'bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20'
+                                            : 'bg-tg-secondary'
+                                        }`}
+                                    onClick={openPresentationGenerator}
+                                >
+                                    <Presentation className={`w-5 h-5 ${isPro ? 'text-orange-500' : 'text-tg-hint'}`} />
+                                    <span className="font-medium">Генератор презентаций</span>
+                                    {!isPro && (
+                                        <span className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full">
+                                            Pro
+                                        </span>
+                                    )}
+                                </Card>
                             </section>
                         )}
 
