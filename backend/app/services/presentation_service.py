@@ -18,7 +18,7 @@ class PresentationService:
     # Цветовые схемы
     THEMES = {
         "blue": {
-            "primary": RgbColor(0x1E, 0x40, 0xAF),      # Синий
+            "primary": RgbColor(0x1E, 0x40, 0xAF),
             "secondary": RgbColor(0x3B, 0x82, 0xF6),
             "accent": RgbColor(0x60, 0xA5, 0xFA),
             "text": RgbColor(0x1F, 0x29, 0x37),
@@ -114,7 +114,7 @@ class PresentationService:
 3. Используй разные типы слайдов для разнообразия
 4. Каждый слайд: 3-5 пунктов максимум
 5. Заметки докладчика для каждого слайда
-6. Логичная структура: введение → основная часть → заключение
+6. Логичная структура: введение - основная часть - заключение
 
 Верни ТОЛЬКО валидный JSON!"""
 
@@ -136,11 +136,10 @@ class PresentationService:
             return structure
             
         except json.JSONDecodeError as e:
-            print(f"❌ Presentation JSON error: {e}")
-            # Возвращаем базовую структуру
+            print(f"Presentation JSON error: {e}")
             return self._get_fallback_structure(topic)
         except Exception as e:
-            print(f"❌ Presentation generation error: {e}")
+            print(f"Presentation generation error: {e}")
             raise
     
     def _get_fallback_structure(self, topic: str) -> Dict[str, Any]:
@@ -182,7 +181,7 @@ class PresentationService:
         structure: Dict[str, Any],
         theme: str = "blue"
     ) -> BytesIO:
-        """Создаёт PPTX файл из структуры"""
+        """Создает PPTX файл из структуры"""
         
         prs = Presentation()
         prs.slide_width = Inches(13.333)  # 16:9
@@ -201,10 +200,9 @@ class PresentationService:
                 self._add_quote_slide(prs, slide_data, colors)
             elif slide_type == "conclusion":
                 self._add_conclusion_slide(prs, slide_data, colors)
-            else:  # content
+            else:
                 self._add_content_slide(prs, slide_data, colors)
         
-        # Сохраняем в BytesIO
         output = BytesIO()
         prs.save(output)
         output.seek(0)
@@ -213,7 +211,7 @@ class PresentationService:
     
     def _add_title_slide(self, prs, data: Dict, colors: Dict):
         """Титульный слайд"""
-        slide_layout = prs.slide_layouts[6]  # Blank
+        slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
         # Фоновая полоса
@@ -254,7 +252,7 @@ class PresentationService:
     
     def _add_content_slide(self, prs, data: Dict, colors: Dict):
         """Слайд с контентом"""
-        slide_layout = prs.slide_layouts[6]  # Blank
+        slide_layout = prs.slide_layouts[6]
         slide = prs.slides.add_slide(slide_layout)
         
         # Заголовок с цветной полосой
@@ -291,7 +289,7 @@ class PresentationService:
                 p = tf.paragraphs[0]
             else:
                 p = tf.add_paragraph()
-            p.text = f"• {bullet}"
+            p.text = "* " + bullet
             p.font.size = Pt(24)
             p.font.color.rgb = colors["text"]
             p.space_before = Pt(12)
@@ -328,7 +326,7 @@ class PresentationService:
         p.font.bold = True
         p.font.color.rgb = RgbColor(0xFF, 0xFF, 0xFF)
         
-        # Левая колонка
+        # Левая колонка - заголовок
         left_title = slide.shapes.add_textbox(
             Inches(0.5), Inches(1.5),
             Inches(6), Inches(0.6)
@@ -340,6 +338,7 @@ class PresentationService:
         p.font.bold = True
         p.font.color.rgb = colors["secondary"]
         
+        # Левая колонка - контент
         left_content = slide.shapes.add_textbox(
             Inches(0.5), Inches(2.2),
             Inches(6), Inches(4.5)
@@ -351,7 +350,7 @@ class PresentationService:
                 p = tf.paragraphs[0]
             else:
                 p = tf.add_paragraph()
-            p.text = f"• {bullet}"
+            p.text = "* " + bullet
             p.font.size = Pt(20)
             p.font.color.rgb = colors["text"]
             p.space_before = Pt(8)
@@ -366,7 +365,7 @@ class PresentationService:
         divider.fill.fore_color.rgb = colors["accent"]
         divider.line.fill.background()
         
-        # Правая колонка
+        # Правая колонка - заголовок
         right_title = slide.shapes.add_textbox(
             Inches(6.833), Inches(1.5),
             Inches(6), Inches(0.6)
@@ -378,6 +377,7 @@ class PresentationService:
         p.font.bold = True
         p.font.color.rgb = colors["secondary"]
         
+        # Правая колонка - контент
         right_content = slide.shapes.add_textbox(
             Inches(6.833), Inches(2.2),
             Inches(6), Inches(4.5)
@@ -389,7 +389,7 @@ class PresentationService:
                 p = tf.paragraphs[0]
             else:
                 p = tf.add_paragraph()
-            p.text = f"• {bullet}"
+            p.text = "* " + bullet
             p.font.size = Pt(20)
             p.font.color.rgb = colors["text"]
             p.space_before = Pt(8)
@@ -413,14 +413,14 @@ class PresentationService:
         bg_shape.fill.fore_color.rgb = colors["light"]
         bg_shape.line.fill.background()
         
-        # Кавычка
+        # Кавычка (используем обычные кавычки вместо типографских)
         quote_mark = slide.shapes.add_textbox(
             Inches(0.5), Inches(1.5),
             Inches(2), Inches(2)
         )
         tf = quote_mark.text_frame
         p = tf.paragraphs[0]
-        p.text = """
+        p.text = '"'
         p.font.size = Pt(120)
         p.font.color.rgb = colors["accent"]
         
@@ -446,7 +446,7 @@ class PresentationService:
             )
             tf = author_box.text_frame
             p = tf.paragraphs[0]
-            p.text = f"— {data['author']}"
+            p.text = "-- " + data["author"]
             p.font.size = Pt(20)
             p.font.color.rgb = colors["secondary"]
             p.alignment = PP_ALIGN.RIGHT
@@ -494,7 +494,7 @@ class PresentationService:
                 p = tf.paragraphs[0]
             else:
                 p = tf.add_paragraph()
-            p.text = f"✓ {bullet}"
+            p.text = "[OK] " + bullet
             p.font.size = Pt(24)
             p.font.color.rgb = colors["text"]
             p.space_before = Pt(12)
