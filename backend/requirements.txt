@@ -18,3 +18,4 @@ Pillow==10.2.0
 pypdf==4.0.1
 apscheduler
 aiohttp
+python-pptx

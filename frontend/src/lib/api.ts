@@ -247,6 +247,7 @@ class ApiClient {
         return data;
     }
 
+    // ==================== Search / RAG ====================
     async askLibrary(question: string, materialId?: string) {
         const { data } = await this.client.post('/search/ask', {
             question,
@@ -265,6 +266,50 @@ class ApiClient {
     async indexMaterial(materialId: string) {
         const { data } = await this.client.post(`/search/index/${materialId}`);
         return data;
+    }
+
+    // ==================== Presentations ====================
+    async generatePresentationPreview(
+        topic: string,
+        numSlides: number = 10,
+        style: 'professional' | 'educational' | 'creative' | 'minimal' = 'professional'
+    ) {
+        const { data } = await this.client.post('/presentations/generate', {
+            topic,
+            num_slides: numSlides,
+            style
+        }, {
+            timeout: 60000 // 60 секунд для генерации
+        });
+        return data;
+    }
+
+    async downloadPresentation(
+        topic: string,
+        numSlides: number = 10,
+        style: 'professional' | 'educational' | 'creative' | 'minimal' = 'professional',
+        theme: 'blue' | 'green' | 'purple' | 'orange' = 'blue'
+    ) {
+        const response = await this.client.post('/presentations/download', {
+            topic,
+            num_slides: numSlides,
+            style,
+            theme
+        }, {
+            responseType: 'blob',
+            timeout: 90000 // 90 секунд
+        });
+
+        // Скачивание файла
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        const filename = `${topic.slice(0, 50).replace(/[^a-zA-Zа-яА-Я0-9]/g, '_')}.pptx`;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
     }
 }
 
