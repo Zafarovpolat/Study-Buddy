@@ -321,19 +321,19 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                 <label className="block text-sm font-medium text-tg-hint mb-2">
                                     Цветовая тема
                                 </label>
-                                <div className="flex gap-3">
+                                <div className="grid grid-cols-4 gap-2">
                                     {THEMES.map((t) => (
                                         <button
                                             key={t.value}
                                             onClick={() => isPro && setTheme(t.value)}
                                             disabled={!isPro}
-                                            className={`flex-1 p-3 rounded-xl border-2 transition-all ${theme === t.value
-                                                ? 'border-gray-800 dark:border-white'
-                                                : 'border-transparent'
+                                            className={`p-2 rounded-xl border-2 transition-all ${theme === t.value
+                                                    ? 'border-gray-800 dark:border-white'
+                                                    : 'border-transparent hover:border-gray-300'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >
-                                            <div className={`w-full h-8 rounded-lg ${t.color} mb-2`} />
-                                            <p className="text-xs font-medium">{t.label}</p>
+                                            <div className={`w-full h-6 rounded-lg ${t.color} mb-1`} />
+                                            <p className="text-xs font-medium truncate">{t.label}</p>
                                         </button>
                                     ))}
                                 </div>
