@@ -51,7 +51,7 @@ class ProcessingService:
                 try:
                     text = await TextExtractor.extract(
                         material.file_path,
-                        material.material_type.value
+                        material.material_type
                     )
                     # ОЧИСТКА ТЕКСТА!
                     text = clean_text_for_db(text)
