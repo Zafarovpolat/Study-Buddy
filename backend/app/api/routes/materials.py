@@ -568,25 +568,24 @@ async def get_material(
         "id": str(material.id),
         "user_id": str(material.user_id),
         "title": material.title,
-        "material_type": material.material_type.value,
-        "status": material.status.value,
+        "material_type": material.material_type,  # ← Убрали .value!
+        "status": material.status,  # ← Убрали .value!
         "folder_id": str(material.folder_id) if material.folder_id else None,
         "group_id": str(group_id) if group_id else None,
-        "raw_content": material.raw_content,
+        "raw_content": material.extracted_text,  # ← Используем правильное имя поля
         "original_filename": material.original_filename,
-        "created_at": material.created_at.isoformat(),
+        "created_at": material.created_at.isoformat() if material.created_at else None,
         "updated_at": material.updated_at.isoformat() if material.updated_at else None,
         "outputs": [
             {
                 "id": str(o.id),
-                "format": o.format.value,
+                "format": o.format if isinstance(o.format, str) else o.format.value,  # ← Безопасно!
                 "content": o.content,
-                "created_at": o.created_at.isoformat()
+                "created_at": o.created_at.isoformat() if o.created_at else None
             }
             for o in material.outputs
         ]
     }
-
 
 # ==================== Update/Delete Endpoints ====================
 

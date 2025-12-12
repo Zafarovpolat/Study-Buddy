@@ -14,6 +14,11 @@ from app.api.deps import get_current_user
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 
+def get_val(v):
+    """Безопасно получить value из enum или вернуть строку"""
+    return v.value if hasattr(v, 'value') else v
+
+
 # ==================== Schemas ====================
 
 class CreateGroupRequest(BaseModel):
@@ -62,7 +67,6 @@ async def create_group(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Создать новую группу"""
     service = GroupService(db)
     group = await service.create_group(
         owner=current_user,
@@ -79,7 +83,6 @@ async def get_my_groups(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить все мои группы"""
     service = GroupService(db)
     return await service.get_user_groups(current_user)
 
@@ -89,7 +92,6 @@ async def get_referral_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить статистику рефералов"""
     service = GroupService(db)
     return await service.get_referral_stats(current_user)
 
@@ -99,7 +101,6 @@ async def generate_referral_code(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сгенерировать реферальный код"""
     service = GroupService(db)
     await service.get_or_create_referral_code(current_user)
     return await service.get_referral_stats(current_user)
@@ -111,7 +112,6 @@ async def join_group(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Присоединиться к группе по коду"""
     service = GroupService(db)
     success, message, group = await service.join_group(current_user, request.invite_code)
     
@@ -131,7 +131,6 @@ async def get_group(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить информацию о группе"""
     service = GroupService(db)
     group = await service.get_group_by_id(group_id)
     
@@ -156,7 +155,6 @@ async def leave_group(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Покинуть группу"""
     service = GroupService(db)
     success, message = await service.leave_group(current_user, group_id)
     
@@ -172,7 +170,6 @@ async def delete_group(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Удалить группу"""
     service = GroupService(db)
     success, message = await service.delete_group(current_user, group_id)
     
@@ -188,7 +185,6 @@ async def get_group_members(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить участников группы"""
     service = GroupService(db)
     
     groups = await service.get_user_groups(current_user)
@@ -209,7 +205,6 @@ async def save_quiz_result(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сохранить результат теста в группе"""
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
     
@@ -238,7 +233,6 @@ async def get_group_quiz_results(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить результаты тестов группы (только для owner)"""
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
     
@@ -275,7 +269,7 @@ async def get_group_quiz_results(
             "score": r.score,
             "max_score": r.max_score,
             "percentage": r.percentage,
-            "completed_at": r.completed_at.isoformat()
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None
         }
         for r in results
     ]
@@ -287,7 +281,6 @@ async def get_group_leaderboard(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Получить рейтинг участников группы по результатам тестов"""
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
     

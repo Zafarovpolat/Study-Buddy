@@ -35,7 +35,8 @@ class ProcessingService:
     
     async def process_material(self, material: Material) -> Dict[str, Any]:
         """Полная обработка материала"""
-        print(f"📄 Processing material: {material.id} ({material.material_type.value})")
+        print(f"📄 Processing material: {material.id} ({material.material_type})")
+
         
         error_message = None
         
