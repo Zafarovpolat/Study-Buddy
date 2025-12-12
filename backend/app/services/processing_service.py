@@ -99,7 +99,7 @@ class ProcessingService:
             for format_type, output_content in successful_outputs.items():
                 ai_output = AIOutput(
                     material_id=material.id,
-                    format=OutputFormat(format_type),
+                    format=format_type,
                     content=clean_text_for_db(output_content)  # ОЧИСТКА!
                 )
                 self.db.add(ai_output)
