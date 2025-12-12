@@ -536,7 +536,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     }
                 >
                     {mode === 'topic'
-                        ? '✨ Сгенерировать материал'
+                        ? '✨ Сгенерировать'
                         : uploadTarget.type === 'group'
                             ? `👥 Загрузить`
                             : mode === 'scan'

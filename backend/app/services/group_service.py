@@ -6,8 +6,7 @@ from typing import Optional, List, Tuple
 from uuid import UUID
 from datetime import datetime, timedelta
 
-from app.models import User, Folder, GroupMember, SubscriptionTier
-from app.core.config import settings
+from app.models import User, Folder, GroupMember, Material, SubscriptionTier
 
 
 def get_val(v):
@@ -28,17 +27,49 @@ class GroupService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
+    async def _count_user_groups(self, user: User) -> int:
+        """Подсчёт групп, созданных пользователем"""
+        result = await self.db.execute(
+            select(func.count(Folder.id)).where(
+                Folder.user_id == user.id,
+                Folder.is_group == True
+            )
+        )
+        return result.scalar() or 0
+    
+    async def _count_group_materials(self, group_id: UUID) -> int:
+        """Подсчёт материалов в группе"""
+        result = await self.db.execute(
+            select(func.count(Material.id)).where(Material.group_id == group_id)
+        )
+        return result.scalar() or 0
+    
     async def create_group(
         self,
         owner: User,
         name: str,
         description: Optional[str] = None
-    ) -> Folder:
+    ) -> Tuple[bool, str, Optional[Folder]]:
+        """Создать группу с проверкой лимитов"""
+        
+        # Проверка лимита групп
+        current_groups = await self._count_user_groups(owner)
+        max_groups = owner.max_groups
+        
+        if current_groups >= max_groups:
+            if owner.effective_tier == SubscriptionTier.SOS:
+                return False, "SOS тариф не позволяет создавать группы", None
+            elif owner.effective_tier == SubscriptionTier.FREE:
+                return False, f"Лимит групп исчерпан ({max_groups}). Оформите Pro для создания до 30 групп.", None
+            else:
+                return False, f"Достигнут лимит групп ({max_groups})", None
+        
         group = Folder(
             user_id=owner.id,
             name=name,
             description=description,
             is_group=True,
+            max_members=owner.max_members_per_group if owner.max_members_per_group < 999999 else 9999
         )
         group.generate_invite_code()
         
@@ -55,7 +86,7 @@ class GroupService:
         await self.db.commit()
         await self.db.refresh(group)
         
-        return group
+        return True, "Группа создана", group
     
     async def get_group_by_id(self, group_id: UUID) -> Optional[Folder]:
         result = await self.db.execute(
@@ -79,6 +110,7 @@ class GroupService:
         if not group:
             return False, "Группа не найдена", None
         
+        # Проверка: уже в группе?
         existing = await self.db.execute(
             select(GroupMember).where(
                 GroupMember.group_id == group.id,
@@ -88,10 +120,22 @@ class GroupService:
         if existing.scalar_one_or_none():
             return False, "Вы уже состоите в этой группе", group
         
+        # Получаем владельца группы для проверки его лимитов
+        owner_result = await self.db.execute(
+            select(User).where(User.id == group.user_id)
+        )
+        owner = owner_result.scalar_one_or_none()
+        
+        # Проверка лимита участников (лимит владельца!)
         member_count = await self.db.execute(
             select(func.count(GroupMember.id)).where(GroupMember.group_id == group.id)
         )
-        if member_count.scalar() >= group.max_members:
+        current_members = member_count.scalar() or 0
+        
+        max_members = owner.max_members_per_group if owner else 5
+        if current_members >= max_members:
+            if max_members <= 5:
+                return False, f"Группа заполнена (макс. {max_members} участников в Free)", group
             return False, "Группа заполнена", group
         
         membership = GroupMember(
@@ -103,6 +147,29 @@ class GroupService:
         await self.db.commit()
         
         return True, "Вы успешно присоединились к группе", group
+    
+    async def can_add_material_to_group(self, user: User, group_id: UUID) -> Tuple[bool, str]:
+        """Проверка возможности добавить материал в группу"""
+        group = await self.get_group_by_id(group_id)
+        if not group:
+            return False, "Группа не найдена"
+        
+        # Получаем владельца группы
+        owner_result = await self.db.execute(
+            select(User).where(User.id == group.user_id)
+        )
+        owner = owner_result.scalar_one_or_none()
+        
+        # Проверка лимита материалов (лимит владельца!)
+        materials_count = await self._count_group_materials(group_id)
+        max_materials = owner.max_materials_per_group if owner else 10
+        
+        if materials_count >= max_materials:
+            if max_materials <= 10:
+                return False, f"Лимит материалов в группе ({max_materials}). Владельцу нужен Pro."
+            return False, f"Достигнут лимит материалов в группе ({max_materials})"
+        
+        return True, "OK"
     
     async def leave_group(self, user: User, group_id: UUID) -> Tuple[bool, str]:
         result = await self.db.execute(
@@ -140,6 +207,8 @@ class GroupService:
             )
             member_count = count_result.scalar()
             
+            materials_count = await self._count_group_materials(folder.id)
+            
             role = get_val(membership.role)
             
             groups.append({
@@ -150,6 +219,7 @@ class GroupService:
                 "role": role,
                 "member_count": member_count,
                 "max_members": folder.max_members,
+                "materials_count": materials_count,
                 "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
                 "is_owner": role == GroupRole.OWNER
             })
@@ -226,6 +296,7 @@ class GroupService:
     async def get_referral_stats(self, user: User) -> dict:
         await self.get_or_create_referral_code(user)
         
+        from app.core.config import settings
         bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'lectoaibot')
         
         return {

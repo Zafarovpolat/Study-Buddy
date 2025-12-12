@@ -5,8 +5,7 @@ from datetime import datetime, date, timedelta
 from typing import Optional, Tuple
 from uuid import UUID
 
-from app.models import User, SubscriptionTier
-from app.core.config import settings
+from app.models import User, SubscriptionTier, TIER_LIMITS
 
 
 class UserService:
@@ -36,7 +35,7 @@ class UserService:
             telegram_username=username,
             first_name=first_name,
             subscription_tier=SubscriptionTier.FREE,
-            daily_requests=0,  # ← Правильное имя!
+            daily_requests=0,
             current_streak=0,
             longest_streak=0,
             referral_count=0,
@@ -73,28 +72,27 @@ class UserService:
     
     async def check_rate_limit(self, user: User) -> Tuple[bool, int]:
         """Проверка лимита запросов"""
-        # Pro без лимитов
+        # Pro/SOS без лимитов
         if user.is_pro:
-            return True, -1
-        
-        # Проверяем tier как строку!
-        if user.subscription_tier != SubscriptionTier.FREE:
             return True, -1
         
         today = date.today()
         
         # Сбрасываем счётчик если новый день
         if user.last_request_date is None or user.last_request_date.date() < today:
-            user.daily_requests = 0  # ← Правильное имя!
+            user.daily_requests = 0
             user.last_request_date = datetime.now()
             await self.db.commit()
         
-        remaining = settings.FREE_DAILY_LIMIT - (user.daily_requests or 0)  # ← Правильное имя!
+        # Получаем лимит из тарифа (3 для Free)
+        daily_limit = user.daily_limit
+        remaining = daily_limit - (user.daily_requests or 0)
+        
         return remaining > 0, max(0, remaining)
     
     async def increment_request_count(self, user: User) -> None:
         """Увеличить счётчик запросов и обновить streak"""
-        user.daily_requests = (user.daily_requests or 0) + 1  # ← Правильное имя!
+        user.daily_requests = (user.daily_requests or 0) + 1
         user.last_request_date = datetime.now()
         
         await self._update_streak(user)
@@ -104,7 +102,6 @@ class UserService:
         """Обновить streak пользователя"""
         today = date.today()
         
-        # last_activity_date может быть datetime или date
         last_date = None
         if user.last_activity_date:
             if hasattr(user.last_activity_date, 'date'):
@@ -116,7 +113,7 @@ class UserService:
             user.current_streak = 1
             user.longest_streak = 1
         elif last_date == today:
-            pass  # Уже был сегодня
+            pass
         elif last_date == today - timedelta(days=1):
             user.current_streak = (user.current_streak or 0) + 1
             if user.current_streak > (user.longest_streak or 0):
@@ -149,9 +146,64 @@ class UserService:
             "is_active_today": last_date == today if last_date else False
         }
     
-    async def upgrade_subscription(self, user: User, tier: str) -> User:
+    async def get_limits_info(self, user: User) -> dict:
+        """Получить информацию о лимитах пользователя"""
+        today = date.today()
+        
+        # Сбрасываем если новый день
+        if user.last_request_date is None or user.last_request_date.date() < today:
+            used_today = 0
+        else:
+            used_today = user.daily_requests or 0
+        
+        daily_limit = user.daily_limit
+        remaining = max(0, daily_limit - used_today) if daily_limit < 999999 else -1
+        
+        # Информация о подписке
+        subscription_info = {
+            "tier": user.effective_tier,
+            "is_pro": user.is_pro,
+            "expires_at": user.subscription_expires_at.isoformat() if user.subscription_expires_at else None,
+        }
+        
+        # Доступные функции
+        features = user.tier_limits.get("features", [])
+        
+        return {
+            "daily_limit": daily_limit if daily_limit < 999999 else None,
+            "used_today": used_today,
+            "remaining_today": remaining,
+            "subscription": subscription_info,
+            "limits": {
+                "max_groups": user.max_groups,
+                "max_members_per_group": user.max_members_per_group if user.max_members_per_group < 999999 else None,
+                "max_materials_per_group": user.max_materials_per_group if user.max_materials_per_group < 999999 else None,
+                "audio_minutes": user.audio_minutes_limit,
+            },
+            "features": features
+        }
+    
+    async def upgrade_subscription(
+        self, 
+        user: User, 
+        tier: str,
+        duration_days: Optional[int] = None
+    ) -> User:
         """Обновить подписку"""
         user.subscription_tier = tier
+        
+        if duration_days:
+            user.subscription_expires_at = datetime.utcnow() + timedelta(days=duration_days)
+        elif tier == SubscriptionTier.SOS:
+            # SOS на 24 часа
+            user.subscription_expires_at = datetime.utcnow() + timedelta(hours=24)
+        else:
+            user.subscription_expires_at = None  # Бессрочно (или настроить)
+        
         await self.db.commit()
         await self.db.refresh(user)
         return user
+    
+    async def activate_sos(self, user: User) -> User:
+        """Активировать SOS тариф на 24 часа"""
+        return await self.upgrade_subscription(user, SubscriptionTier.SOS, duration_days=None)
