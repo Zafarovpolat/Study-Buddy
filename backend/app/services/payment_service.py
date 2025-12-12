@@ -116,7 +116,7 @@ class PaymentService:
                 
                 return {
                     "is_pro": True,
-                    "tier": user.subscription_tier.value,
+                    "tier": user.subscription_tier,
                     "expires_at": user.subscription_expires_at.isoformat(),
                     "days_left": days_left,
                     "hours_left": hours_left if days_left == 0 else 0,
@@ -141,7 +141,7 @@ class PaymentService:
         # Бессрочный Pro (за рефералов)
         return {
             "is_pro": True,
-            "tier": user.subscription_tier.value,
+            "tier": user.subscription_tier,
             "expires_at": None,
             "days_left": -1,
             "hours_left": -1,

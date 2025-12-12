@@ -1,26 +1,38 @@
-# backend/app/api/routes/users.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/api/routes/users.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import get_db, User
+from app.models import get_db, User, SubscriptionTier
 from app.services import UserService
-from app.api.schemas import UserResponse
 from app.api.deps import get_current_user
-from app.core.config import settings  # ДОБАВЛЕНО
+from app.core.config import settings
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("/test")
 async def test_endpoint():
-    """Тестовый endpoint"""
     return {"status": "ok", "message": "API работает!"}
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
     """Получить информацию о текущем пользователе"""
-    return current_user
+    return {
+        "id": str(current_user.id),
+        "telegram_id": current_user.telegram_id,
+        "telegram_username": current_user.telegram_username,
+        "first_name": current_user.first_name,
+        "last_name": current_user.last_name,
+        "subscription_tier": current_user.subscription_tier,  # Уже строка!
+        "is_pro": current_user.is_pro,
+        "daily_requests": current_user.daily_requests or 0,
+        "current_streak": current_user.current_streak or 0,
+        "longest_streak": current_user.longest_streak or 0,
+        "referral_code": current_user.referral_code,
+        "referral_count": current_user.referral_count or 0,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+    }
 
 
 @router.get("/me/limits")
@@ -32,13 +44,16 @@ async def get_my_limits(
     user_service = UserService(db)
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
     
-    is_free = current_user.subscription_tier.value == "free"
+    # subscription_tier — это строка, не enum!
+    is_free = current_user.subscription_tier == SubscriptionTier.FREE
     
     return {
-        "subscription_tier": current_user.subscription_tier.value,
+        "subscription_tier": current_user.subscription_tier,
+        "is_pro": current_user.is_pro,
         "can_make_request": can_proceed,
-        "remaining_today": remaining if is_free else "unlimited",
-        "daily_limit": settings.FREE_DAILY_LIMIT if is_free else "unlimited"  # ИСПРАВЛЕНО
+        "remaining_today": remaining if is_free else -1,
+        "daily_limit": settings.FREE_DAILY_LIMIT if is_free else -1,
+        "daily_used": current_user.daily_requests or 0,
     }
 
 
@@ -69,16 +84,13 @@ async def get_my_streak(
 
 
 # ==================== DEBUG ENDPOINTS ====================
-# ⚠️ УДАЛИТЬ В ПРОДАКШЕНЕ!
 
 @router.post("/debug/grant-pro")
 async def grant_pro_for_testing(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Временно выдать Pro подписку для тестирования"""
     from datetime import datetime, timedelta
-    from app.models import SubscriptionTier
     
     current_user.subscription_tier = SubscriptionTier.PRO
     current_user.subscription_expires_at = datetime.now() + timedelta(days=7)
@@ -93,61 +105,12 @@ async def grant_pro_for_testing(
     }
 
 
-@router.post("/debug/reset-referral")
-async def debug_reset_referral(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Сбросить реферальные данные (только для тестов!)"""
-    current_user.referred_by_id = None
-    current_user.referral_count = 0
-    current_user.referral_pro_granted = False
-    await db.commit()
-    
-    return {"success": True, "message": "Реферальные данные сброшены"}
-
-
 @router.post("/debug/reset-limits")
 async def debug_reset_limits(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Сбросить дневной счётчик запросов"""
-    current_user.daily_requests_count = 0
+    current_user.daily_requests = 0  # ← Правильное имя!
     await db.commit()
     
     return {"success": True, "message": "Лимиты сброшены", "remaining": settings.FREE_DAILY_LIMIT}
-
-
-@router.delete("/debug/delete-me")
-async def debug_delete_me(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Удалить свой аккаунт (только для тестов!)"""
-    user_id = str(current_user.id)
-    await db.delete(current_user)
-    await db.commit()
-    
-    return {"success": True, "message": f"Аккаунт {user_id} удалён"}
-
-@router.delete("/debug/delete-all-users")
-async def debug_delete_all_users(
-    db: AsyncSession = Depends(get_db)
-):
-    """Удалить ВСЕХ пользователей (ТОЛЬКО ДЛЯ ТЕСТОВ!)"""
-    from sqlalchemy import text
-    
-    # Получаем количество до удаления
-    result = await db.execute(text("SELECT COUNT(*) FROM users"))
-    count_before = result.scalar()
-    
-    # Удаляем всё каскадно
-    await db.execute(text("TRUNCATE TABLE users CASCADE"))
-    await db.commit()
-    
-    return {
-        "success": True,
-        "message": f"Удалено {count_before} пользователей",
-        "warning": "Все данные очищены!"
-    }

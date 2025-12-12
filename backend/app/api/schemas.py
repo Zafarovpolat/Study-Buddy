@@ -14,15 +14,19 @@ class UserCreate(UserBase):
     pass
 
 class UserResponse(BaseModel):
-    id: UUID
+    id: str
     telegram_id: int
     telegram_username: Optional[str] = None
     first_name: Optional[str] = None
-    subscription_tier: str
-    daily_requests_count: int
-    current_streak: Optional[int] = 0
-    longest_streak: Optional[int] = 0
-    created_at: datetime
+    last_name: Optional[str] = None
+    subscription_tier: str 
+    is_pro: bool = False
+    daily_requests: int = 0 
+    current_streak: int = 0
+    longest_streak: int = 0
+    referral_code: Optional[str] = None
+    referral_count: int = 0
+    created_at: Optional[datetime] = None
     
     class Config:
         from_attributes = True
