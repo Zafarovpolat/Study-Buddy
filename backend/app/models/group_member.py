@@ -1,14 +1,15 @@
-# backend/app/models/group_member.py - ЗАМЕНИ ПОЛНОСТЬЮ
-from sqlalchemy import Column, DateTime, ForeignKey, func, Enum, UniqueConstraint
+# backend/app/models/group_member.py
+from sqlalchemy import Column, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
-import enum
 
 from app.models.base import Base
 
 
-class GroupRole(str, enum.Enum):
+class GroupRole:
+    """Константы ролей"""
     OWNER = "owner"
     ADMIN = "admin"
     MEMBER = "member"
@@ -21,15 +22,14 @@ class GroupMember(Base):
     group_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     
-    role = Column(
-        Enum(GroupRole, values_callable=lambda x: [e.value for e in x]),
-        default=GroupRole.MEMBER
-    )
+    # VARCHAR вместо ENUM!
+    role = Column(String(20), default=GroupRole.MEMBER)
     joined_at = Column(DateTime, server_default=func.now())
     
+    # Relationships
     group = relationship("Folder", back_populates="members")
     user = relationship("User", back_populates="group_memberships")
     
     __table_args__ = (
-        UniqueConstraint('group_id', 'user_id', name='unique_group_member'),
+        UniqueConstraint('group_id', 'user_id', name='uq_group_member'),
     )

@@ -1,14 +1,15 @@
-# backend/app/models/ai_output.py - ЗАМЕНИ ПОЛНОСТЬЮ
-from sqlalchemy import Column, String, Text, Enum, DateTime, ForeignKey, func
-from sqlalchemy.dialects.postgresql import UUID, JSON
+# backend/app/models/ai_output.py
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
-import enum
 
 from app.models.base import Base
 
 
-class OutputFormat(str, enum.Enum):
+class OutputFormat:
+    """Константы форматов вывода"""
     SMART_NOTES = "smart_notes"
     TLDR = "tldr"
     QUIZ = "quiz"
@@ -23,12 +24,9 @@ class AIOutput(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     material_id = Column(UUID(as_uuid=True), ForeignKey("materials.id", ondelete="CASCADE"), nullable=False)
     
-    format = Column(
-        Enum(OutputFormat, values_callable=lambda x: [e.value for e in x]),
-        nullable=False
-    )
+    # VARCHAR вместо ENUM!
+    format = Column(String(50), nullable=False)
     content = Column(Text, nullable=False)
-    extra_data = Column(JSON, nullable=True)
     
     created_at = Column(DateTime, server_default=func.now())
     
