@@ -1,4 +1,4 @@
-# backend/app/services/processing_service.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/services/processing_service.py
 import asyncio
 import re
 from typing import Dict, Any
@@ -36,9 +36,9 @@ class ProcessingService:
     async def process_material(self, material: Material) -> Dict[str, Any]:
         """Полная обработка материала"""
         print(f"📄 Processing material: {material.id} ({material.material_type})")
-
         
         error_message = None
+        content = None  # Сохраняем для индексации
         
         try:
             # 1. Обновляем статус
@@ -100,7 +100,7 @@ class ProcessingService:
                 ai_output = AIOutput(
                     material_id=material.id,
                     format=format_type,
-                    content=clean_text_for_db(output_content)  # ОЧИСТКА!
+                    content=clean_text_for_db(output_content)
                 )
                 self.db.add(ai_output)
             
@@ -109,6 +109,9 @@ class ProcessingService:
             await self.db.commit()
             
             print(f"✅ Processing complete! Saved {len(successful_outputs)} outputs")
+            
+            # 7. АВТОИНДЕКСАЦИЯ для vector search (RAG)
+            await self._index_for_vector_search(material, content)
             
             return {
                 "status": "success",
@@ -140,6 +143,22 @@ class ProcessingService:
                 "status": "error",
                 "error": final_error
             }
+    
+    async def _index_for_vector_search(self, material: Material, content: str) -> None:
+        """Индексация материала для vector search (RAG)"""
+        try:
+            from app.services.vector_service import VectorService
+            
+            vector_service = VectorService(self.db)
+            chunks_count = await vector_service.index_material(
+                material_id=material.id,
+                user_id=material.user_id,
+                content=content
+            )
+            print(f"📊 Vector indexed: {chunks_count} chunks for material {material.id}")
+        except Exception as e:
+            # Не критичная ошибка — материал всё равно обработан
+            print(f"⚠️ Vector indexing failed (non-critical): {e}")
     
     async def _generate_all_outputs(
         self, 
@@ -183,7 +202,7 @@ class ProcessingService:
     async def regenerate_output(
         self, 
         material: Material, 
-        output_format: OutputFormat
+        output_format: str
     ) -> AIOutput:
         """Перегенерация конкретного формата"""
         content = material.raw_content
@@ -196,12 +215,13 @@ class ProcessingService:
         # Очистка контента
         content = clean_text_for_db(content)
         
+        # Используем строки вместо констант OutputFormat
         generators = {
-            OutputFormat.SMART_NOTES: lambda: gemini_service.generate_smart_notes(content, material.title),
-            OutputFormat.TLDR: lambda: gemini_service.generate_tldr(content),
-            OutputFormat.QUIZ: lambda: gemini_service.generate_quiz(content),
-            OutputFormat.GLOSSARY: lambda: gemini_service.generate_glossary(content),
-            OutputFormat.FLASHCARDS: lambda: gemini_service.generate_flashcards(content),
+            "smart_notes": lambda: gemini_service.generate_smart_notes(content, material.title),
+            "tldr": lambda: gemini_service.generate_tldr(content),
+            "quiz": lambda: gemini_service.generate_quiz(content),
+            "glossary": lambda: gemini_service.generate_glossary(content),
+            "flashcards": lambda: gemini_service.generate_flashcards(content),
         }
         
         generator = generators.get(output_format)
