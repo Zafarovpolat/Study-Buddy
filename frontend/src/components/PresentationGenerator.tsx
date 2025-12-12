@@ -12,7 +12,6 @@ import {
     Palette,
     Minus,
     Crown,
-    Loader2
 } from 'lucide-react';
 import { Button, Input, Card } from './ui';
 import { api } from '../lib/api';
@@ -301,8 +300,8 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             onClick={() => isPro && setStyle(s.value)}
                                             disabled={!isPro}
                                             className={`p-3 rounded-xl border-2 transition-all ${style === s.value
-                                                    ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                                                    : 'border-tg-secondary hover:border-purple-300'
+                                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                                : 'border-tg-secondary hover:border-purple-300'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >
                                             <div className="flex items-center gap-2 mb-1">
@@ -329,8 +328,8 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             onClick={() => isPro && setTheme(t.value)}
                                             disabled={!isPro}
                                             className={`flex-1 p-3 rounded-xl border-2 transition-all ${theme === t.value
-                                                    ? 'border-gray-800 dark:border-white'
-                                                    : 'border-transparent'
+                                                ? 'border-gray-800 dark:border-white'
+                                                : 'border-transparent'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >
                                             <div className={`w-full h-8 rounded-lg ${t.color} mb-2`} />
@@ -384,8 +383,8 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                                     key={i}
                                                     onClick={() => setCurrentSlide(i)}
                                                     className={`w-2 h-2 rounded-full transition-all ${i === currentSlide
-                                                            ? 'bg-purple-500 w-4'
-                                                            : 'bg-tg-secondary'
+                                                        ? 'bg-purple-500 w-4'
+                                                        : 'bg-tg-secondary'
                                                         }`}
                                                 />
                                             ))}
@@ -416,8 +415,8 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             key={i}
                                             onClick={() => setCurrentSlide(i)}
                                             className={`w-full text-left p-2 rounded-lg text-sm transition-colors ${i === currentSlide
-                                                    ? 'bg-purple-100 dark:bg-purple-900/30'
-                                                    : 'bg-tg-secondary/50 hover:bg-tg-secondary'
+                                                ? 'bg-purple-100 dark:bg-purple-900/30'
+                                                : 'bg-tg-secondary/50 hover:bg-tg-secondary'
                                                 }`}
                                         >
                                             <span className="text-purple-500 font-medium mr-2">{i + 1}.</span>
