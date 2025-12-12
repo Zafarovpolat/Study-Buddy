@@ -1,6 +1,6 @@
 # backend/app/models/__init__.py
 from app.models.base import Base, get_db, engine, AsyncSessionLocal
-from app.models.user import User, SubscriptionTier
+from app.models.user import User, SubscriptionTier, TIER_LIMITS
 from app.models.material import Material, MaterialType, ProcessingStatus
 from app.models.folder import Folder
 from app.models.group_member import GroupMember, GroupRole
@@ -19,6 +19,7 @@ __all__ = [
     "MaterialType",
     "ProcessingStatus",
     "Folder",
+    "TIER_LIMITS",
     "GroupMember",
     "GroupRole",
     "AIOutput",

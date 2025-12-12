@@ -177,7 +177,7 @@ class ProcessingService:
         generators = [
             ("smart_notes", lambda: gemini_service.generate_smart_notes(content, title)),
             ("tldr", lambda: gemini_service.generate_tldr(content)),
-            ("quiz", lambda: gemini_service.generate_quiz(content, 5)),
+            ("quiz", lambda: gemini_service.generate_quiz(content, 10)),
             ("glossary", lambda: gemini_service.generate_glossary(content)),
             ("flashcards", lambda: gemini_service.generate_flashcards(content, 10)),
         ]
