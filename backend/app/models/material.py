@@ -31,7 +31,9 @@ class Material(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
-    
+    group_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)  # ← ДОБАВЛЕНО!
+
+
     title = Column(String(500), nullable=False)
     original_filename = Column(String(500), nullable=True)
     file_path = Column(String(1000), nullable=True)

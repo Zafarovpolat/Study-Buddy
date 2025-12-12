@@ -96,6 +96,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('folder_id', postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column('group_id', postgresql.UUID(as_uuid=True), nullable=True),  
         sa.Column('title', sa.String(500), nullable=False),
         sa.Column('original_filename', sa.String(500), nullable=True),
         sa.Column('file_path', sa.String(1000), nullable=True),
