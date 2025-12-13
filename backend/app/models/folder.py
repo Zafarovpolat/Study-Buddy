@@ -1,4 +1,4 @@
-# backend/app/models/folder.py — ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/app/models/folder.py
 from sqlalchemy import Column, String, DateTime, ForeignKey, func, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -28,8 +28,29 @@ class Folder(Base):
     
     # Relationships
     user = relationship("User", back_populates="folders", foreign_keys=[user_id])
-    materials = relationship("Material", back_populates="folder")
-    children = relationship("Folder", backref="parent", remote_side=[id])
+    
+    # Материалы в папке (через folder_id)
+    materials = relationship(
+        "Material", 
+        foreign_keys="[Material.folder_id]",  # ✅ Строковая ссылка на FK
+        back_populates="folder"
+    )
+    
+    # Материалы в группе (через group_id)
+    group_materials = relationship(
+        "Material",
+        foreign_keys="[Material.group_id]",  # ✅ Строковая ссылка на FK
+        back_populates="group"
+    )
+    
+    # Вложенные папки
+    children = relationship(
+        "Folder", 
+        backref="parent", 
+        remote_side=[id],
+        foreign_keys=[parent_id]  # ✅ Явно указываем
+    )
+    
     members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
     quiz_results = relationship("QuizResult", back_populates="group")
     

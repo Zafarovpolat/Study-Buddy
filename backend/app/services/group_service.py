@@ -38,11 +38,11 @@ class GroupService:
         return result.scalar() or 0
     
     async def _count_group_materials(self, group_id: UUID) -> int:
-    """Подсчёт материалов в группе (группа = folder с is_group=True)"""
-    result = await self.db.execute(
-        select(func.count(Material.id)).where(Material.folder_id == group_id)
-    )
-    return result.scalar() or 0
+        """Подсчёт материалов в группе"""
+        result = await self.db.execute(
+            select(func.count(Material.id)).where(Material.group_id == group_id)
+        )
+        return result.scalar() or 0
     
     async def create_group(
         self,

@@ -31,8 +31,8 @@ class Material(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
-    # group_id НЕ НУЖЕН — используем folder_id где folder.is_group=True
-    
+    group_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
+
     title = Column(String(500), nullable=False)
     original_filename = Column(String(500), nullable=True)
     file_path = Column(String(1000), nullable=True)
@@ -44,9 +44,23 @@ class Material(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     
-    # Relationships
+    # Relationships - ЯВНО УКАЗЫВАЕМ foreign_keys!
     user = relationship("User", back_populates="materials")
-    folder = relationship("Folder", back_populates="materials")
+    
+    # Связь с папкой (folder_id)
+    folder = relationship(
+        "Folder", 
+        foreign_keys=[folder_id],  # ✅ Указываем конкретный FK
+        back_populates="materials"
+    )
+    
+    # Связь с группой (group_id)
+    group = relationship(
+        "Folder",
+        foreign_keys=[group_id],  # ✅ Указываем конкретный FK
+        back_populates="group_materials"
+    )
+    
     outputs = relationship("AIOutput", back_populates="material", cascade="all, delete-orphan")
     quiz_results = relationship("QuizResult", back_populates="material", cascade="all, delete-orphan")
     chunks = relationship("TextChunk", back_populates="material", cascade="all, delete-orphan")
@@ -58,10 +72,3 @@ class Material(Base):
     @raw_content.setter
     def raw_content(self, value):
         self.extracted_text = value
-    
-    @property
-    def group_id(self):
-        """Для совместимости — возвращает folder_id если это группа"""
-        if self.folder and self.folder.is_group:
-            return self.folder_id
-        return None
