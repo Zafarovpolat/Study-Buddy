@@ -26,7 +26,7 @@ def upgrade() -> None:
         sa.Column('first_name', sa.String(255), nullable=True),
         sa.Column('last_name', sa.String(255), nullable=True),
         
-        # Subscription — VARCHAR!
+        # Subscription
         sa.Column('subscription_tier', sa.String(20), server_default='free', nullable=False),
         sa.Column('subscription_expires_at', sa.DateTime(), nullable=True),
         
@@ -61,7 +61,7 @@ def upgrade() -> None:
         sa.Column('parent_id', postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column('name', sa.String(255), nullable=False),
         
-        # Group settings
+        # Group settings (folder может быть группой)
         sa.Column('is_group', sa.Boolean(), server_default='false'),
         sa.Column('invite_code', sa.String(20), nullable=True),
         sa.Column('description', sa.String(500), nullable=True),
@@ -96,7 +96,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('folder_id', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('group_id', postgresql.UUID(as_uuid=True), nullable=True),  
+        # folder_id указывает на папку ИЛИ группу (если folder.is_group=True)
         sa.Column('title', sa.String(500), nullable=False),
         sa.Column('original_filename', sa.String(500), nullable=True),
         sa.Column('file_path', sa.String(1000), nullable=True),
@@ -143,7 +143,7 @@ def upgrade() -> None:
     op.create_index('ix_quiz_results_material_id', 'quiz_results', ['material_id'])
     op.create_index('ix_quiz_results_group_id', 'quiz_results', ['group_id'])
 
-    # === 7. TEXT CHUNKS TABLE (для vector search) ===
+    # === 7. TEXT CHUNKS TABLE ===
     op.create_table(
         'text_chunks',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),

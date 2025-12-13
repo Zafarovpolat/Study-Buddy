@@ -31,16 +31,14 @@ class Material(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     folder_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)
-    group_id = Column(UUID(as_uuid=True), ForeignKey("folders.id", ondelete="SET NULL"), nullable=True)  # ← ДОБАВЛЕНО!
-
-
+    # group_id НЕ НУЖЕН — используем folder_id где folder.is_group=True
+    
     title = Column(String(500), nullable=False)
     original_filename = Column(String(500), nullable=True)
     file_path = Column(String(1000), nullable=True)
     material_type = Column(String(20), nullable=False)
     status = Column(String(20), default=ProcessingStatus.PENDING)
     
-    # ОБА ИМЕНИ для совместимости!
     extracted_text = Column(Text, nullable=True)
     
     created_at = Column(DateTime, server_default=func.now())
@@ -53,7 +51,6 @@ class Material(Base):
     quiz_results = relationship("QuizResult", back_populates="material", cascade="all, delete-orphan")
     chunks = relationship("TextChunk", back_populates="material", cascade="all, delete-orphan")
     
-    # Property для совместимости — код использует raw_content
     @property
     def raw_content(self):
         return self.extracted_text
@@ -61,3 +58,10 @@ class Material(Base):
     @raw_content.setter
     def raw_content(self, value):
         self.extracted_text = value
+    
+    @property
+    def group_id(self):
+        """Для совместимости — возвращает folder_id если это группа"""
+        if self.folder and self.folder.is_group:
+            return self.folder_id
+        return None
