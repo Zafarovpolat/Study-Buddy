@@ -68,12 +68,19 @@ async def create_group(
     db: AsyncSession = Depends(get_db)
 ):
     service = GroupService(db)
-    group = await service.create_group(
+    
+    # ✅ ИСПРАВЛЕНО: распаковываем tuple
+    success, message, group = await service.create_group(
         owner=current_user,
         name=request.name,
         description=request.description
     )
     
+    # Проверяем успешность
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    
+    # Получаем группы и возвращаем созданную
     groups = await service.get_user_groups(current_user)
     return next(g for g in groups if g["id"] == str(group.id))
 
