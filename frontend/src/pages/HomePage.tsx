@@ -1,5 +1,5 @@
 // frontend/src/pages/HomePage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Plus, Folder, RefreshCw, Upload, Camera, Type, Users, User, ArrowLeft, Sparkles, Search, X, Presentation } from 'lucide-react';
 import { Button, Card, Spinner } from '../components/ui';
 import { MaterialCard } from '../components/MaterialCard';
@@ -44,6 +44,33 @@ export function HomePage() {
         removeMaterial,
     } = useStore();
 
+    // ===== Функция обновления данных =====
+    const refreshData = useCallback(async () => {
+        try {
+            setIsRefreshing(true);
+
+            if (activeTab === 'personal') {
+                const [materialsData, foldersData] = await Promise.all([
+                    api.getMaterials(currentFolderId || undefined),
+                    api.getFolders(currentFolderId || undefined),
+                ]);
+                setMaterials(materialsData);
+                setFolders(foldersData);
+            } else {
+                const groupsData = await api.getMyGroups();
+                setGroups(groupsData);
+            }
+
+            // Обновляем лимиты
+            const limitsData = await api.getMyLimits();
+            setLimits(limitsData);
+        } catch (error) {
+            console.error('Refresh error:', error);
+        } finally {
+            setIsRefreshing(false);
+        }
+    }, [activeTab, currentFolderId, setMaterials, setFolders, setGroups, setLimits]);
+
     // ===== POLLING для обновления статусов материалов =====
     useEffect(() => {
         const processingMaterials = materials.filter(m => m.status === 'processing');
@@ -67,7 +94,7 @@ export function HomePage() {
         }, 3000);
 
         return () => clearInterval(pollInterval);
-    }, [materials, currentFolderId]);
+    }, [materials, currentFolderId, setMaterials]);
 
     // Загрузка групп при старте
     useEffect(() => {
@@ -80,7 +107,7 @@ export function HomePage() {
             }
         };
         loadGroups();
-    }, []);
+    }, [setGroups]);
 
     // Загрузка данных при смене вкладки/папки
     useEffect(() => {
@@ -170,6 +197,18 @@ export function HomePage() {
         telegram.haptic('medium');
     };
 
+    // ✅ ИСПРАВЛЕНО: обработчик закрытия модалки с обновлением
+    const handleUploadClose = useCallback(async () => {
+        setIsUploadOpen(false);
+        setUploadGroupId(undefined);
+
+        // Небольшая задержка чтобы сервер успел обработать
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Обновляем данные
+        await refreshData();
+    }, [refreshData]);
+
     const handleGetPro = () => {
         telegram.haptic('medium');
         telegram.alert('Для оформления Pro подписки напишите боту команду /pro');
@@ -189,7 +228,7 @@ export function HomePage() {
 
     const handleRefresh = () => {
         telegram.haptic('light');
-        loadData(false);
+        refreshData();
     };
 
     const openPresentationGenerator = () => {
@@ -222,10 +261,10 @@ export function HomePage() {
     const isPro = user?.subscription_tier === 'pro';
 
     return (
-        <div className="min-h-screen bg-tg-bg">
+        <div className="min-h-screen bg-tg-bg pb-24">
             <Header />
 
-            <main className="p-4 pb-24 space-y-4">
+            <main className="p-4 space-y-4">
                 {/* Tabs */}
                 <div className="flex bg-tg-secondary rounded-lg p-1">
                     <button
@@ -512,9 +551,10 @@ export function HomePage() {
                 ) : (
                     <GroupsTab
                         groups={groups}
-                        onRefresh={() => loadData(false)}
+                        onRefresh={refreshData}
                         onUploadToGroup={(groupId) => {
                             setUploadGroupId(groupId);
+                            setUploadMode('file');
                             setIsUploadOpen(true);
                         }}
                     />
@@ -526,19 +566,10 @@ export function HomePage() {
                 <div className="fixed inset-0 z-40" onClick={clearSearch} />
             )}
 
-            {/* Upload Modal */}
+            {/* Upload Modal - ИСПРАВЛЕНО: используем handleUploadClose */}
             <UploadModal
                 isOpen={isUploadOpen}
-                onClose={() => {
-                    setIsUploadOpen(false);
-                    setUploadGroupId(undefined);
-                    // Обновляем данные после закрытия
-                    loadData(false);
-                    // Если были на вкладке групп — обновляем группы
-                    if (activeTab === 'groups') {
-                        api.getMyGroups().then(setGroups);
-                    }
-                }}
+                onClose={handleUploadClose}
                 folderId={currentFolderId || undefined}
                 groupId={uploadGroupId}
                 initialMode={uploadMode}
@@ -556,7 +587,7 @@ export function HomePage() {
                 onClose={() => setShowOnboarding(false)}
             />
 
-            {/* Ask Library FAB */}
+            {/* Ask Library FAB - с правильным z-index */}
             <AskLibrary />
         </div>
     );

@@ -1,6 +1,6 @@
 // frontend/src/components/GroupsTab.tsx
-import { useState } from 'react';
-import { Users, Plus, Link, Copy, Check, LogOut, Trash2, Crown, ChevronRight, ArrowLeft, Search, SortAsc, SortDesc, FileText, Trophy } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Plus, Link, Copy, Check, LogOut, Trash2, Crown, ChevronRight, ArrowLeft, Search, SortAsc, SortDesc, FileText, Trophy, RefreshCw } from 'lucide-react';
 import { Card, Button, Spinner } from './ui';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
@@ -43,6 +43,7 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
     const [groupMaterials, setGroupMaterials] = useState<Material[]>([]);
     const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
+    const [isRefreshingMaterials, setIsRefreshingMaterials] = useState(false);
 
     // Вкладка внутри группы
     const [groupView, setGroupView] = useState<GroupView>('materials');
@@ -51,6 +52,17 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOption, setSortOption] = useState<SortOption>('date_desc');
     const [showSortMenu, setShowSortMenu] = useState(false);
+
+    // ✅ Обновляем материалы группы при изменении groups (после загрузки нового материала)
+    useEffect(() => {
+        if (selectedGroup) {
+            // Проверяем, есть ли ещё эта группа в списке
+            const updatedGroup = groups.find(g => g.id === selectedGroup.id);
+            if (updatedGroup) {
+                setSelectedGroup(updatedGroup);
+            }
+        }
+    }, [groups]);
 
     const handleCopyInvite = async (e: React.MouseEvent, group: Group) => {
         e.stopPropagation();
@@ -87,6 +99,16 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         }
     };
 
+    const loadGroupMaterials = async (groupId: string) => {
+        try {
+            const materials = await api.getGroupMaterials(groupId);
+            setGroupMaterials(materials);
+        } catch (error) {
+            console.error('Failed to load group materials:', error);
+            setGroupMaterials([]);
+        }
+    };
+
     const openGroup = async (group: Group) => {
         setSelectedGroup(group);
         setIsLoadingMaterials(true);
@@ -95,11 +117,7 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         telegram.haptic('selection');
 
         try {
-            const materials = await api.getGroupMaterials(group.id);
-            setGroupMaterials(materials);
-        } catch (error) {
-            console.error('Failed to load group materials:', error);
-            setGroupMaterials([]);
+            await loadGroupMaterials(group.id);
         } finally {
             setIsLoadingMaterials(false);
         }
@@ -110,6 +128,28 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         setGroupMaterials([]);
         setSearchQuery('');
         setGroupView('materials');
+    };
+
+    // ✅ Функция обновления материалов группы
+    const refreshGroupMaterials = async () => {
+        if (!selectedGroup) return;
+
+        setIsRefreshingMaterials(true);
+        telegram.haptic('light');
+
+        try {
+            await loadGroupMaterials(selectedGroup.id);
+        } finally {
+            setIsRefreshingMaterials(false);
+        }
+    };
+
+    // ✅ Обработчик загрузки материала в группу
+    const handleUploadToGroup = (groupId: string) => {
+        telegram.haptic('medium');
+        if (onUploadToGroup) {
+            onUploadToGroup(groupId);
+        }
     };
 
     // Фильтрация и сортировка материалов
@@ -169,12 +209,18 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                         </p>
                     </div>
 
+                    {/* ✅ Кнопка обновления */}
+                    <button
+                        onClick={refreshGroupMaterials}
+                        className="p-2 hover:bg-tg-secondary rounded-lg"
+                        disabled={isRefreshingMaterials}
+                    >
+                        <RefreshCw className={`w-5 h-5 text-tg-hint ${isRefreshingMaterials ? 'animate-spin' : ''}`} />
+                    </button>
+
                     {onUploadToGroup && (
                         <button
-                            onClick={() => {
-                                telegram.haptic('medium');
-                                onUploadToGroup(selectedGroup.id);
-                            }}
+                            onClick={() => handleUploadToGroup(selectedGroup.id)}
                             className="p-2 bg-tg-button text-tg-button-text rounded-lg"
                         >
                             <Plus className="w-5 h-5" />
@@ -190,8 +236,8 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${groupView === 'materials'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <FileText className="w-4 h-4" />
@@ -203,8 +249,8 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${groupView === 'leaderboard'
-                                ? 'bg-tg-bg shadow text-tg-text'
-                                : 'text-tg-hint'
+                            ? 'bg-tg-bg shadow text-tg-text'
+                            : 'text-tg-hint'
                             }`}
                     >
                         <Trophy className="w-4 h-4" />
@@ -315,7 +361,7 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                                         <p className="text-tg-hint mb-2">В группе пока нет материалов</p>
                                         {onUploadToGroup && (
                                             <Button
-                                                onClick={() => onUploadToGroup(selectedGroup.id)}
+                                                onClick={() => handleUploadToGroup(selectedGroup.id)}
                                                 className="mt-2"
                                             >
                                                 <Plus className="w-4 h-4 mr-2" />
@@ -453,12 +499,22 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
         try {
             await api.createGroup(name.trim(), description.trim() || undefined);
             telegram.haptic('success');
-            onCreated();
-            onClose();
+
+            // ✅ Сначала сбрасываем форму
             setName('');
             setDescription('');
+
+            // ✅ Закрываем модалку
+            onClose();
+
+            // ✅ Потом обновляем данные (с небольшой задержкой)
+            setTimeout(() => {
+                onCreated();
+            }, 300);
+
         } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка');
+            telegram.haptic('error');
+            telegram.alert(error.response?.data?.detail || 'Ошибка создания группы');
         } finally {
             setIsLoading(false);
         }
@@ -475,6 +531,7 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Название группы"
                         className="w-full px-3 py-2 border rounded-lg bg-tg-secondary"
+                        autoFocus
                     />
                     <textarea
                         value={description}
@@ -485,8 +542,10 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
                     />
                 </div>
                 <div className="flex gap-2 mt-6">
-                    <Button variant="secondary" onClick={onClose} className="flex-1">Отмена</Button>
-                    <Button onClick={handleCreate} disabled={isLoading} className="flex-1">
+                    <Button variant="secondary" onClick={onClose} className="flex-1" disabled={isLoading}>
+                        Отмена
+                    </Button>
+                    <Button onClick={handleCreate} disabled={isLoading || !name.trim()} className="flex-1">
                         {isLoading ? <Spinner size="sm" /> : 'Создать'}
                     </Button>
                 </div>
@@ -514,11 +573,23 @@ function JoinGroupModal({ isOpen, onClose, onJoined }: {
         try {
             const result = await api.joinGroup(code.trim());
             telegram.haptic('success');
-            telegram.alert(`Вы вступили в "${result.group.name}"!`);
-            onJoined();
-            onClose();
+
+            // ✅ Сбрасываем форму
             setCode('');
+
+            // ✅ Закрываем модалку
+            onClose();
+
+            // ✅ Показываем сообщение
+            telegram.alert(`Вы вступили в "${result.group.name}"!`);
+
+            // ✅ Обновляем данные
+            setTimeout(() => {
+                onJoined();
+            }, 300);
+
         } catch (error: any) {
+            telegram.haptic('error');
             telegram.alert(error.response?.data?.detail || 'Группа не найдена');
         } finally {
             setIsLoading(false);
@@ -535,10 +606,13 @@ function JoinGroupModal({ isOpen, onClose, onJoined }: {
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     placeholder="Код приглашения"
                     className="w-full px-3 py-2 border rounded-lg bg-tg-secondary text-center font-mono text-lg"
+                    autoFocus
                 />
                 <div className="flex gap-2 mt-6">
-                    <Button variant="secondary" onClick={onClose} className="flex-1">Отмена</Button>
-                    <Button onClick={handleJoin} disabled={isLoading} className="flex-1">
+                    <Button variant="secondary" onClick={onClose} className="flex-1" disabled={isLoading}>
+                        Отмена
+                    </Button>
+                    <Button onClick={handleJoin} disabled={isLoading || !code.trim()} className="flex-1">
                         {isLoading ? <Spinner size="sm" /> : 'Вступить'}
                     </Button>
                 </div>

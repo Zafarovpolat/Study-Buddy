@@ -193,8 +193,10 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
 
             // Успех! Закрываем сразу, не ждём обработки
             telegram.haptic('success');
-            resetForm();
             onClose();
+            setTimeout(() => {
+                resetForm();
+            }, 300);
 
         } catch (error: any) {
             console.error('Upload error:', error);
