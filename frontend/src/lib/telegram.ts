@@ -1,4 +1,4 @@
-// frontend/src/lib/telegram.ts - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/lib/telegram.ts
 declare global {
     interface Window {
         Telegram?: {
@@ -47,6 +47,17 @@ interface TelegramWebApp {
     setBackgroundColor: (color: string) => void;
 }
 
+// 🎨 LECTO 2.0 ФИКСИРОВАННАЯ ТЁМНАЯ ТЕМА
+const LECTO_THEME = {
+    bg_color: '#0D1117',
+    secondary_bg_color: '#161B22',
+    text_color: '#F0F6FC',
+    hint_color: '#8B949E',
+    link_color: '#58A6FF',
+    button_color: '#238636',
+    button_text_color: '#FFFFFF',
+};
+
 class TelegramService {
     private webApp: TelegramWebApp | null = null;
     private isRealTelegram: boolean = false;
@@ -54,9 +65,11 @@ class TelegramService {
     constructor() {
         if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
             this.webApp = window.Telegram.WebApp;
-            // Проверяем что это реальный Telegram, а не просто загруженный скрипт
             this.isRealTelegram = !!(this.webApp.initData && this.webApp.initData.length > 0);
         }
+
+        // Сразу применяем нашу тему при создании сервиса
+        this.applyLectoTheme();
     }
 
     get isAvailable(): boolean {
@@ -76,10 +89,8 @@ class TelegramService {
     }
 
     get isDarkMode(): boolean {
-        if (this.isRealTelegram) {
-            return this.webApp?.colorScheme === 'dark';
-        }
-        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        // Всегда тёмный режим
+        return true;
     }
 
     init() {
@@ -87,29 +98,39 @@ class TelegramService {
             try {
                 this.webApp.ready();
                 this.webApp.expand();
-                this.applyTheme();
+
+                // Устанавливаем цвета в Telegram
+                this.webApp.setHeaderColor(LECTO_THEME.bg_color);
+                this.webApp.setBackgroundColor(LECTO_THEME.bg_color);
             } catch (e) {
-                console.log('Telegram init error (expected in browser):', e);
+                console.log('Telegram init error:', e);
             }
         }
+
+        // Всегда применяем нашу тему
+        this.applyLectoTheme();
     }
 
-    private applyTheme() {
-        if (!this.webApp || !this.isRealTelegram) return;
+    // 🎨 Применяем НАШУ тему, игнорируя Telegram
+    private applyLectoTheme() {
+        if (typeof document === 'undefined') return;
 
-        const theme = this.webApp.themeParams;
         const root = document.documentElement;
 
-        if (theme.bg_color) root.style.setProperty('--tg-theme-bg-color', theme.bg_color);
-        if (theme.text_color) root.style.setProperty('--tg-theme-text-color', theme.text_color);
-        if (theme.hint_color) root.style.setProperty('--tg-theme-hint-color', theme.hint_color);
-        if (theme.link_color) root.style.setProperty('--tg-theme-link-color', theme.link_color);
-        if (theme.button_color) root.style.setProperty('--tg-theme-button-color', theme.button_color);
-        if (theme.button_text_color) root.style.setProperty('--tg-theme-button-text-color', theme.button_text_color);
-        if (theme.secondary_bg_color) root.style.setProperty('--tg-theme-secondary-bg-color', theme.secondary_bg_color);
+        // Принудительно устанавливаем наши цвета
+        root.style.setProperty('--tg-theme-bg-color', LECTO_THEME.bg_color);
+        root.style.setProperty('--tg-theme-text-color', LECTO_THEME.text_color);
+        root.style.setProperty('--tg-theme-hint-color', LECTO_THEME.hint_color);
+        root.style.setProperty('--tg-theme-link-color', LECTO_THEME.link_color);
+        root.style.setProperty('--tg-theme-button-color', LECTO_THEME.button_color);
+        root.style.setProperty('--tg-theme-button-text-color', LECTO_THEME.button_text_color);
+        root.style.setProperty('--tg-theme-secondary-bg-color', LECTO_THEME.secondary_bg_color);
+
+        // Также устанавливаем на body для надёжности
+        document.body.style.backgroundColor = LECTO_THEME.bg_color;
+        document.body.style.color = LECTO_THEME.text_color;
     }
 
-    // Haptic feedback - безопасный вызов
     haptic(type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'warning' | 'selection') {
         if (!this.isRealTelegram || !this.webApp?.HapticFeedback) return;
 
@@ -122,11 +143,10 @@ class TelegramService {
                 this.webApp.HapticFeedback.impactOccurred(type as 'light' | 'medium' | 'heavy');
             }
         } catch (e) {
-            // Игнорируем ошибки haptic в браузере
+            // Игнорируем
         }
     }
 
-    // Main Button - безопасный вызов
     showMainButton(text: string, onClick: () => void) {
         if (!this.isRealTelegram || !this.webApp?.MainButton) return;
 
@@ -147,7 +167,6 @@ class TelegramService {
         if (this.webApp?.showPopup) {
             this.webApp.showPopup(params);
         } else {
-            // Fallback для браузера
             alert(params.title ? `${params.title}\n\n${params.message}` : params.message);
         }
     }
@@ -156,12 +175,9 @@ class TelegramService {
         if (!this.isRealTelegram) return;
         try {
             this.webApp?.MainButton?.hide();
-        } catch (e) {
-            // Игнорируем
-        }
+        } catch (e) { }
     }
 
-    // Back Button - безопасный вызов
     showBackButton(onClick: () => void) {
         if (!this.isRealTelegram || !this.webApp?.BackButton) return;
 
@@ -177,12 +193,9 @@ class TelegramService {
         if (!this.isRealTelegram) return;
         try {
             this.webApp?.BackButton?.hide();
-        } catch (e) {
-            // Игнорируем
-        }
+        } catch (e) { }
     }
 
-    // Alerts - с fallback на браузерные
     alert(message: string): Promise<void> {
         return new Promise((resolve) => {
             if (this.isRealTelegram && this.webApp) {
