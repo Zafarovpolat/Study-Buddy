@@ -1,7 +1,44 @@
-/* frontend/src/index.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* === LECTO 2.0 PREMIUM THEME (фиксированная тёмная тема) === */
+:root {
+  /* Background */
+  --tg-theme-bg-color: #0D1117;
+  --tg-theme-secondary-bg-color: #161B22;
+
+  /* Text */
+  --tg-theme-text-color: #F0F6FC;
+  --tg-theme-hint-color: #8B949E;
+  --tg-theme-link-color: #58A6FF;
+
+  /* Button */
+  --tg-theme-button-color: #238636;
+  --tg-theme-button-text-color: #FFFFFF;
+
+  /* Lecto Premium */
+  --lecto-bg-primary: #0D1117;
+  --lecto-bg-secondary: #161B22;
+  --lecto-bg-tertiary: #21262D;
+  --lecto-border: #30363D;
+  --lecto-text-primary: #F0F6FC;
+  --lecto-text-secondary: #8B949E;
+  --lecto-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+}
+
+/* Принудительно тёмная тема — игнорируем Telegram */
+@media (prefers-color-scheme: light) {
+  :root {
+    --tg-theme-bg-color: #0D1117;
+    --tg-theme-secondary-bg-color: #161B22;
+    --tg-theme-text-color: #F0F6FC;
+    --tg-theme-hint-color: #8B949E;
+    --tg-theme-link-color: #58A6FF;
+    --tg-theme-button-color: #238636;
+    --tg-theme-button-text-color: #FFFFFF;
+  }
+}
 
 * {
   box-sizing: border-box;
@@ -13,14 +50,17 @@ html,
 body,
 #root {
   height: 100%;
+  background-color: #0D1117 !important;
+  color: #F0F6FC !important;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: var(--tg-theme-bg-color);
-  color: var(--tg-theme-text-color);
+  background-color: #0D1117;
+  color: #F0F6FC;
 }
 
+/* Animations */
 @keyframes slide-up {
   from {
     transform: translateY(100%);
@@ -33,53 +73,6 @@ body {
   }
 }
 
-.animate-slide-up {
-  animation: slide-up 0.3s ease-out;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-:root {
-  /* === LECTO 2.0 PREMIUM THEME === */
-
-  /* Background */
-  --lecto-bg-primary: #0D1117;
-  --lecto-bg-secondary: #161B22;
-  --lecto-bg-tertiary: #21262D;
-
-  /* Accent */
-  --lecto-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
-  --lecto-blue: #58A6FF;
-  --lecto-green: #3FB950;
-  --lecto-red: #F85149;
-  --lecto-purple: #A371F7;
-
-  /* Text */
-  --lecto-text-primary: #F0F6FC;
-  --lecto-text-secondary: #8B949E;
-  --lecto-text-muted: #484F58;
-
-  /* Borders & Shadows */
-  --lecto-border: #30363D;
-  --lecto-shadow-card: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --lecto-shadow-glow-gold: 0 0 20px rgba(255, 215, 0, 0.3);
-  --lecto-shadow-glow-blue: 0 0 20px rgba(88, 166, 255, 0.3);
-
-  /* Radius */
-  --lecto-radius-sm: 8px;
-  --lecto-radius-md: 12px;
-  --lecto-radius-lg: 16px;
-  --lecto-radius-xl: 24px;
-}
-
-/* Shimmer Animation */
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -90,16 +83,6 @@ body {
   }
 }
 
-.animate-shimmer {
-  animation: shimmer 1.5s infinite;
-  background: linear-gradient(90deg,
-      var(--lecto-bg-secondary) 0%,
-      var(--lecto-bg-tertiary) 50%,
-      var(--lecto-bg-secondary) 100%);
-  background-size: 200% 100%;
-}
-
-/* Bounce In Animation */
 @keyframes bounce-in {
   0% {
     transform: scale(0.3);
@@ -120,15 +103,25 @@ body {
   }
 }
 
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+  background: linear-gradient(90deg, #161B22 0%, #21262D 50%, #161B22 100%);
+  background-size: 200% 100%;
+}
+
 .animate-bounce-in {
   animation: bounce-in 0.5s ease-out;
 }
 
-/* Glow Effect */
-.glow-gold {
-  box-shadow: var(--lecto-shadow-glow-gold);
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
-.glow-blue {
-  box-shadow: var(--lecto-shadow-glow-blue);
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
