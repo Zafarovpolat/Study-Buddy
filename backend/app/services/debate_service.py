@@ -1,6 +1,7 @@
 # backend/app/services/debate_service.py
 from typing import List, Dict, Any, Literal
 from app.services.ai_service import gemini_service
+from sqlalchemy.ext.asyncio import AsyncSession  # ← ДОБАВЬ ЭТУ СТРОКУ
 
 DifficultyLevel = Literal["easy", "medium", "hard"]
 
