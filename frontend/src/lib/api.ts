@@ -364,6 +364,35 @@ class ApiClient {
         return data;
     }
 
+    // Добавить в класс ApiClient:
+
+    // ==================== Preferences ====================
+    async updatePreferences(data: {
+        field_of_study?: string;
+        region?: string;
+        preferred_language?: string;
+    }) {
+        const { data: response } = await this.client.patch('/users/me/preferences', data);
+        return response;
+    }
+
+    async getUserStats() {
+        const { data } = await this.client.get('/users/me/stats');
+        return data;
+    }
+
+    // ==================== Insights ====================
+    async getInsights(region?: string) {
+        const params = region ? { region } : {};
+        const { data } = await this.client.get('/insights/', { params });
+        return data;
+    }
+
+    async getInsightDetailed(insightId: string) {
+        const { data } = await this.client.get(`/insights/${insightId}/detailed`);
+        return data;
+    }
+
 }
 
 export const api = new ApiClient();

@@ -1,4 +1,4 @@
-# backend/alembic/env.py - ЗАМЕНИ ПОЛНОСТЬЮ
+# backend/alembic/env.py
 from logging.config import fileConfig
 
 from sqlalchemy import pool
@@ -22,11 +22,13 @@ def get_url():
     """Получаем URL для синхронного подключения (для Alembic)"""
     url = settings.DATABASE_URL
     
-    # Преобразуем в синхронный формат для psycopg2
+    # Преобразуем в синхронный формат для psycopg (v3)
     if url.startswith("postgres://"):
-        url = url.replace("postgres://", "postgresql://", 1)
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
     elif url.startswith("postgresql+asyncpg://"):
-        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+        url = url.replace("postgresql+asyncpg://", "postgresql+psycopg://", 1)
+    elif url.startswith("postgresql://") and "+psycopg" not in url:
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     
     return url
 
@@ -47,9 +49,6 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = get_url()
-    
     connectable = create_engine(
         get_url(),
         poolclass=pool.NullPool,

@@ -1,6 +1,8 @@
 # backend/app/api/routes/users.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+from typing import Optional
 
 from app.models import get_db, User, SubscriptionTier
 from app.services import UserService
@@ -114,3 +116,51 @@ async def debug_reset_limits(
     await db.commit()
     
     return {"success": True, "message": "Лимиты сброшены", "remaining": settings.FREE_DAILY_LIMIT}
+
+class UpdatePreferencesRequest(BaseModel):
+    field_of_study: Optional[str] = None
+    region: Optional[str] = None
+    preferred_language: Optional[str] = None
+
+@router.patch("/me/preferences")
+async def update_preferences(
+    request: UpdatePreferencesRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Обновить персонализацию пользователя"""
+    if request.field_of_study:
+        current_user.field_of_study = request.field_of_study
+    if request.region:
+        current_user.region = request.region
+    if request.preferred_language:
+        current_user.preferred_language = request.preferred_language
+    
+    current_user.onboarding_completed = True
+    
+    await db.commit()
+    await db.refresh(current_user)
+    
+    return {
+        "success": True,
+        "user": {
+            "field_of_study": current_user.field_of_study,
+            "region": current_user.region,
+            "onboarding_completed": current_user.onboarding_completed
+        }
+    }
+
+@router.get("/me/stats")
+async def get_user_stats(
+    current_user: User = Depends(get_current_user)
+):
+    """Получить статистику пользователя"""
+    return {
+        "intellect_points": current_user.intellect_points or 0,
+        "total_debates": current_user.total_debates or 0,
+        "debates_won": current_user.debates_won or 0,
+        "quizzes_completed": current_user.quizzes_completed or 0,
+        "perfect_quizzes": current_user.perfect_quizzes or 0,
+        "current_streak": current_user.current_streak or 0,
+        "longest_streak": current_user.longest_streak or 0,
+    }

@@ -81,6 +81,19 @@ class User(Base):
     referred_by_id = Column(UUID(as_uuid=True), nullable=True)
     referral_count = Column(Integer, default=0)
     referral_pro_granted = Column(Boolean, default=False)
+
+    # 🆕 Персонализация (Lecto 2.0)
+    field_of_study = Column(String(50), nullable=True)  # law, economics, ir, it, medicine, other
+    region = Column(String(20), default='global')        # uz, global
+    preferred_language = Column(String(10), default='ru')
+    onboarding_completed = Column(Boolean, default=False)
+    
+    # 🆕 Геймификация
+    intellect_points = Column(Integer, default=0)
+    total_debates = Column(Integer, default=0)
+    debates_won = Column(Integer, default=0)
+    quizzes_completed = Column(Integer, default=0)
+    perfect_quizzes = Column(Integer, default=0)  # 100% результат
     
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

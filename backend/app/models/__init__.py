@@ -7,6 +7,8 @@ from app.models.group_member import GroupMember, GroupRole
 from app.models.ai_output import AIOutput, OutputFormat
 from app.models.quiz_result import QuizResult
 from app.models.text_chunk import TextChunk
+from app.models.insight import Insight
+
 
 __all__ = [
     "Base",
@@ -26,4 +28,5 @@ __all__ = [
     "OutputFormat",
     "QuizResult",
     "TextChunk",
+    "Insight",
 ]
