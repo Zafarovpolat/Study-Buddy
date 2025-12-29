@@ -99,7 +99,7 @@ export function LeaderboardTab({ groupId }: LeaderboardTabProps) {
                     </Card>
 
                     {/* 1 место */}
-                    <Card className="text-center py-4 order-0 bg-gradient-to-b from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-800">
+                    <Card className="text-center py-4 order-0 bg-gradient-to-b from-yellow-50 to-yellow-100 border-yellow-200">
                         <span className="text-4xl">🥇</span>
                         <p className="font-bold mt-2 truncate px-1">
                             {leaderboard[0]?.first_name}

@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Telegram theme (сохраняем для совместимости)
+        // Telegram theme (compatibility)
         tg: {
           bg: 'var(--tg-theme-bg-color)',
           text: 'var(--tg-theme-text-color)',
@@ -17,46 +17,47 @@ export default {
           'button-text': 'var(--tg-theme-button-text-color)',
           secondary: 'var(--tg-theme-secondary-bg-color)',
         },
-        // Lecto 2.0 Premium
+        // Lecto 2.0 Premium (Redesigned)
         lecto: {
           bg: {
-            primary: 'var(--lecto-bg-primary)',
-            secondary: 'var(--lecto-bg-secondary)',
-            tertiary: 'var(--lecto-bg-tertiary)',
+            primary: '#FFFFFF',   // White
+            secondary: '#F8F9FA', // Light Gray
+            tertiary: '#F3F4F6',
           },
           text: {
-            primary: 'var(--lecto-text-primary)',
-            secondary: 'var(--lecto-text-secondary)',
-            muted: 'var(--lecto-text-muted)',
+            primary: '#152886',   // Dark Blue
+            secondary: '#6E7681', // Gray
+            muted: '#9CA3AF',
           },
           accent: {
-            blue: 'var(--lecto-blue)',
-            green: 'var(--lecto-green)',
-            red: 'var(--lecto-red)',
-            purple: 'var(--lecto-purple)',
+            primary: '#9452ea',   // Purple
+            secondary: '#152886', // Dark Blue
+            gold: '#9452ea',      // Legacy support (now purple)
           },
-          border: 'var(--lecto-border)',
+          border: '#E1E4E8',
         }
       },
-      borderRadius: {
-        'lecto-sm': 'var(--lecto-radius-sm)',
-        'lecto-md': 'var(--lecto-radius-md)',
-        'lecto-lg': 'var(--lecto-radius-lg)',
-        'lecto-xl': 'var(--lecto-radius-xl)',
+      backgroundImage: {
+        'lecto-gradient-purple': 'linear-gradient(135deg, #9452ea 0%, #152886 100%)',
+        'lecto-gradient-gold': 'linear-gradient(135deg, #9452ea 0%, #152886 100%)', // Legacy support
       },
-      boxShadow: {
-        'lecto-card': 'var(--lecto-shadow-card)',
-        'lecto-glow-gold': 'var(--lecto-shadow-glow-gold)',
-        'lecto-glow-blue': 'var(--lecto-shadow-glow-blue)',
+      borderRadius: {
+        'lecto-card': '16px',
+        'lecto-btn': '12px',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+      },
+      fontSize: {
+        'body-regular': ['15px', { lineHeight: '1.4' }],
       },
       letterSpacing: {
-        'tight': '-0.5px',
+        'tight-header': '-0.5px',
       },
-      lineHeight: {
-        'relaxed': '1.4',
+      boxShadow: {
+        'lecto-card': '0 4px 24px rgba(21, 40, 134, 0.1)',
+        'lecto-glow-purple': '0 0 20px rgba(148, 82, 234, 0.3)',
+        'lecto-glow-gold': '0 0 20px rgba(148, 82, 234, 0.3)', // Legacy support
       },
     },
   },

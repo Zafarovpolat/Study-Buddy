@@ -1,4 +1,4 @@
-// frontend/src/store/useStore.ts - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/store/useStore.ts
 import { create } from 'zustand';
 
 interface User {
@@ -11,6 +11,11 @@ interface User {
     referral_code?: string;
     referral_count?: number;
     created_at: string;
+    // New fields for personalization
+    field_of_study?: string;
+    region?: string;
+    intellect_points?: number;
+    debates_won?: number;
 }
 
 interface Folder {

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
         # Для Supabase: используем порт 5432 (Session mode), НЕ 6543
         # Порт 6543 = Transaction mode (не работает с prepared statements)
         if "pooler.supabase.com:6543" in url:
-            print("⚠️ Warning: Using port 6543 (Transaction mode). Consider port 5432 (Session mode)")
+            print("Warning: Using port 6543 (Transaction mode). Consider port 5432 (Session mode)")
         
         return url
 
@@ -62,6 +62,6 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Отладка
-print(f"🔧 GEMINI_MODEL: {settings.GEMINI_MODEL}")
-print(f"🔧 GEMINI_API_KEY: {'***' + settings.GEMINI_API_KEY[-4:] if settings.GEMINI_API_KEY else 'NOT SET'}")
-print(f"🔧 DATABASE: {'Supabase' if 'supabase' in settings.DATABASE_URL else 'Local'}")
+print(f"GEMINI_MODEL: {settings.GEMINI_MODEL}")
+print(f"GEMINI_API_KEY: {'***' + settings.GEMINI_API_KEY[-4:] if settings.GEMINI_API_KEY else 'NOT SET'}")
+print(f"DATABASE: {'Supabase' if 'supabase' in settings.DATABASE_URL else 'Local'}")

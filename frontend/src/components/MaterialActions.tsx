@@ -1,4 +1,4 @@
-// frontend/src/components/MaterialActions.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
+// frontend/src/components/MaterialActions.tsx
 import { useState } from 'react';
 import { MoreVertical, Edit2, Trash2, X, Check } from 'lucide-react';
 import { api } from '../lib/api';
@@ -14,9 +14,10 @@ interface MaterialActionsProps {
     material: Material;
     onUpdate: () => void;
     onDelete: () => void;
+    children?: React.ReactNode;
 }
 
-export function MaterialActions({ material, onUpdate, onDelete }: MaterialActionsProps) {
+export function MaterialActions({ material, onUpdate, onDelete, children }: MaterialActionsProps) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isRenaming, setIsRenaming] = useState(false);
     const [newTitle, setNewTitle] = useState(material.title);
@@ -92,12 +93,18 @@ export function MaterialActions({ material, onUpdate, onDelete }: MaterialAction
 
     return (
         <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 hover:bg-tg-secondary rounded-lg transition-colors"
-            >
-                <MoreVertical className="w-4 h-4 text-tg-hint" />
-            </button>
+            {children ? (
+                <div onClick={() => setIsMenuOpen(!isMenuOpen)}>
+                    {children}
+                </div>
+            ) : (
+                <button
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="p-2 hover:bg-tg-secondary rounded-lg transition-colors"
+                >
+                    <MoreVertical className="w-4 h-4 text-tg-hint" />
+                </button>
+            )}
 
             {isMenuOpen && (
                 <>

@@ -13,7 +13,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         return (
             <div className="w-full">
                 {label && (
-                    <label className="block text-sm font-medium text-tg-text mb-1">
+                    <label className="block text-sm font-medium text-lecto-text-secondary mb-1">
                         {label}
                     </label>
                 )}
@@ -21,9 +21,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                     ref={ref}
                     className={clsx(
                         'w-full px-4 py-3 rounded-xl resize-none',
-                        'bg-tg-secondary text-tg-text',
-                        'placeholder:text-tg-hint',
-                        'focus:outline-none focus:ring-2 focus:ring-tg-button',
+                        'bg-lecto-bg-secondary text-lecto-text',
+                        'placeholder:text-lecto-hint',
+                        'focus:outline-none focus:ring-2 focus:ring-lecto-accent-primary',
                         'transition-all',
                         error && 'ring-2 ring-red-500',
                         className

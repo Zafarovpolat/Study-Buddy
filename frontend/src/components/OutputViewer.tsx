@@ -1,6 +1,6 @@
 // frontend/src/components/OutputViewer.tsx
 import { useState } from 'react';
-import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp, Swords } from 'lucide-react';
+import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp, Swords, File } from 'lucide-react';
 import { Button, Card } from './ui';
 import { DebateTab } from './DebateTab';
 import { api } from '../lib/api';
@@ -23,22 +23,24 @@ interface OutputViewerProps {
 }
 
 const formatConfig: Record<string, { icon: typeof FileText; label: string; color: string }> = {
+    source: { icon: File, label: 'Источник', color: 'text-gray-500' },
     smart_notes: { icon: FileText, label: 'Конспект', color: 'text-blue-500' },
-    tldr: { icon: Zap, label: 'TL;DR', color: 'text-yellow-500' },
     quiz: { icon: HelpCircle, label: 'Тест', color: 'text-green-500' },
-    glossary: { icon: BookOpen, label: 'Глоссарий', color: 'text-purple-500' },
-    flashcards: { icon: Layers, label: 'Карточки', color: 'text-pink-500' },
     debate: { icon: Swords, label: 'Дебаты', color: 'text-red-500' },
+    flashcards: { icon: Layers, label: 'Карточки', color: 'text-pink-500' },
+    tldr: { icon: Zap, label: 'TL;DR', color: 'text-yellow-500' },
+    glossary: { icon: BookOpen, label: 'Глоссарий', color: 'text-purple-500' },
 };
 
 export function OutputViewer({ materialId, outputs, onRefresh, groupId, materialTitle, materialContent }: OutputViewerProps) {
     const [activeFormat, setActiveFormat] = useState<string>(
-        outputs[0]?.format || 'smart_notes'
+        'source' // Default to Source
     );
     const [isRegenerating, setIsRegenerating] = useState(false);
 
     const activeOutput = outputs.find((o) => o.format === activeFormat);
     const isDebateTab = activeFormat === 'debate';
+    const isSourceTab = activeFormat === 'source';
 
     const handleRegenerate = async () => {
         try {
@@ -55,19 +57,24 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
         }
     };
 
-    // Все форматы + дебаты
-    const allFormats = [...Object.keys(formatConfig).filter(f => f !== 'debate'), 'debate'];
+    // Define tab order
+    const tabOrder = ['source', 'smart_notes', 'quiz', 'debate', 'flashcards', 'tldr', 'glossary'];
 
     return (
         <div className="space-y-4">
             {/* Format Tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {allFormats.map((format) => {
+                {tabOrder.map((format) => {
                     const config = formatConfig[format];
                     if (!config) return null;
 
                     const Icon = config.icon;
-                    const hasOutput = format === 'debate' || outputs.some((o) => o.format === format);
+                    // Source and Debate are always available (if logic allows), others depend on outputs
+                    const hasOutput = format === 'source' || format === 'debate' || outputs.some((o) => o.format === format);
+
+                    // If it's a generated format but doesn't exist, we still show it but dimmed? 
+                    // Or maybe we only show if it exists OR if it's one of the core tabs we want to encourage?
+                    // Let's show all core tabs, but dim if not generated.
 
                     return (
                         <button
@@ -77,12 +84,12 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
                                 setActiveFormat(format);
                             }}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${activeFormat === format
-                                    ? format === 'debate'
-                                        ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
-                                        : 'bg-tg-button text-tg-button-text'
-                                    : hasOutput
-                                        ? 'bg-tg-secondary text-tg-text'
-                                        : 'bg-tg-secondary/50 text-tg-hint'
+                                ? format === 'debate'
+                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                                    : 'bg-tg-button text-tg-button-text'
+                                : hasOutput
+                                    ? 'bg-tg-secondary text-tg-text'
+                                    : 'bg-tg-secondary/50 text-tg-hint'
                                 }`}
                         >
                             <Icon className={`w-4 h-4 ${activeFormat === format ? '' : config.color}`} />
@@ -94,7 +101,11 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
 
             {/* Content */}
             <Card className="min-h-[300px] overflow-hidden">
-                {isDebateTab ? (
+                {isSourceTab ? (
+                    <div className="prose prose-sm max-w-none text-tg-text leading-relaxed whitespace-pre-wrap">
+                        {materialContent || 'Нет содержимого'}
+                    </div>
+                ) : isDebateTab ? (
                     <DebateTab
                         materialId={materialId}
                         materialTitle={materialTitle || 'Материал'}
@@ -358,10 +369,10 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
 
             {question.difficulty && (
                 <span className={`text-xs px-2 py-1 rounded-full ${question.difficulty === 'hard'
-                        ? 'bg-red-100 text-red-600'
-                        : question.difficulty === 'medium'
-                            ? 'bg-yellow-100 text-yellow-600'
-                            : 'bg-green-100 text-green-600'
+                    ? 'bg-red-100 text-red-600'
+                    : question.difficulty === 'medium'
+                        ? 'bg-yellow-100 text-yellow-600'
+                        : 'bg-green-100 text-green-600'
                     }`}>
                     {question.difficulty === 'hard' ? '🔥 Сложный' :
                         question.difficulty === 'medium' ? '📝 Средний' : '✅ Лёгкий'}
@@ -382,12 +393,12 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                             onClick={() => handleAnswer(index)}
                             disabled={showResult}
                             className={`w-full p-4 rounded-xl text-left transition-all break-words ${showResult
-                                    ? isCorrect
-                                        ? 'bg-green-500/20 border-2 border-green-500'
-                                        : isSelected
-                                            ? 'bg-red-500/20 border-2 border-red-500'
-                                            : 'bg-tg-secondary'
-                                    : 'bg-tg-secondary hover:bg-tg-hint/20'
+                                ? isCorrect
+                                    ? 'bg-green-500/20 border-2 border-green-500'
+                                    : isSelected
+                                        ? 'bg-red-500/20 border-2 border-red-500'
+                                        : 'bg-tg-secondary'
+                                : 'bg-tg-secondary hover:bg-tg-hint/20'
                                 }`}
                         >
                             <span className="font-medium mr-2">
@@ -499,8 +510,8 @@ function FlashcardsViewer({ data }: { data: any }) {
             <div
                 onClick={flip}
                 className={`min-h-[200px] p-6 rounded-2xl flex items-center justify-center cursor-pointer transition-all transform hover:scale-[1.02] ${isFlipped
-                        ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
-                        : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
+                    ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
+                    : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
                     } ${known.has(currentIndex) ? 'ring-2 ring-green-500' : ''}`}
             >
                 <div className="text-center">

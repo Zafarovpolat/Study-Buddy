@@ -1,5 +1,5 @@
 // frontend/src/components/MaterialCard.tsx
-import { FileText, Image, File, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { FileText, Image, File, Loader2, MoreVertical } from 'lucide-react';
 import { Card } from './ui';
 import { MaterialActions } from './MaterialActions';
 
@@ -21,34 +21,11 @@ interface MaterialCardProps {
 }
 
 const typeIcons: Record<string, React.ReactNode> = {
-    pdf: <FileText className="w-5 h-5 text-red-500" />,
-    docx: <FileText className="w-5 h-5 text-blue-500" />,
-    txt: <FileText className="w-5 h-5 text-gray-500" />,
-    image: <Image className="w-5 h-5 text-green-500" />,
-    default: <File className="w-5 h-5 text-tg-hint" />,
-};
-
-const statusConfig: Record<string, { icon: React.ReactNode; text: string; className: string }> = {
-    pending: {
-        icon: <Clock className="w-4 h-4" />,
-        text: 'Ожидает',
-        className: 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30',
-    },
-    processing: {
-        icon: <Loader2 className="w-4 h-4 animate-spin" />,
-        text: 'Обработка...',
-        className: 'text-blue-500 bg-blue-100 dark:bg-blue-900/30',
-    },
-    completed: {
-        icon: <CheckCircle className="w-4 h-4" />,
-        text: 'Готово',
-        className: 'text-green-500 bg-green-100 dark:bg-green-900/30',
-    },
-    failed: {
-        icon: <XCircle className="w-4 h-4" />,
-        text: 'Ошибка',
-        className: 'text-red-500 bg-red-100 dark:bg-red-900/30',
-    },
+    pdf: <FileText className="w-6 h-6 text-red-500" />,
+    docx: <FileText className="w-6 h-6 text-blue-500" />,
+    txt: <FileText className="w-6 h-6 text-gray-500" />,
+    image: <Image className="w-6 h-6 text-green-500" />,
+    default: <File className="w-6 h-6 text-tg-hint" />,
 };
 
 export function MaterialCard({
@@ -59,7 +36,6 @@ export function MaterialCard({
     showActions = true
 }: MaterialCardProps) {
     const icon = typeIcons[material.material_type] || typeIcons.default;
-    const status = statusConfig[material.status] || statusConfig.pending;
 
     const formatDate = (dateString: string) => {
         const isoString = dateString.endsWith('Z') ? dateString : dateString + 'Z';
@@ -71,10 +47,10 @@ export function MaterialCard({
         const diffDays = Math.floor(diffMs / 86400000);
 
         if (diffMins < 1) return 'только что';
-        if (diffMins < 60) return `${diffMins} мин назад`;
-        if (diffHours < 24) return `${diffHours} ч назад`;
-        if (diffDays < 7) return `${diffDays} дн назад`;
-        return date.toLocaleDateString('ru-RU');
+        if (diffMins < 60) return `${diffMins} мин`;
+        if (diffHours < 24) return `${diffHours} ч`;
+        if (diffDays < 7) return `${diffDays} дн`;
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
     };
 
     // Можно кликать даже если processing — откроется страница с прогрессом
@@ -82,38 +58,60 @@ export function MaterialCard({
 
     return (
         <Card
-            className={`flex items-center gap-3 p-4 transition-all ${isClickable
-                    ? 'cursor-pointer hover:bg-tg-secondary/50 active:scale-[0.99]'
-                    : 'opacity-70'
-                } ${material.status === 'processing' ? 'border-l-4 border-l-blue-400' : ''}`}
+            className={`flex items-start gap-4 p-4 transition-all relative ${isClickable
+                ? 'cursor-pointer hover:bg-lecto-bg-secondary/80 active:scale-[0.99]'
+                : 'opacity-70'
+                } ${material.status === 'processing' ? 'animate-pulse' : ''}`}
             onClick={isClickable ? onClick : undefined}
         >
-            {/* Icon */}
-            <div className="flex-shrink-0 w-10 h-10 bg-tg-secondary rounded-lg flex items-center justify-center">
-                {icon}
+            {/* Icon Container */}
+            <div className="relative flex-shrink-0 w-12 h-12 bg-lecto-bg-tertiary rounded-xl flex items-center justify-center">
+                {material.status === 'processing' ? (
+                    <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                ) : (
+                    icon
+                )}
+
+                {/* Status Dot (Green for completed) */}
+                {material.status === 'completed' && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-lecto-bg-primary opacity-80" />
+                )}
+
+                {/* Error Dot */}
+                {material.status === 'failed' && (
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-lecto-bg-primary" />
+                )}
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-w-0">
-                <h3 className="font-medium truncate">{material.title}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full ${status.className}`}>
-                        {status.icon}
-                        {status.text}
+            <div className="flex-1 min-w-0 flex flex-col justify-between min-h-[3rem]">
+                <h3 className="font-medium text-lecto-text-primary leading-tight line-clamp-2 pr-6">
+                    {material.title}
+                </h3>
+
+                <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-lecto-text-secondary uppercase tracking-wider font-medium opacity-60">
+                        {material.material_type}
                     </span>
-                    <span className="text-xs text-tg-hint">
+                    <span className="text-xs text-lecto-text-secondary">
                         {formatDate(material.created_at)}
                     </span>
                 </div>
             </div>
 
-            {/* Actions — только для completed и владельца */}
+            {/* Actions (Absolute positioning or just right aligned) */}
             {showActions && material.status === 'completed' && onUpdate && onDelete && (
-                <MaterialActions
-                    material={material}
-                    onUpdate={onUpdate}
-                    onDelete={onDelete}
-                />
+                <div className="absolute top-3 right-2" onClick={(e) => e.stopPropagation()}>
+                    <MaterialActions
+                        material={material}
+                        onUpdate={onUpdate}
+                        onDelete={onDelete}
+                    >
+                        <button className="p-1 text-lecto-text-secondary hover:text-lecto-text-primary transition-colors">
+                            <MoreVertical className="w-5 h-5" />
+                        </button>
+                    </MaterialActions>
+                </div>
             )}
         </Card>
     );

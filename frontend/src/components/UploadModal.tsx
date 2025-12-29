@@ -1,5 +1,4 @@
-// frontend/src/components/UploadModal.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
-
+// frontend/src/components/UploadModal.tsx
 import { useState, useEffect } from 'react';
 import { X, Upload, FileText, Type, Camera, Image, ChevronDown, Users, User, Folder, Sparkles } from 'lucide-react';
 import { Button, Input, Textarea, Card } from './ui';
@@ -229,46 +228,46 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
     const getTargetIcon = () => {
         switch (uploadTarget.type) {
             case 'group':
-                return <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />;
+                return <Users className="w-4 h-4 text-lecto-accent-primary" />;
             case 'folder':
-                return <Folder className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+                return <Folder className="w-4 h-4 text-lecto-accent-primary" />;
             default:
-                return <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />;
+                return <User className="w-4 h-4 text-lecto-accent-primary" />;
         }
     };
 
     const getTargetBgClass = () => {
         switch (uploadTarget.type) {
             case 'group':
-                return 'bg-purple-100 dark:bg-purple-900/30';
+                return 'bg-lecto-accent-primary/10';
             default:
-                return 'bg-blue-100 dark:bg-blue-900/30';
+                return 'bg-lecto-accent-primary/10';
         }
     };
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-            <div className="bg-tg-bg w-full max-w-lg rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slide-up">
+            <div className="bg-white w-full max-w-lg rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slide-up">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold">Новый материал</h2>
+                    <h2 className="text-xl font-bold text-lecto-text-primary">Новый материал</h2>
                     <button
                         onClick={() => { resetForm(); onClose(); }}
-                        className="p-2 hover:bg-tg-secondary rounded-full transition-colors"
+                        className="p-2 hover:bg-lecto-bg-secondary rounded-full transition-colors"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-5 h-5 text-lecto-text-secondary" />
                     </button>
                 </div>
 
                 {/* Dropdown выбора места загрузки */}
                 <div className="mb-4 relative">
-                    <label className="block text-sm font-medium text-tg-hint mb-2">
+                    <label className="block text-sm font-medium text-lecto-text-secondary mb-2">
                         Загрузить в:
                     </label>
                     <button
                         type="button"
                         onClick={() => setShowTargetDropdown(!showTargetDropdown)}
-                        className="w-full flex items-center justify-between p-3 bg-tg-secondary rounded-xl border border-transparent hover:border-tg-button transition-colors"
+                        className="w-full flex items-center justify-between p-3 bg-lecto-bg-secondary rounded-xl border border-transparent hover:border-lecto-accent-primary transition-colors"
                     >
                         <div className="flex items-center gap-3">
                             <div className={`w-8 h-8 ${getTargetBgClass()} rounded-full flex items-center justify-center`}>
@@ -280,65 +279,65 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                                     : uploadTarget.name}
                             </span>
                         </div>
-                        <ChevronDown className={`w-5 h-5 text-tg-hint transition-transform ${showTargetDropdown ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-5 h-5 text-lecto-text-secondary transition-transform ${showTargetDropdown ? 'rotate-180' : ''}`} />
                     </button>
 
                     {showTargetDropdown && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-10 overflow-hidden max-h-64 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-lecto-border rounded-xl shadow-lg z-10 overflow-hidden max-h-64 overflow-y-auto">
                             <button
                                 type="button"
                                 onClick={() => handleSelectTarget({ type: 'personal' })}
-                                className={`w-full flex items-center gap-3 p-3 hover:bg-tg-secondary transition-colors ${uploadTarget.type === 'personal' ? 'bg-tg-secondary' : ''}`}
+                                className={`w-full flex items-center gap-3 p-3 hover:bg-lecto-bg-secondary transition-colors ${uploadTarget.type === 'personal' ? 'bg-lecto-bg-secondary' : ''}`}
                             >
-                                <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <div className="w-8 h-8 bg-lecto-accent-primary/10 rounded-full flex items-center justify-center">
+                                    <User className="w-4 h-4 text-lecto-accent-primary" />
                                 </div>
-                                <span className="font-medium">Личная библиотека</span>
-                                {uploadTarget.type === 'personal' && <span className="ml-auto text-tg-button">✓</span>}
+                                <span className="font-medium text-lecto-text-primary">Личная библиотека</span>
+                                {uploadTarget.type === 'personal' && <span className="ml-auto text-lecto-accent-primary">✓</span>}
                             </button>
 
-                            {folders.length > 0 && (
+                            {Array.isArray(folders) && folders.length > 0 && (
                                 <>
-                                    <div className="border-t border-tg-secondary">
-                                        <div className="px-3 py-2 text-xs text-tg-hint uppercase tracking-wider">Папки</div>
+                                    <div className="border-t border-lecto-border">
+                                        <div className="px-3 py-2 text-xs text-lecto-text-secondary uppercase tracking-wider">Папки</div>
                                     </div>
                                     {folders.map((folder) => (
                                         <button
                                             key={folder.id}
                                             type="button"
                                             onClick={() => handleSelectTarget({ type: 'folder', id: folder.id, name: folder.name })}
-                                            className={`w-full flex items-center gap-3 p-3 hover:bg-tg-secondary transition-colors ${uploadTarget.type === 'folder' && uploadTarget.id === folder.id ? 'bg-tg-secondary' : ''}`}
+                                            className={`w-full flex items-center gap-3 p-3 hover:bg-lecto-bg-secondary transition-colors ${uploadTarget.type === 'folder' && uploadTarget.id === folder.id ? 'bg-lecto-bg-secondary' : ''}`}
                                         >
-                                            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                                <Folder className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                            <div className="w-8 h-8 bg-lecto-accent-primary/10 rounded-full flex items-center justify-center">
+                                                <Folder className="w-4 h-4 text-lecto-accent-primary" />
                                             </div>
-                                            <span className="font-medium">{folder.name}</span>
-                                            {uploadTarget.type === 'folder' && uploadTarget.id === folder.id && <span className="ml-auto text-tg-button">✓</span>}
+                                            <span className="font-medium text-lecto-text-primary">{folder.name}</span>
+                                            {uploadTarget.type === 'folder' && uploadTarget.id === folder.id && <span className="ml-auto text-lecto-accent-primary">✓</span>}
                                         </button>
                                     ))}
                                 </>
                             )}
 
-                            {groups.length > 0 && (
+                            {Array.isArray(groups) && groups.length > 0 && (
                                 <>
-                                    <div className="border-t border-tg-secondary">
-                                        <div className="px-3 py-2 text-xs text-tg-hint uppercase tracking-wider">Группы</div>
+                                    <div className="border-t border-lecto-border">
+                                        <div className="px-3 py-2 text-xs text-lecto-text-secondary uppercase tracking-wider">Группы</div>
                                     </div>
                                     {groups.map((group) => (
                                         <button
                                             key={group.id}
                                             type="button"
                                             onClick={() => handleSelectTarget({ type: 'group', id: group.id, name: group.name })}
-                                            className={`w-full flex items-center gap-3 p-3 hover:bg-tg-secondary transition-colors ${uploadTarget.type === 'group' && uploadTarget.id === group.id ? 'bg-tg-secondary' : ''}`}
+                                            className={`w-full flex items-center gap-3 p-3 hover:bg-lecto-bg-secondary transition-colors ${uploadTarget.type === 'group' && uploadTarget.id === group.id ? 'bg-lecto-bg-secondary' : ''}`}
                                         >
-                                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                                                <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                            <div className="w-8 h-8 bg-lecto-accent-primary/10 rounded-full flex items-center justify-center">
+                                                <Users className="w-4 h-4 text-lecto-accent-primary" />
                                             </div>
                                             <div className="flex-1 text-left">
-                                                <span className="font-medium">{group.name}</span>
-                                                <span className="text-xs text-tg-hint ml-2">{group.member_count} чел.</span>
+                                                <span className="font-medium text-lecto-text-primary">{group.name}</span>
+                                                <span className="text-xs text-lecto-text-secondary ml-2">{group.member_count} чел.</span>
                                             </div>
-                                            {uploadTarget.type === 'group' && uploadTarget.id === group.id && <span className="text-tg-button">✓</span>}
+                                            {uploadTarget.type === 'group' && uploadTarget.id === group.id && <span className="text-lecto-accent-primary">✓</span>}
                                         </button>
                                     ))}
                                 </>
@@ -350,7 +349,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 {/* Mode Selector */}
                 <div className="grid grid-cols-4 gap-2 mb-6">
                     <Button
-                        variant={mode === 'file' ? 'primary' : 'secondary'}
+                        variant={mode === 'file' ? 'primary' : 'primary'}
                         className="flex-1 px-2"
                         onClick={() => { setMode('file'); clearFile(); }}
                     >
@@ -358,7 +357,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         <span className="hidden sm:inline ml-1">Файл</span>
                     </Button>
                     <Button
-                        variant={mode === 'scan' ? 'primary' : 'secondary'}
+                        variant={mode === 'scan' ? 'primary' : 'primary'}
                         className="flex-1 px-2"
                         onClick={() => { setMode('scan'); clearFile(); }}
                     >
@@ -366,7 +365,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         <span className="hidden sm:inline ml-1">Скан</span>
                     </Button>
                     <Button
-                        variant={mode === 'text' ? 'primary' : 'secondary'}
+                        variant={mode === 'text' ? 'primary' : 'primary'}
                         className="flex-1 px-2"
                         onClick={() => { setMode('text'); clearFile(); }}
                     >
@@ -374,7 +373,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         <span className="hidden sm:inline ml-1">Текст</span>
                     </Button>
                     <Button
-                        variant={mode === 'topic' ? 'primary' : 'secondary'}
+                        variant={mode === 'topic' ? 'primary' : 'primary'}
                         className="flex-1 px-2"
                         onClick={() => { setMode('topic'); clearFile(); }}
                     >
@@ -388,7 +387,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     <div className="space-y-4">
                         <Card
                             variant="outlined"
-                            className="border-dashed cursor-pointer hover:border-tg-button transition-colors"
+                            className="border-dashed cursor-pointer hover:border-lecto-accent-primary transition-colors"
                             onClick={openFileSelector}
                         >
                             <div className="py-8 text-center">
@@ -443,11 +442,11 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                             <div className="grid grid-cols-2 gap-3">
                                 <Card
                                     variant="outlined"
-                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors active:scale-95"
+                                    className="border-dashed cursor-pointer hover:border-lecto-accent-primary transition-colors active:scale-95"
                                     onClick={openCamera}
                                 >
                                     <div className="py-6 text-center">
-                                        <Camera className="w-10 h-10 text-tg-button mx-auto mb-2" />
+                                        <Camera className="w-10 h-10 text-lecto-accent-primary mx-auto mb-2" />
                                         <p className="font-medium text-sm">Камера</p>
                                         <p className="text-xs text-tg-hint mt-1">Сделать фото</p>
                                     </div>
@@ -455,11 +454,11 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
 
                                 <Card
                                     variant="outlined"
-                                    className="border-dashed cursor-pointer hover:border-tg-button transition-colors active:scale-95"
+                                    className="border-dashed cursor-pointer hover:border-lecto-accent-primary transition-colors active:scale-95"
                                     onClick={openGallery}
                                 >
                                     <div className="py-6 text-center">
-                                        <Image className="w-10 h-10 text-tg-button mx-auto mb-2" />
+                                        <Image className="w-10 h-10 text-lecto-accent-primary mx-auto mb-2" />
                                         <p className="font-medium text-sm">Галерея</p>
                                         <p className="text-xs text-tg-hint mt-1">Выбрать фото</p>
                                     </div>
@@ -502,9 +501,9 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 {/* Topic */}
                 {mode === 'topic' && (
                     <div className="space-y-4">
-                        <div className="p-4 bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30 rounded-xl">
+                        <div className="p-4 bg-gradient-to-r from-[#F3E8FF] to-[#E0E7FF] rounded-xl">
                             <div className="flex items-center gap-2 mb-2">
-                                <Sparkles className="w-5 h-5 text-purple-600" />
+                                <Sparkles className="w-5 h-5 text-lecto-accent-primary" />
                                 <span className="font-medium">AI Генерация</span>
                             </div>
                             <p className="text-sm text-tg-hint">

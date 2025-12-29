@@ -8,6 +8,7 @@ import re
 from app.models.insight import Insight
 from app.models.user import User
 from app.services.ai_service import gemini_service
+from app.config.prompts import INSIGHT_DETAIL_PROMPT, INSIGHT_ANALYSIS_PROMPT
 
 
 class InsightService:
@@ -51,23 +52,12 @@ class InsightService:
         if insight.detailed_content:
             return insight.detailed_content
         
-        prompt = f"""Создай детальный академический конспект по следующей новости.
-
-Заголовок: {insight.title}
-Краткое содержание: {insight.summary}
-Связь с учебной темой: {insight.academic_link}
-
-Оригинальный текст:
-{insight.original_content[:5000]}
-
-Структура конспекта:
-1. **Ключевые факты** (bullet points)
-2. **Анализ последствий** (что это значит)
-3. **Связь с теорией** (какие темы из курса затрагивает)
-4. **Вопросы для размышления** (2-3 вопроса)
-5. **Термины для изучения** (3-5 терминов)
-
-Пиши на русском языке. Формат: Markdown."""
+        prompt = INSIGHT_DETAIL_PROMPT.format(
+            title=insight.title,
+            summary=insight.summary,
+            academic_link=insight.academic_link,
+            original_content=insight.original_content[:5000]
+        )
 
         content = await gemini_service._generate_async(prompt)
         
@@ -88,22 +78,11 @@ class InsightService:
     ) -> Insight:
         """Обработка новой новости через AI"""
         
-        prompt = f"""Ты — академический аналитик. Проанализируй новость для студентов направления "{field}".
-
-Новость: {title}
-
-Содержание: {content[:3000]}
-
-Ответь в JSON формате:
-{{
-    "title": "Краткий академический заголовок (макс 100 символов)",
-    "summary": "Суть за 2-3 предложения",
-    "importance": число от 1 до 10,
-    "importance_reason": "Почему это важно для студента (1 предложение)",
-    "academic_link": "Связь с учебной темой (например: Макроэкономика, Глава 5)"
-}}
-
-Верни ТОЛЬКО валидный JSON."""
+        prompt = INSIGHT_ANALYSIS_PROMPT.format(
+            field=field,
+            title=title,
+            content=content[:3000]
+        )
 
         try:
             response = await gemini_service._generate_async(prompt)

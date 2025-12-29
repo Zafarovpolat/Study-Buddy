@@ -7,6 +7,14 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from app.core.config import settings
+from app.config.prompts import (
+    TOPIC_GENERATION_PROMPT,
+    SMART_NOTES_PROMPT,
+    TLDR_PROMPT,
+    QUIZ_PROMPT,
+    GLOSSARY_PROMPT,
+    FLASHCARDS_PROMPT
+)
 
 # Thread pool для CPU-bound операций (Gemini SDK синхронный!)
 _executor = ThreadPoolExecutor(max_workers=4)
@@ -42,23 +50,7 @@ class GeminiService:
     
     async def generate_content_from_topic(self, topic: str) -> str:
         """Генерация учебного материала по теме"""
-        prompt = f"""Ты - эксперт-преподаватель. Создай подробный учебный материал по теме: "{topic}"
-
-Структура материала:
-1. Введение (что это, почему важно)
-2. Основные понятия и определения
-3. Ключевые аспекты темы (3-5 разделов)
-4. Примеры и применение
-5. Интересные факты
-6. Заключение
-
-Требования:
-- Материал должен быть информативным и структурированным
-- Используй понятный язык
-- Добавь конкретные примеры
-- Объём: 2000-3000 слов
-
-Напиши материал:"""
+        prompt = TOPIC_GENERATION_PROMPT.format(topic=topic)
 
         try:
             return await self._generate_async(prompt)
@@ -68,21 +60,7 @@ class GeminiService:
     
     async def generate_smart_notes(self, content: str, title: str = "") -> str:
         """Генерация умного конспекта"""
-        prompt = f"""Создай структурированный конспект по материалу.
-
-Название: {title}
-
-Материал:
-{content[:30000]}
-
-Требования:
-1. Выдели основные темы и подтемы
-2. Используй маркированные списки
-3. Выдели ключевые определения
-4. Добавь примеры где уместно
-5. Сохрани логическую структуру
-
-Формат: Markdown с заголовками ##, списками -, выделением **жирным**."""
+        prompt = SMART_NOTES_PROMPT.format(title=title, content=content[:30000])
 
         try:
             return await self._generate_async(prompt)
@@ -92,12 +70,7 @@ class GeminiService:
     
     async def generate_tldr(self, content: str) -> str:
         """Генерация краткого содержания"""
-        prompt = f"""Напиши краткое содержание (TL;DR) этого материала в 3-5 предложениях.
-
-Материал:
-{content[:20000]}
-
-Выдели самое важное. Будь конкретен."""
+        prompt = TLDR_PROMPT.format(content=content[:20000])
 
         try:
             return await self._generate_async(prompt)
@@ -107,31 +80,7 @@ class GeminiService:
     
     async def generate_quiz(self, content: str, num_questions: int = 15) -> str:
         """Генерация теста"""
-        prompt = f"""Создай тест из {num_questions} вопросов по материалу.
-
-Материал:
-{content[:25000]}
-
-Требования:
-1. Разные типы: определения, понимание, применение
-2. 30% лёгкие, 50% средние, 20% сложные
-3. Правдоподобные варианты ответов
-
-Формат JSON:
-{{
-  "questions": [
-    {{
-      "question": "Вопрос?",
-      "options": ["A) вариант", "B) вариант", "C) вариант", "D) вариант"],
-      "correct": 0,
-      "explanation": "Пояснение",
-      "difficulty": "easy|medium|hard"
-    }}
-  ]
-}}
-
-Создай ровно {num_questions} вопросов!
-Верни ТОЛЬКО валидный JSON."""
+        prompt = QUIZ_PROMPT.format(num_questions=num_questions, content=content[:25000])
 
         try:
             text = await self._generate_async(prompt)
@@ -161,22 +110,7 @@ class GeminiService:
     
     async def generate_glossary(self, content: str) -> str:
         """Генерация глоссария"""
-        prompt = f"""Создай глоссарий ключевых терминов.
-
-Материал:
-{content[:25000]}
-
-Формат JSON:
-{{
-  "terms": [
-    {{
-      "term": "Термин",
-      "definition": "Определение с примером"
-    }}
-  ]
-}}
-
-Найди 10-20 важных терминов. Верни ТОЛЬКО JSON."""
+        prompt = GLOSSARY_PROMPT.format(content=content[:25000])
 
         try:
             text = await self._generate_async(prompt)
@@ -195,22 +129,7 @@ class GeminiService:
     
     async def generate_flashcards(self, content: str, num_cards: int = 15) -> str:
         """Генерация флэш-карточек"""
-        prompt = f"""Создай {num_cards} флэш-карточек.
-
-Материал:
-{content[:25000]}
-
-Формат JSON:
-{{
-  "cards": [
-    {{
-      "front": "Вопрос или термин",
-      "back": "Ответ или определение"
-    }}
-  ]
-}}
-
-Создай МИНИМУМ {num_cards} карточек! Верни ТОЛЬКО JSON."""
+        prompt = FLASHCARDS_PROMPT.format(num_cards=num_cards, content=content[:25000])
 
         try:
             text = await self._generate_async(prompt)

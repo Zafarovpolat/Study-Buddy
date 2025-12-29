@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Lecto](https://img.shields.io/badge/Lecto-AI%20Study%20Buddy-blueviolet?style=for-the-badge&logo=telegram)
-![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.1.0-blue?style=for-the-badge)
 ![Status](https://img.shields.io/badge/status-Production-green?style=for-the-badge)
 
 **Telegram Mini App для эффективной учёбы с искусственным интеллектом**
@@ -258,6 +258,12 @@ MVP Progress: ████████████████████ 100%
 ✅ AI Дебаты
 ✅ Генератор презентаций
 ✅ Онбординг
+✅ UI компоненты (Badge, Skeleton, ProgressBar, SliderTabs)
+✅ Персонализация онбординга (направление, регион)
+✅ Инсайты модуль
+✅ Геймификация (Intellect Points)
+✅ ProWall (Premium paywall)
+✅ Белая/фиолетовая тема UI
 ```
 
 ---

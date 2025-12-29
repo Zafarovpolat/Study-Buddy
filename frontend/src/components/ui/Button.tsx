@@ -20,9 +20,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                     'disabled:opacity-50 disabled:cursor-not-allowed',
                     'active:scale-[0.98]',
                     {
-                        'bg-tg-button text-tg-button-text hover:opacity-90': variant === 'primary',
+                        // Primary: Light Purple BG + Purple Text (No white text)
+                        'bg-lecto-bg-secondary text-[#9452ea] hover:bg-[#E9D5FF]': variant === 'primary',
+                        // Secondary: Light Gray BG + Dark Text
                         'bg-tg-secondary text-tg-text hover:opacity-80': variant === 'secondary',
+                        // Ghost: Transparent + Purple Text
                         'bg-transparent text-tg-link hover:bg-tg-secondary': variant === 'ghost',
+                        // Danger: Red BG + White Text
                         'bg-red-500 text-white hover:bg-red-600': variant === 'danger',
                     },
                     {

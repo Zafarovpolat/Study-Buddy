@@ -1,41 +1,34 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* === LECTO 2.0 PREMIUM THEME (фиксированная тёмная тема) === */
+/* === LECTO 2.0 PREMIUM THEME === */
 :root {
   /* Background */
-  --tg-theme-bg-color: #0D1117;
-  --tg-theme-secondary-bg-color: #161B22;
+  --tg-theme-bg-color: #FFFFFF;
+  --tg-theme-secondary-bg-color: #F8F9FA;
 
   /* Text */
-  --tg-theme-text-color: #F0F6FC;
-  --tg-theme-hint-color: #8B949E;
-  --tg-theme-link-color: #58A6FF;
+  --tg-theme-text-color: #152886;
+  --tg-theme-hint-color: #6E7681;
+  --tg-theme-link-color: #9452ea;
 
   /* Button */
-  --tg-theme-button-color: #238636;
+  --tg-theme-button-color: #9452ea;
   --tg-theme-button-text-color: #FFFFFF;
-
-  /* Lecto Premium */
-  --lecto-bg-primary: #0D1117;
-  --lecto-bg-secondary: #161B22;
-  --lecto-bg-tertiary: #21262D;
-  --lecto-border: #30363D;
-  --lecto-text-primary: #F0F6FC;
-  --lecto-text-secondary: #8B949E;
-  --lecto-gold: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
 }
 
-/* Принудительно тёмная тема — игнорируем Telegram */
-@media (prefers-color-scheme: light) {
+/* Force Light Mode (or respect system if needed, but user asked for white theme) */
+@media (prefers-color-scheme: dark) {
   :root {
-    --tg-theme-bg-color: #0D1117;
-    --tg-theme-secondary-bg-color: #161B22;
-    --tg-theme-text-color: #F0F6FC;
-    --tg-theme-hint-color: #8B949E;
-    --tg-theme-link-color: #58A6FF;
-    --tg-theme-button-color: #238636;
+    --tg-theme-bg-color: #FFFFFF;
+    --tg-theme-secondary-bg-color: #F8F9FA;
+    --tg-theme-text-color: #152886;
+    --tg-theme-hint-color: #6E7681;
+    --tg-theme-link-color: #9452ea;
+    --tg-theme-button-color: #9452ea;
     --tg-theme-button-text-color: #FFFFFF;
   }
 }
@@ -50,14 +43,20 @@ html,
 body,
 #root {
   height: 100%;
-  background-color: #0D1117 !important;
-  color: #F0F6FC !important;
+  background-color: #FFFFFF !important;
+  color: #152886 !important;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #0D1117;
-  color: #F0F6FC;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #FFFFFF;
+  color: #152886;
+}
+
+/* Haptic Feedback Simulation Class */
+.haptic-feedback:active {
+  transform: scale(0.98);
+  transition: transform 0.05s ease-in-out;
 }
 
 /* Animations */
@@ -109,7 +108,7 @@ body {
 
 .animate-shimmer {
   animation: shimmer 1.5s infinite;
-  background: linear-gradient(90deg, #161B22 0%, #21262D 50%, #161B22 100%);
+  background: linear-gradient(90deg, #F8F9FA 0%, #E1E4E8 50%, #F8F9FA 100%);
   background-size: 200% 100%;
 }
 

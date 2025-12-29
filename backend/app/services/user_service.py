@@ -207,3 +207,21 @@ class UserService:
     async def activate_sos(self, user: User) -> User:
         """Активировать SOS тариф на 24 часа"""
         return await self.upgrade_subscription(user, SubscriptionTier.SOS, duration_days=None)
+
+    async def update_profile(
+        self,
+        user: User,
+        field_of_study: Optional[str] = None,
+        region: Optional[str] = None
+    ) -> User:
+        """Обновить профиль пользователя (Lecto 2.0)"""
+        if field_of_study:
+            user.field_of_study = field_of_study
+        if region:
+            user.region = region
+            
+        user.onboarding_completed = True
+        
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user

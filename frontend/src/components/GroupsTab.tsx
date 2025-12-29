@@ -35,7 +35,8 @@ interface GroupsTabProps {
 type SortOption = 'date_desc' | 'date_asc' | 'name_asc' | 'name_desc';
 type GroupView = 'materials' | 'leaderboard';
 
-export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps) {
+// ✅ Добавляем значение по умолчанию для groups
+export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTabProps) {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isJoinOpen, setIsJoinOpen] = useState(false);
     const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -45,24 +46,24 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
     const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
     const [isRefreshingMaterials, setIsRefreshingMaterials] = useState(false);
 
-    // Вкладка внутри группы
     const [groupView, setGroupView] = useState<GroupView>('materials');
 
-    // Поиск и сортировка
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOption, setSortOption] = useState<SortOption>('date_desc');
     const [showSortMenu, setShowSortMenu] = useState(false);
 
-    // ✅ Обновляем материалы группы при изменении groups (после загрузки нового материала)
+    // ✅ Гарантируем, что groups всегда массив
+    const safeGroups = Array.isArray(groups) ? groups : [];
+
+    // ✅ Используем safeGroups в useEffect
     useEffect(() => {
-        if (selectedGroup) {
-            // Проверяем, есть ли ещё эта группа в списке
-            const updatedGroup = groups.find(g => g.id === selectedGroup.id);
+        if (selectedGroup && safeGroups.length > 0) {
+            const updatedGroup = safeGroups.find(g => g.id === selectedGroup.id);
             if (updatedGroup) {
                 setSelectedGroup(updatedGroup);
             }
         }
-    }, [groups]);
+    }, [safeGroups, selectedGroup]);
 
     const handleCopyInvite = async (e: React.MouseEvent, group: Group) => {
         e.stopPropagation();
@@ -102,7 +103,7 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
     const loadGroupMaterials = async (groupId: string) => {
         try {
             const materials = await api.getGroupMaterials(groupId);
-            setGroupMaterials(materials);
+            setGroupMaterials(Array.isArray(materials) ? materials : []);
         } catch (error) {
             console.error('Failed to load group materials:', error);
             setGroupMaterials([]);
@@ -130,7 +131,6 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         setGroupView('materials');
     };
 
-    // ✅ Функция обновления материалов группы
     const refreshGroupMaterials = async () => {
         if (!selectedGroup) return;
 
@@ -144,7 +144,6 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         }
     };
 
-    // ✅ Обработчик загрузки материала в группу
     const handleUploadToGroup = (groupId: string) => {
         telegram.haptic('medium');
         if (onUploadToGroup) {
@@ -152,7 +151,6 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         }
     };
 
-    // Фильтрация и сортировка материалов
     const getFilteredAndSortedMaterials = () => {
         let filtered = [...groupMaterials];
 
@@ -209,7 +207,6 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                         </p>
                     </div>
 
-                    {/* ✅ Кнопка обновления */}
                     <button
                         onClick={refreshGroupMaterials}
                         className="p-2 hover:bg-tg-secondary rounded-lg"
@@ -378,7 +375,7 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
         );
     }
 
-    // Список групп
+    // ✅ Список групп - используем safeGroups
     return (
         <section className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
@@ -390,7 +387,7 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                     Создать
                 </Button>
                 <Button
-                    variant="secondary"
+                    variant="primary"
                     onClick={() => setIsJoinOpen(true)}
                     className="flex items-center justify-center gap-2"
                 >
@@ -399,9 +396,9 @@ export function GroupsTab({ groups, onRefresh, onUploadToGroup }: GroupsTabProps
                 </Button>
             </div>
 
-            {groups.length > 0 ? (
+            {safeGroups.length > 0 ? (
                 <div className="space-y-2">
-                    {groups.map((group) => (
+                    {safeGroups.map((group) => (
                         <Card
                             key={group.id}
                             className="p-4 cursor-pointer hover:bg-tg-secondary/50 transition-colors"
@@ -521,8 +518,8 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 mt-0" style={{ marginTop: '0' }}>
+            <Card variant="modal" className="w-full max-w-md p-6">
                 <h2 className="text-lg font-semibold mb-4">Создать группу</h2>
                 <div className="space-y-4">
                     <input
@@ -530,19 +527,19 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Название группы"
-                        className="w-full px-3 py-2 border rounded-lg bg-tg-secondary"
+                        className="w-full px-3 py-2 border rounded-lg lecto-bg-secondary focus:outline-none focus:ring-2 focus:ring-lecto-accent-primary transition-all bg-lecto-bg-secondary"
                         autoFocus
                     />
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         placeholder="Описание (опционально)"
-                        className="w-full px-3 py-2 border rounded-lg bg-tg-secondary resize-none"
+                        className="w-full px-3 py-2 border rounded-lg lecto-bg-secondary resize-none focus:outline-none focus:ring-2 focus:ring-lecto-accent-primary transition-all bg-lecto-bg-secondary"
                         rows={3}
                     />
                 </div>
                 <div className="flex gap-2 mt-6">
-                    <Button variant="secondary" onClick={onClose} className="flex-1" disabled={isLoading}>
+                    <Button variant="primary" onClick={onClose} className="flex-1" disabled={isLoading}>
                         Отмена
                     </Button>
                     <Button onClick={handleCreate} disabled={isLoading || !name.trim()} className="flex-1">
@@ -597,19 +594,19 @@ function JoinGroupModal({ isOpen, onClose, onJoined }: {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-md p-6">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 " style={{ marginTop: '0' }}>
+            <Card variant="modal" className="w-full max-w-md p-6">
                 <h2 className="text-lg font-semibold mb-4">Вступить в группу</h2>
                 <input
                     type="text"
                     value={code}
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     placeholder="Код приглашения"
-                    className="w-full px-3 py-2 border rounded-lg bg-tg-secondary text-center font-mono text-lg"
+                    className="w-full px-3 py-2 border rounded-lg bg-lecto-bg-secondary focus:ring-lecto-accent-primary focus:ring-2 focus:outline-none transition-all text-center font-mono text-lg"
                     autoFocus
                 />
                 <div className="flex gap-2 mt-6">
-                    <Button variant="secondary" onClick={onClose} className="flex-1" disabled={isLoading}>
+                    <Button variant="primary" onClick={onClose} className="flex-1" disabled={isLoading}>
                         Отмена
                     </Button>
                     <Button onClick={handleJoin} disabled={isLoading || !code.trim()} className="flex-1">

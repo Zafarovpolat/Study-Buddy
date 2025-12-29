@@ -65,7 +65,7 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-            <div className="bg-tg-bg w-full max-w-lg rounded-t-3xl p-4 max-h-[80vh] overflow-hidden flex flex-col animate-slide-up">
+            <div className="bg-lecto-bg-primary w-full max-w-lg rounded-t-3xl p-4 max-h-[80vh] overflow-hidden flex flex-col animate-slide-up">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -88,7 +88,7 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
                 </div>
 
                 {!isPro && (
-                    <Card className="mb-4 bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900/30 dark:to-blue-900/30">
+                    <Card className="mb-4 bg-gradient-to-r from-purple-100 to-blue-100">
                         <div className="flex items-center gap-3">
                             <Lock className="w-8 h-8 text-purple-500" />
                             <div>
@@ -148,13 +148,13 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
                         onChange={(e) => setQuestion(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
                         placeholder="Что такое митохондрия?"
-                        className="flex-1 px-4 py-3 bg-tg-secondary rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="flex-1 px-4 py-3 bg-lecto-bg-secondary rounded-xl focus:outline-none focus:ring-2 focus:ring-lecto-accent-primary"
                         disabled={isLoading || !isPro}
                     />
                     <Button
                         onClick={handleAsk}
                         disabled={isLoading || !question.trim() || !isPro}
-                        className="px-4"
+                        className="px-4 bg-lecto-bg-secondary"
                     >
                         {isLoading ? <Spinner size="sm" /> : <Send className="w-5 h-5" />}
                     </Button>
