@@ -113,14 +113,14 @@ export function MaterialActions({ material, onUpdate, onDelete, children }: Mate
                         onClick={() => setIsMenuOpen(false)}
                     />
 
-                    <div className="absolute right-0 top-full mt-1 bg-tg-bg border border-tg-secondary rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
+                    <div className="absolute right-0 top-full mt-1 bg-lecto-bg border border-lecto-bg-secondary rounded-xl shadow-lg z-50 py-1 min-w-[150px]">
                         <button
                             onClick={() => {
                                 setIsMenuOpen(false);
                                 setIsRenaming(true);
                                 telegram.haptic('light');
                             }}
-                            className="w-full flex items-center gap-3 px-4 py-2 hover:bg-tg-secondary transition-colors"
+                            className="w-full flex items-center gap-3 px-4 py-2 hover:bg-lecto-bg-secondary transition-colors"
                         >
                             <Edit2 className="w-4 h-4 text-tg-hint" />
                             <span>Переименовать</span>
@@ -128,7 +128,7 @@ export function MaterialActions({ material, onUpdate, onDelete, children }: Mate
 
                         <button
                             onClick={handleDelete}
-                            className="w-full flex items-center gap-3 px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-red-500"
+                            className="w-full flex items-center gap-3 px-4 py-2 hover:bg-lecto-bg-secondary dark:hover:bg-red-900/20 transition-colors text-red-500"
                         >
                             <Trash2 className="w-4 h-4" />
                             <span>Удалить</span>

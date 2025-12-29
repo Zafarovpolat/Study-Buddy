@@ -121,30 +121,30 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     // ===== Skeleton для первой загрузки =====
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-tg-bg">
-                <header className="sticky top-0 z-10 bg-tg-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+            <div className="min-h-screen bg-lecto-bg">
+                <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
                     <div className="px-4 py-3 flex items-center gap-3">
                         <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
                             <ArrowLeft className="w-5 h-5" />
                         </button>
                         <div className="flex-1">
-                            <div className="h-5 w-48 bg-tg-secondary rounded animate-pulse" />
-                            <div className="h-3 w-24 bg-tg-secondary rounded animate-pulse mt-1" />
+                            <div className="h-5 w-48 bg-lecto-secondary rounded animate-pulse" />
+                            <div className="h-3 w-24 bg-lecto-secondary rounded animate-pulse mt-1" />
                         </div>
                     </div>
                 </header>
                 <main className="p-4 space-y-4">
                     <div className="flex gap-2 overflow-x-auto pb-2">
                         {[1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className="h-10 w-24 bg-tg-secondary rounded-lg animate-pulse flex-shrink-0" />
+                            <div key={i} className="h-10 w-24 bg-lecto-secondary rounded-lg animate-pulse flex-shrink-0" />
                         ))}
                     </div>
                     <div className="space-y-3">
-                        <div className="h-4 bg-tg-secondary rounded animate-pulse" />
-                        <div className="h-4 bg-tg-secondary rounded animate-pulse w-5/6" />
-                        <div className="h-4 bg-tg-secondary rounded animate-pulse w-4/6" />
-                        <div className="h-20 bg-tg-secondary rounded animate-pulse mt-4" />
-                        <div className="h-4 bg-tg-secondary rounded animate-pulse w-3/4" />
+                        <div className="h-4 bg-lecto-secondary rounded animate-pulse" />
+                        <div className="h-4 bg-lecto-secondary rounded animate-pulse w-5/6" />
+                        <div className="h-4 bg-lecto-secondary rounded animate-pulse w-4/6" />
+                        <div className="h-20 bg-lecto-secondary rounded animate-pulse mt-4" />
+                        <div className="h-4 bg-lecto-secondary rounded animate-pulse w-3/4" />
                     </div>
                 </main>
             </div>
@@ -153,8 +153,8 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-tg-bg">
-                <header className="sticky top-0 z-10 bg-tg-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+            <div className="min-h-screen bg-lecto-bg">
+                <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
                     <div className="px-4 py-3 flex items-center gap-3">
                         <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
                             <ArrowLeft className="w-5 h-5" />
@@ -185,9 +185,9 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     }
 
     return (
-        <div className="min-h-screen bg-tg-bg">
+        <div className="min-h-screen bg-lecto-bg">
             {/* Header */}
-            <header className="sticky top-0 z-10 bg-tg-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+            <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
                 <div className="px-4 py-3 flex items-center gap-3">
                     <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
                         <ArrowLeft className="w-5 h-5" />
@@ -234,7 +234,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                                     </div>
                                 </div>
 
-                                <div className="h-2 bg-tg-secondary rounded-full overflow-hidden">
+                                <div className="h-2 bg-lecto-secondary rounded-full overflow-hidden">
                                     <div
                                         className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full animate-pulse"
                                         style={{ width: '60%' }}
@@ -251,15 +251,15 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         <div className="space-y-3 opacity-50">
                             <div className="flex gap-2">
                                 {['Конспект', 'TL;DR', 'Тест', 'Глоссарий', 'Карточки'].map((tab, i) => (
-                                    <div key={i} className="px-4 py-2 bg-tg-secondary rounded-lg text-sm text-tg-hint">
+                                    <div key={i} className="px-4 py-2 bg-lecto-secondary rounded-lg text-sm text-tg-hint">
                                         {tab}
                                     </div>
                                 ))}
                             </div>
                             <div className="space-y-2">
-                                <div className="h-4 bg-tg-secondary rounded w-full" />
-                                <div className="h-4 bg-tg-secondary rounded w-5/6" />
-                                <div className="h-4 bg-tg-secondary rounded w-4/6" />
+                                <div className="h-4 bg-lecto-secondary rounded w-full" />
+                                <div className="h-4 bg-lecto-secondary rounded w-5/6" />
+                                <div className="h-4 bg-lecto-secondary rounded w-4/6" />
                             </div>
                         </div>
                     </div>

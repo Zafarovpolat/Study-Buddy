@@ -393,15 +393,15 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                             <div className="py-8 text-center">
                                 {file ? (
                                     <>
-                                        <FileText className="w-12 h-12 text-tg-button mx-auto mb-2" />
-                                        <p className="font-medium">{file.name}</p>
-                                        <p className="text-sm text-tg-hint">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                                        <FileText className="w-12 h-12 text-lecto-accent-primary mx-auto mb-2" />
+                                        <p className="font-medium overflow-hidden text-ellipsis">{file.name}</p>
+                                        <p className="text-sm text-lecto-text-secondary">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                                     </>
                                 ) : (
                                     <>
-                                        <Upload className="w-12 h-12 text-tg-hint mx-auto mb-2" />
-                                        <p className="text-tg-hint">Нажмите для выбора</p>
-                                        <p className="text-xs text-tg-hint mt-1">PDF, DOCX, TXT (до 20 MB)</p>
+                                        <Upload className="w-12 h-12 text-lecto-accent-primary mx-auto mb-2" />
+                                        <p className="text-lecto-text-secondary">Нажмите для выбора</p>
+                                        <p className="text-xs text-le mt-1">PDF, DOCX, TXT (до 20 MB)</p>
                                     </>
                                 )}
                             </div>
