@@ -54,7 +54,7 @@ async def get_my_limits(
         "is_pro": current_user.is_pro,
         "can_make_request": can_proceed,
         "remaining_today": remaining if is_free else -1,
-        "daily_limit": settings.FREE_DAILY_LIMIT if is_free else -1,
+        "daily_limit": current_user.daily_limit if is_free else -1,
         "daily_used": current_user.daily_requests or 0,
     }
 

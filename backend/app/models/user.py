@@ -19,7 +19,7 @@ class SubscriptionTier:
 # Лимиты по тарифам
 TIER_LIMITS = {
     "free": {
-        "daily_requests": 3,
+        "daily_requests": 5,
         "max_groups": 3,
         "max_members_per_group": 5,
         "max_materials_per_group": 10,
@@ -82,13 +82,13 @@ class User(Base):
     referral_count = Column(Integer, default=0)
     referral_pro_granted = Column(Boolean, default=False)
 
-    # 🆕 Персонализация (Lecto 2.0)
+    # Персонализация (Lecto 2.0)
     field_of_study = Column(String(50), nullable=True)  # law, economics, ir, it, medicine, other
     region = Column(String(20), default='global')        # uz, global
     preferred_language = Column(String(10), default='ru')
     onboarding_completed = Column(Boolean, default=False)
     
-    # 🆕 Геймификация
+    # Геймификация
     intellect_points = Column(Integer, default=0)
     total_debates = Column(Integer, default=0)
     debates_won = Column(Integer, default=0)

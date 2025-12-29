@@ -22,7 +22,7 @@ class GroupRole:
 
 class GroupService:
     REFERRAL_PRO_THRESHOLD = 5
-    REFERRAL_PRO_DAYS = 30
+    REFERRAL_PRO_DAYS = 7
     
     def __init__(self, db: AsyncSession):
         self.db = db
