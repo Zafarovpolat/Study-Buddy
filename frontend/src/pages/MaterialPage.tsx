@@ -122,7 +122,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     if (isLoading) {
         return (
             <div className="min-h-screen bg-lecto-bg">
-                <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+                <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-lecto/10">
                     <div className="px-4 py-3 flex items-center gap-3">
                         <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
                             <ArrowLeft className="w-5 h-5" />
@@ -154,7 +154,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     if (error) {
         return (
             <div className="min-h-screen bg-lecto-bg">
-                <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+                <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-lecto/10">
                     <div className="px-4 py-3 flex items-center gap-3">
                         <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
                             <ArrowLeft className="w-5 h-5" />
@@ -187,15 +187,15 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
     return (
         <div className="min-h-screen bg-lecto-bg">
             {/* Header */}
-            <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-tg-hint/10">
+            <header className="sticky top-0 z-10 bg-lecto-bg/80 backdrop-blur-lg border-b border-lecto/10">
                 <div className="px-4 py-3 flex items-center gap-3">
-                    <button onClick={handleBack} className="p-2 -ml-2 text-tg-text">
+                    <button onClick={handleBack} className="p-2 -ml-2 text-lecto-text">
                         <ArrowLeft className="w-5 h-5" />
                     </button>
 
                     <div className="flex-1 min-w-0">
                         <h1 className="font-semibold truncate">{material.title}</h1>
-                        <div className="flex items-center gap-2 text-xs text-tg-hint">
+                        <div className="flex items-center gap-2 text-xs text-lecto">
                             <span>{new Date(material.created_at).toLocaleDateString('ru-RU')}</span>
                             {material.status === 'processing' && (
                                 <span className="flex items-center gap-1 text-yellow-500">
@@ -230,7 +230,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                                     </div>
                                     <div>
                                         <p className="font-medium">AI обрабатывает материал</p>
-                                        <p className="text-sm text-tg-hint">Обычно занимает 30-60 секунд</p>
+                                        <p className="text-sm text-lecto">Обычно занимает 30-60 секунд</p>
                                     </div>
                                 </div>
 
@@ -241,7 +241,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                                     />
                                 </div>
 
-                                <p className="text-xs text-tg-hint mt-3 text-center">
+                                <p className="text-xs text-lecto mt-3 text-center">
                                     Страница обновится автоматически
                                 </p>
                             </div>
@@ -251,7 +251,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         <div className="space-y-3 opacity-50">
                             <div className="flex gap-2">
                                 {['Конспект', 'TL;DR', 'Тест', 'Глоссарий', 'Карточки'].map((tab, i) => (
-                                    <div key={i} className="px-4 py-2 bg-lecto-secondary rounded-lg text-sm text-tg-hint">
+                                    <div key={i} className="px-4 py-2 bg-lecto-secondary rounded-lg text-sm text-lecto">
                                         {tab}
                                     </div>
                                 ))}
@@ -267,7 +267,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                     <Card className="text-center py-12">
                         <p className="text-4xl mb-2">😕</p>
                         <p className="text-red-500 font-medium">Ошибка обработки</p>
-                        <p className="text-sm text-tg-hint mt-2">
+                        <p className="text-sm text-lecto mt-2">
                             Попробуйте загрузить файл заново
                         </p>
                         <Button className="mt-4" onClick={handleBack}>
@@ -285,7 +285,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                     />
                 ) : (
                     <Card className="text-center py-12">
-                        <p className="text-tg-hint mb-4">Контент ещё не сгенерирован</p>
+                        <p className="text-lecto mb-4">Контент ещё не сгенерирован</p>
                         <Button onClick={loadMaterial}>
                             <RefreshCw className="w-4 h-4 mr-2" />
                             Обновить

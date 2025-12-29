@@ -86,10 +86,10 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl whitespace-nowrap transition-all ${activeFormat === format
                                 ? format === 'debate'
                                     ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
-                                    : 'bg-tg-button text-tg-button-text'
+                                    : 'bg-lecto-button text-lecto-button-text'
                                 : hasOutput
-                                    ? 'bg-tg-secondary text-tg-text'
-                                    : 'bg-tg-secondary/50 text-tg-hint'
+                                    ? 'bg-lecto-secondary text-lecto-text'
+                                    : 'bg-lecto-secondary/50 text-lecto-hint'
                                 }`}
                         >
                             <Icon className={`w-4 h-4 ${activeFormat === format ? '' : config.color}`} />
@@ -102,7 +102,7 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
             {/* Content */}
             <Card className="min-h-[300px] overflow-hidden">
                 {isSourceTab ? (
-                    <div className="prose prose-sm max-w-none text-tg-text leading-relaxed whitespace-pre-wrap">
+                    <div className="prose prose-sm max-w-none text-lecto-text leading-relaxed whitespace-pre-wrap">
                         {materialContent || 'Нет содержимого'}
                     </div>
                 ) : isDebateTab ? (
@@ -135,7 +135,7 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
                         />
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center justify-center h-64 text-tg-hint">
+                    <div className="flex flex-col items-center justify-center h-64 text-lecto-hint">
                         <p>Контент не сгенерирован</p>
                         <Button className="mt-4" onClick={handleRegenerate} isLoading={isRegenerating}>
                             Сгенерировать
@@ -182,13 +182,13 @@ function MarkdownViewer({ content }: { content: string }) {
     let html = content
         .replace(/```[\s\S]*?```/g, (match) => {
             const code = match.replace(/```\w*\n?/g, '').trim();
-            return `<pre class="bg-tg-secondary p-3 rounded-lg text-sm overflow-x-auto my-2 whitespace-pre-wrap break-words">${code}</pre>`;
+            return `<pre class="bg-lecto-secondary p-3 rounded-lg text-sm overflow-x-auto my-2 whitespace-pre-wrap break-words">${code}</pre>`;
         })
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/__(.*?)__/g, '<strong>$1</strong>')
         .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
         .replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>')
-        .replace(/`([^`]+)`/g, '<code class="bg-tg-secondary px-1 rounded text-sm break-all">$1</code>')
+        .replace(/`([^`]+)`/g, '<code class="bg-lecto-secondary px-1 rounded text-sm break-all">$1</code>')
         .replace(/^### (.*?)$/gm, '<h3 class="font-semibold text-base mt-3 mb-1">$1</h3>')
         .replace(/^## (.*?)$/gm, '<h2 class="font-bold text-lg mt-4 mb-2">$1</h2>')
         .replace(/^# (.*?)$/gm, '<h1 class="font-bold text-xl mt-4 mb-2">$1</h1>')
@@ -204,7 +204,7 @@ function MarkdownViewer({ content }: { content: string }) {
 
     return (
         <div
-            className="prose prose-sm max-w-none text-tg-text leading-relaxed overflow-x-hidden break-words"
+            className="prose prose-sm max-w-none text-lecto-text leading-relaxed overflow-x-hidden break-words"
             style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
             dangerouslySetInnerHTML={{ __html: html }}
         />
@@ -222,37 +222,37 @@ function GlossaryViewer({ data }: { data: any }) {
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
     if (terms.length === 0) {
-        return <p className="text-tg-hint text-center">Термины не найдены</p>;
+        return <p className="text-lecto-hint text-center">Термины не найдены</p>;
     }
 
     return (
         <div className="space-y-2">
-            <p className="text-sm text-tg-hint mb-3">
+            <p className="text-sm text-lecto-hint mb-3">
                 📚 {terms.length} терминов
             </p>
 
             {terms.map((item, index) => (
                 <div
                     key={index}
-                    className="border border-tg-hint/20 rounded-xl overflow-hidden"
+                    className="border border-lecto-hint/20 rounded-xl overflow-hidden"
                 >
                     <button
                         onClick={() => {
                             setExpandedIndex(expandedIndex === index ? null : index);
                             telegram.haptic('selection');
                         }}
-                        className="w-full p-4 flex items-center justify-between text-left bg-tg-secondary/50 hover:bg-tg-secondary transition-colors"
+                        className="w-full p-4 flex items-center justify-between text-left bg-lecto-secondary/50 hover:bg-lecto-secondary transition-colors"
                     >
                         <span className="font-medium text-purple-600 break-words">{item.term}</span>
                         {expandedIndex === index ? (
-                            <ChevronUp className="w-4 h-4 text-tg-hint flex-shrink-0 ml-2" />
+                            <ChevronUp className="w-4 h-4 text-lecto-hint flex-shrink-0 ml-2" />
                         ) : (
-                            <ChevronDown className="w-4 h-4 text-tg-hint flex-shrink-0 ml-2" />
+                            <ChevronDown className="w-4 h-4 text-lecto-hint flex-shrink-0 ml-2" />
                         )}
                     </button>
 
                     {expandedIndex === index && (
-                        <div className="p-4 bg-tg-bg border-t border-tg-hint/20">
+                        <div className="p-4 bg-lecto-bg border-t border-lecto-hint/20">
                             <p className="text-sm break-words">{item.definition}</p>
                         </div>
                     )}
@@ -287,7 +287,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
     const [isSaving, setIsSaving] = useState(false);
 
     if (questions.length === 0) {
-        return <p className="text-tg-hint text-center">Вопросы не найдены</p>;
+        return <p className="text-lecto-hint text-center">Вопросы не найдены</p>;
     }
 
     const question = questions[currentIndex];
@@ -355,14 +355,14 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between text-sm text-tg-hint">
+            <div className="flex items-center justify-between text-sm text-lecto-hint">
                 <span>Вопрос {currentIndex + 1} из {questions.length}</span>
                 <span>Счёт: {score}/{currentIndex + (showResult ? 1 : 0)}</span>
             </div>
 
-            <div className="h-1 bg-tg-secondary rounded-full overflow-hidden">
+            <div className="h-1 bg-lecto-secondary rounded-full overflow-hidden">
                 <div
-                    className="h-full bg-tg-button transition-all"
+                    className="h-full bg-lecto-button transition-all"
                     style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
                 />
             </div>
@@ -397,8 +397,8 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                                     ? 'bg-green-500/20 border-2 border-green-500'
                                     : isSelected
                                         ? 'bg-red-500/20 border-2 border-red-500'
-                                        : 'bg-tg-secondary'
-                                : 'bg-tg-secondary hover:bg-tg-hint/20'
+                                        : 'bg-lecto-secondary'
+                                : 'bg-lecto-secondary hover:bg-lecto-hint/20'
                                 }`}
                         >
                             <span className="font-medium mr-2">
@@ -411,7 +411,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             </div>
 
             {showResult && question.explanation && (
-                <Card variant="outlined" className="bg-tg-button/5">
+                <Card variant="outlined" className="bg-lecto-button/5">
                     <p className="text-sm break-words">
                         <span className="font-semibold">💡 </span>
                         {question.explanation}
@@ -426,19 +426,19 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             )}
 
             {showFinalResult && (
-                <Card className="text-center bg-gradient-to-br from-tg-button/20 to-tg-button/5">
+                <Card className="text-center bg-gradient-to-br from-lecto-button/20 to-lecto-button/5">
                     <p className="text-4xl mb-2">
                         {score === questions.length ? '🎉' : score >= questions.length * 0.7 ? '👍' : score >= questions.length * 0.5 ? '📚' : '💪'}
                     </p>
                     <p className="text-xl font-bold">
                         {score} из {questions.length}
                     </p>
-                    <p className="text-sm text-tg-hint mt-1">
+                    <p className="text-sm text-lecto-hint mt-1">
                         {Math.round((score / questions.length) * 100)}% правильных
                     </p>
 
                     {isSaving && (
-                        <p className="text-xs text-tg-hint mt-2">Сохранение результата...</p>
+                        <p className="text-xs text-lecto-hint mt-2">Сохранение результата...</p>
                     )}
 
                     {groupId && !isSaving && (
@@ -467,7 +467,7 @@ function FlashcardsViewer({ data }: { data: any }) {
     const [known, setKnown] = useState<Set<number>>(new Set());
 
     if (cards.length === 0) {
-        return <p className="text-tg-hint text-center">Карточки не найдены</p>;
+        return <p className="text-lecto-hint text-center">Карточки не найдены</p>;
     }
 
     const card = cards[currentIndex];
@@ -502,7 +502,7 @@ function FlashcardsViewer({ data }: { data: any }) {
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between text-sm text-tg-hint">
+            <div className="flex items-center justify-between text-sm text-lecto-hint">
                 <span>Карточка {currentIndex + 1} из {cards.length}</span>
                 <span>Выучено: {known.size}/{cards.length}</span>
             </div>
@@ -511,11 +511,11 @@ function FlashcardsViewer({ data }: { data: any }) {
                 onClick={flip}
                 className={`min-h-[200px] p-6 rounded-2xl flex items-center justify-center cursor-pointer transition-all transform hover:scale-[1.02] ${isFlipped
                     ? 'bg-gradient-to-br from-green-500/20 to-green-500/5'
-                    : 'bg-gradient-to-br from-tg-button/20 to-tg-button/5'
+                    : 'bg-gradient-to-br from-lecto-button/20 to-lecto-button/5'
                     } ${known.has(currentIndex) ? 'ring-2 ring-green-500' : ''}`}
             >
                 <div className="text-center">
-                    <p className="text-xs text-tg-hint mb-2">
+                    <p className="text-xs text-lecto-hint mb-2">
                         {isFlipped ? '← Ответ' : 'Вопрос →'}
                     </p>
                     <p className="text-lg font-medium break-words">
@@ -524,7 +524,7 @@ function FlashcardsViewer({ data }: { data: any }) {
                 </div>
             </div>
 
-            <p className="text-center text-xs text-tg-hint">
+            <p className="text-center text-xs text-lecto-hint">
                 👆 Нажмите, чтобы перевернуть
             </p>
 
