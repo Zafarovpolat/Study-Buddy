@@ -215,14 +215,14 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
 
     return (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-            <div className="bg-tg-bg w-full max-w-lg rounded-t-3xl max-h-[90vh] overflow-hidden animate-slide-up flex flex-col">
+            <div className="bg-lecto-bg-primary w-full max-w-lg rounded-t-3xl max-h-[90vh] overflow-hidden animate-slide-up flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-tg-secondary">
+                <div className="flex items-center justify-between p-4 border-b ">
                     <div className="flex items-center gap-2">
                         {step === 'preview' && (
                             <button
                                 onClick={() => setStep('form')}
-                                className="p-1 hover:bg-tg-secondary rounded-full"
+                                className="p-1 hover:bg-purple-50 dark:bg-purple-900/30 rounded-full"
                             >
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
@@ -234,7 +234,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                     </div>
                     <button
                         onClick={handleClose}
-                        className="p-2 hover:bg-tg-secondary rounded-full"
+                        className="p-2 hover:bg-lecto-bg-secondary rounded-full transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
@@ -246,7 +246,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                         <div className="space-y-5">
                             {/* Pro Badge */}
                             {!isPro && (
-                                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 rounded-xl p-4 flex items-center gap-3">
+                                <div className="bg-gradient-to-r from-yellow-100 to-orange-100  rounded-xl p-4 flex items-center gap-3">
                                     <Crown className="w-8 h-8 text-yellow-500" />
                                     <div>
                                         <p className="font-bold text-yellow-700 dark:text-yellow-400">Только для Pro</p>
@@ -301,7 +301,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             disabled={!isPro}
                                             className={`p-3 rounded-xl border-2 transition-all ${style === s.value
                                                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                                                : 'border-tg-secondary hover:border-purple-300'
+                                                : ' hover:border-purple-300'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >
                                             <div className="flex items-center gap-2 mb-1">
@@ -328,8 +328,8 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             onClick={() => isPro && setTheme(t.value)}
                                             disabled={!isPro}
                                             className={`p-2 rounded-xl border-2 transition-all ${theme === t.value
-                                                    ? 'border-gray-800 dark:border-white'
-                                                    : 'border-transparent hover:border-gray-300'
+                                                ? 'border-gray-800 dark:border-white'
+                                                : 'border-transparent hover:border-gray-300'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >
                                             <div className={`w-full h-6 rounded-lg ${t.color} mb-1`} />
@@ -433,7 +433,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 border-t border-tg-secondary">
+                <div className="p-4 border-t ">
                     {step === 'form' ? (
                         <Button
                             className="w-full"

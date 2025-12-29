@@ -209,16 +209,16 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
 
                     <button
                         onClick={refreshGroupMaterials}
-                        className="p-2 hover:bg-tg-secondary rounded-lg"
+                        className="p-2 hover:bg-lecto-bg-secondary rounded-lg"
                         disabled={isRefreshingMaterials}
                     >
-                        <RefreshCw className={`w-5 h-5 text-tg-hint ${isRefreshingMaterials ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`w-5 h-5 text-lecto-hint ${isRefreshingMaterials ? 'animate-spin' : ''}`} />
                     </button>
 
                     {onUploadToGroup && (
                         <button
                             onClick={() => handleUploadToGroup(selectedGroup.id)}
-                            className="p-2 bg-tg-button text-tg-button-text rounded-lg"
+                            className="p-2 bg-lecto-button text-lecto-button-text rounded-lg"
                         >
                             <Plus className="w-5 h-5" />
                         </button>
@@ -226,15 +226,15 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
                 </div>
 
                 {/* Вкладки: Материалы / Рейтинг */}
-                <div className="flex bg-tg-secondary rounded-lg p-1">
+                <div className="flex bg-lecto-bg-secondary rounded-lg p-1">
                     <button
                         onClick={() => {
                             setGroupView('materials');
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${groupView === 'materials'
-                            ? 'bg-tg-bg shadow text-tg-text'
-                            : 'text-tg-hint'
+                            ? 'bg-lecto-bg-secondary shadow text-lecto-text'
+                            : 'text-lecto-hint'
                             }`}
                     >
                         <FileText className="w-4 h-4" />
@@ -246,8 +246,8 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
                             telegram.haptic('selection');
                         }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-md transition-colors ${groupView === 'leaderboard'
-                            ? 'bg-tg-bg shadow text-tg-text'
-                            : 'text-tg-hint'
+                            ? 'bg-lecto-bg-secondary shadow text-lecto-text'
+                            : 'text-lecto-hint'
                             }`}
                     >
                         <Trophy className="w-4 h-4" />
@@ -258,7 +258,7 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
                 {/* Кнопка результатов тестов для owner */}
                 {selectedGroup.is_owner && groupView === 'materials' && (
                     <Button
-                        variant="secondary"
+                        variant="primary"
                         className="w-full"
                         onClick={() => {
                             telegram.haptic('medium');
@@ -283,16 +283,16 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
                                     placeholder="Поиск материалов..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 bg-tg-secondary rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-tg-button"
+                                    className="w-full pl-10 pr-4 py-2 bg-lecto-bg-secondary rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-lecto-button"
                                 />
                             </div>
 
                             <div className="relative">
                                 <button
                                     onClick={() => setShowSortMenu(!showSortMenu)}
-                                    className="p-2 bg-tg-secondary rounded-xl hover:bg-tg-hint/20 transition-colors"
+                                    className="p-2 bg-lecto-bg-secondary rounded-xl hover:bg-lecto-hint/20 transition-colors"
                                 >
-                                    <SortAsc className="w-5 h-5 text-tg-hint" />
+                                    <SortAsc className="w-5 h-5 text-lecto-hint" />
                                 </button>
 
                                 {showSortMenu && (

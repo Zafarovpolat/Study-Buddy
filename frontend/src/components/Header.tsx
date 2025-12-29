@@ -44,7 +44,7 @@ export function Header() {
 
                     {user && (
                         user.subscription_tier === 'free' ? (
-                            <span className="text-xs px-2 py-1 bg-tg-secondary rounded-full text-tg-hint">
+                            <span className="text-xs px-2 py-1 bg-lecto-bg-secondary rounded-full text-lecto-text">
                                 {limits?.remaining_today ?? '?'}/{limits?.daily_limit ?? '?'}
                             </span>
                         ) : (
