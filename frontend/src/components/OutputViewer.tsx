@@ -1,10 +1,11 @@
 // frontend/src/components/OutputViewer.tsx
 import { useState } from 'react';
-import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp, Swords, File } from 'lucide-react';
+import { FileText, Zap, HelpCircle, BookOpen, Layers, RefreshCw, ChevronDown, ChevronUp, Swords, File, Lightbulb, Trophy, ThumbsUp, Dumbbell, Flame, CheckCircle2 } from 'lucide-react';
 import { Button, Card } from './ui';
 import { DebateTab } from './DebateTab';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
+import DOMPurify from 'dompurify';
 
 interface Output {
     id: string;
@@ -49,7 +50,7 @@ export function OutputViewer({ materialId, outputs, onRefresh, groupId, material
             await api.regenerateOutput(materialId, activeFormat);
             telegram.haptic('success');
             onRefresh();
-        } catch (error) {
+        } catch (error: unknown) {
             telegram.haptic('error');
             telegram.alert('Ошибка при регенерации');
         } finally {
@@ -202,11 +203,16 @@ function MarkdownViewer({ content }: { content: string }) {
     html = html.replace(/(<li class="ml-4 list-disc">.*?<\/li>)+/g, '<ul class="my-2">$&</ul>');
     html = html.replace(/(<li class="ml-4 list-decimal">.*?<\/li>)+/g, '<ol class="my-2">$&</ol>');
 
+    const sanitized = DOMPurify.sanitize(html, {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'pre', 'code', 'a', 'blockquote'],
+        ALLOWED_ATTR: ['class'],
+    });
+
     return (
         <div
             className="prose prose-sm max-w-none text-lecto-text leading-relaxed overflow-x-hidden break-words"
             style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
-            dangerouslySetInnerHTML={{ __html: html }}
+            dangerouslySetInnerHTML={{ __html: sanitized }}
         />
     );
 }
@@ -217,7 +223,7 @@ interface Term {
     definition: string;
 }
 
-function GlossaryViewer({ data }: { data: any }) {
+function GlossaryViewer({ data }: { data: { terms?: Term[] } }) {
     const terms: Term[] = data.terms || [];
     const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
@@ -272,7 +278,7 @@ interface Question {
 }
 
 interface QuizViewerProps {
-    data: any;
+    data: { questions?: Question[] };
     materialId: string;
     groupId?: string;
 }
@@ -327,7 +333,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             setIsSaving(true);
             try {
                 await api.saveQuizResult(groupId, materialId, finalScore, questions.length);
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Failed to save quiz result:', error);
             } finally {
                 setIsSaving(false);
@@ -374,8 +380,8 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
                         ? 'bg-yellow-100 text-yellow-600'
                         : 'bg-green-100 text-green-600'
                     }`}>
-                    {question.difficulty === 'hard' ? '🔥 Сложный' :
-                        question.difficulty === 'medium' ? '📝 Средний' : '✅ Лёгкий'}
+                    {question.difficulty === 'hard' ? <><Flame className="w-4 h-4 inline mr-1" /> Сложный</> :
+                        question.difficulty === 'medium' ? <><FileText className="w-4 h-4 inline mr-1" /> Средний</> : <><CheckCircle2 className="w-4 h-4 inline mr-1" /> Лёгкий</>}
                 </span>
             )}
 
@@ -413,7 +419,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             {showResult && question.explanation && (
                 <Card variant="outlined" className="bg-lecto-button/5">
                     <p className="text-sm break-words">
-                        <span className="font-semibold">💡 </span>
+                        <Lightbulb className="w-4 h-4 inline mr-1" />
                         {question.explanation}
                     </p>
                 </Card>
@@ -428,7 +434,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             {showFinalResult && (
                 <Card className="text-center bg-gradient-to-br from-lecto-button/20 to-lecto-button/5">
                     <p className="text-4xl mb-2">
-                        {score === questions.length ? '🎉' : score >= questions.length * 0.7 ? '👍' : score >= questions.length * 0.5 ? '📚' : '💪'}
+                        {score === questions.length ? <Trophy className="w-8 h-8 text-yellow-500" /> : score >= questions.length * 0.7 ? <ThumbsUp className="w-8 h-8 text-green-500" /> : score >= questions.length * 0.5 ? <BookOpen className="w-8 h-8 text-blue-500" /> : <Dumbbell className="w-8 h-8 text-purple-500" />}
                     </p>
                     <p className="text-xl font-bold">
                         {score} из {questions.length}
@@ -460,7 +466,7 @@ interface Flashcard {
     back: string;
 }
 
-function FlashcardsViewer({ data }: { data: any }) {
+function FlashcardsViewer({ data }: { data: { cards?: Flashcard[]; flashcards?: Flashcard[] } }) {
     const cards: Flashcard[] = data.cards || data.flashcards || [];
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);

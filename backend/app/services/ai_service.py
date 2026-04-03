@@ -2,7 +2,6 @@
 import google.generativeai as genai
 from typing import Optional
 import json
-import re
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
@@ -15,6 +14,7 @@ from app.config.prompts import (
     GLOSSARY_PROMPT,
     FLASHCARDS_PROMPT
 )
+from app.utils.json import parse_ai_json_response
 
 # Thread pool для CPU-bound операций (Gemini SDK синхронный!)
 _executor = ThreadPoolExecutor(max_workers=4)
@@ -84,17 +84,12 @@ class GeminiService:
 
         try:
             text = await self._generate_async(prompt)
-            text = text.strip()
-            text = re.sub(r'^```json\s*', '', text)
-            text = re.sub(r'^```\s*', '', text)
-            text = re.sub(r'\s*```$', '', text)
-            
-            parsed = json.loads(text)
+            parsed = parse_ai_json_response(text)
             if len(parsed.get("questions", [])) < num_questions:
-                print(f"⚠️ Only {len(parsed['questions'])} questions generated")
+                print(f"⚠️ Only {len(parsed['questions'])} questions generated}")
             
-            return text
-        except json.JSONDecodeError:
+            return json.dumps(parsed, ensure_ascii=False)
+        except (json.JSONDecodeError, Exception):
             return json.dumps({
                 "questions": [{
                     "question": "Тест не удалось сгенерировать",
@@ -104,9 +99,6 @@ class GeminiService:
                     "difficulty": "easy"
                 }]
             }, ensure_ascii=False)
-        except Exception as e:
-            print(f"❌ Quiz error: {e}")
-            raise
     
     async def generate_glossary(self, content: str) -> str:
         """Генерация глоссария"""
@@ -114,12 +106,7 @@ class GeminiService:
 
         try:
             text = await self._generate_async(prompt)
-            text = text.strip()
-            text = re.sub(r'^```json\s*', '', text)
-            text = re.sub(r'^```\s*', '', text)
-            text = re.sub(r'\s*```$', '', text)
-            
-            json.loads(text)  # Проверка
+            parse_ai_json_response(text)
             return text
         except json.JSONDecodeError:
             return json.dumps({"terms": []}, ensure_ascii=False)
@@ -133,16 +120,11 @@ class GeminiService:
 
         try:
             text = await self._generate_async(prompt)
-            text = text.strip()
-            text = re.sub(r'^```json\s*', '', text)
-            text = re.sub(r'^```\s*', '', text)
-            text = re.sub(r'\s*```$', '', text)
-            
-            parsed = json.loads(text)
+            parsed = parse_ai_json_response(text)
             if not parsed.get("cards"):
                 raise ValueError("No cards")
             
-            return text
+            return json.dumps(parsed, ensure_ascii=False)
         except json.JSONDecodeError as e:
             print(f"❌ Flashcards JSON error: {e}")
             return json.dumps({

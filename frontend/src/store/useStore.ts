@@ -1,7 +1,7 @@
 // frontend/src/store/useStore.ts
 import { create } from 'zustand';
 
-interface User {
+export interface User {
     id: string;
     telegram_id: number;
     telegram_username?: string;
@@ -18,7 +18,7 @@ interface User {
     debates_won?: number;
 }
 
-interface Folder {
+export interface Folder {
     id: string;
     name: string;
     parent_id?: string;
@@ -26,7 +26,7 @@ interface Folder {
     created_at: string;
 }
 
-interface Group {
+export interface Group {
     id: string;
     name: string;
     description?: string;
@@ -38,7 +38,7 @@ interface Group {
     is_owner: boolean;
 }
 
-interface Material {
+export interface Material {
     id: string;
     title: string;
     material_type: string;
@@ -47,7 +47,7 @@ interface Material {
     outputs?: AIOutput[];
 }
 
-interface AIOutput {
+export interface AIOutput {
     id: string;
     format: string;
     content: string;
@@ -59,15 +59,6 @@ interface Limits {
     can_make_request: boolean;
     remaining_today: number | string;
     daily_limit: number | string;
-}
-
-interface ReferralStats {
-    referral_code: string;
-    referral_link: string;
-    referral_count: number;
-    referrals_needed: number;
-    pro_granted: boolean;
-    threshold: number;
 }
 
 interface AppState {
@@ -102,10 +93,6 @@ interface AppState {
     addMaterial: (material: Material) => void;
     updateMaterial: (id: string, updates: Partial<Material>) => void;
     removeMaterial: (id: string) => void;
-
-    // Referrals
-    referralStats: ReferralStats | null;
-    setReferralStats: (stats: ReferralStats | null) => void;
 
     // UI State
     isLoading: boolean;
@@ -158,10 +145,6 @@ export const useStore = create<AppState>((set) => ({
     removeMaterial: (id) => set((state) => ({
         materials: state.materials.filter((m) => m.id !== id),
     })),
-
-    // Referrals
-    referralStats: null,
-    setReferralStats: (stats) => set({ referralStats: stats }),
 
     // UI
     isLoading: false,

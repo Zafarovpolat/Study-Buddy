@@ -47,14 +47,14 @@ interface TelegramWebApp {
     setBackgroundColor: (color: string) => void;
 }
 
-// 🎨 LECTO 2.0 ФИКСИРОВАННАЯ ТЁМНАЯ ТЕМА
+// 🎨 LECTO 2.0 БЕЛАЯ/ФИОЛЕТОВАЯ ТЕМА
 const LECTO_THEME = {
-    bg_color: '#0D1117',
-    secondary_bg_color: '#161B22',
-    text_color: '#F0F6FC',
-    hint_color: '#8B949E',
-    link_color: '#58A6FF',
-    button_color: '#238636',
+    bg_color: '#FFFFFF',
+    secondary_bg_color: '#F8F9FA',
+    text_color: '#152886',
+    hint_color: '#6E7681',
+    link_color: '#9452ea',
+    button_color: '#9452ea',
     button_text_color: '#FFFFFF',
 };
 
@@ -89,8 +89,7 @@ class TelegramService {
     }
 
     get isDarkMode(): boolean {
-        // Всегда тёмный режим
-        return true;
+        return false;
     }
 
     init() {
@@ -147,18 +146,6 @@ class TelegramService {
         }
     }
 
-    showMainButton(text: string, onClick: () => void) {
-        if (!this.isRealTelegram || !this.webApp?.MainButton) return;
-
-        try {
-            this.webApp.MainButton.setText(text);
-            this.webApp.MainButton.onClick(onClick);
-            this.webApp.MainButton.show();
-        } catch (e) {
-            console.log('MainButton not supported');
-        }
-    }
-
     showPopup(params: {
         title?: string;
         message: string;
@@ -169,13 +156,6 @@ class TelegramService {
         } else {
             alert(params.title ? `${params.title}\n\n${params.message}` : params.message);
         }
-    }
-
-    hideMainButton() {
-        if (!this.isRealTelegram) return;
-        try {
-            this.webApp?.MainButton?.hide();
-        } catch (e) { }
     }
 
     showBackButton(onClick: () => void) {

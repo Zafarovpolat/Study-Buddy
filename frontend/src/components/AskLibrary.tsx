@@ -42,8 +42,8 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
             const result = await api.askLibrary(question, materialId);
             setAnswer(result.answer);
             setSources(result.sources);
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка поиска');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка поиска');
         } finally {
             setIsLoading(false);
         }
@@ -105,7 +105,7 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
                 <div className="flex-1 overflow-y-auto mb-4">
                     {answer ? (
                         <div className="space-y-4">
-                            <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
+                            <Card className="bg-gradient-to-br from-purple-50 to-blue-50  ">
                                 <p className="whitespace-pre-wrap">{answer}</p>
                             </Card>
 

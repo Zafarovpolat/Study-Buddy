@@ -1,6 +1,6 @@
 // frontend/src/pages/InsightsPage.tsx
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Globe, MapPin, Sparkles, BookOpen, Settings, X, Check } from 'lucide-react';
+import { ArrowLeft, Globe, MapPin, Sparkles, BookOpen, Settings, X, Check, Flame } from 'lucide-react';
 import { telegram } from '../lib/telegram';
 import { Card, Spinner, Button } from '../components/ui';
 import { useStore } from '../store/useStore';
@@ -66,7 +66,7 @@ export function InsightsPage() {
             ].filter(i => i.region === region) as Insight[];
 
             setInsights(data);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to load insights', error);
         } finally {
             setIsLoading(false);
@@ -85,7 +85,7 @@ export function InsightsPage() {
             // await api.generateInsightDetail(insight.id);
             await new Promise(resolve => setTimeout(resolve, 2000)); // Mock
             telegram.alert('Конспект сгенерирован и добавлен в библиотеку!');
-        } catch (error) {
+        } catch (error: unknown) {
             telegram.alert('Ошибка генерации');
         } finally {
             setIsGenerating(false);
@@ -112,7 +112,7 @@ export function InsightsPage() {
             setShowSetup(false);
             telegram.haptic('success');
             loadInsights(); // Reload with new settings
-        } catch (error) {
+        } catch (error: unknown) {
             telegram.alert('Ошибка сохранения настроек');
         } finally {
             setIsSavingSetup(false);
@@ -168,7 +168,7 @@ export function InsightsPage() {
                                     </span>
                                     {insight.importance >= 8 && (
                                         <span className="text-xs font-bold text-red-400 flex items-center gap-1">
-                                            🔥 High Priority
+                                            <Flame className="w-4 h-4 text-red-500 inline mr-1" /> High Priority
                                         </span>
                                     )}
                                 </div>
@@ -260,7 +260,7 @@ export function InsightsPage() {
                                             : 'bg-lecto-bg-tertiary border-transparent text-lecto-text-secondary opacity-60'
                                             }`}
                                     >
-                                        🌍 Global
+                                        <Globe className="w-4 h-4 inline mr-1" /> Global
                                     </button>
                                 </div>
                             </div>

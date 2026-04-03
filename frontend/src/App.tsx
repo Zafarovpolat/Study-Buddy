@@ -1,24 +1,20 @@
-// frontend/src/App.tsx - ЗАМЕНИ ПОЛНОСТЬЮ
-import { useEffect, useState } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { HomePage } from './pages/HomePage';
-import { MaterialPage } from './pages/MaterialPage';
-import { GroupResultsPage } from './pages/GroupResultsPage';
 import { telegram } from './lib/telegram';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30000,
-    },
-  },
-});
+const MaterialPage = lazy(() => import('./pages/MaterialPage').then(m => ({ default: m.MaterialPage })));
+const GroupResultsPage = lazy(() => import('./pages/GroupResultsPage').then(m => ({ default: m.GroupResultsPage })));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })));
+const InsightsPage = lazy(() => import('./pages/InsightsPage').then(m => ({ default: m.InsightsPage })));
+const ProPage = lazy(() => import('./pages/ProPage').then(m => ({ default: m.ProPage })));
 
-import { OnboardingPage } from './pages/OnboardingPage';
-
-import { InsightsPage } from './pages/InsightsPage';
-import { ProPage } from './pages/ProPage';
+function LoadingFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 function Router() {
   const [route, setRoute] = useState(window.location.hash || '#/');
@@ -41,30 +37,47 @@ function Router() {
   }, [route]);
 
   if (route.startsWith('#/onboarding')) {
-    return <OnboardingPage />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <OnboardingPage />
+      </Suspense>
+    );
   }
 
   if (route.startsWith('#/insights')) {
-    return <InsightsPage />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <InsightsPage />
+      </Suspense>
+    );
   }
 
   if (route.startsWith('#/pro')) {
-    return <ProPage />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <ProPage />
+      </Suspense>
+    );
   }
 
-  // Parse route - результаты группы (проверяем ПЕРЕД material)
   if (route.startsWith('#/group/') && route.endsWith('/results')) {
     const groupId = route.replace('#/group/', '').replace('/results', '');
-    return <GroupResultsPage groupId={groupId} />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <GroupResultsPage groupId={groupId} />
+      </Suspense>
+    );
   }
 
-  // Страница материала
   if (route.startsWith('#/material/')) {
     const materialId = route.replace('#/material/', '');
-    return <MaterialPage materialId={materialId} />;
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        <MaterialPage materialId={materialId} />
+      </Suspense>
+    );
   }
 
-  // Главная страница
   return <HomePage />;
 }
 
@@ -73,11 +86,7 @@ function App() {
     telegram.init();
   }, []);
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <Router />
-    </QueryClientProvider>
-  );
+  return <Router />;
 }
 
 export default App;

@@ -1,5 +1,5 @@
 // frontend/src/pages/HomePage.tsx
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Plus, Folder, RefreshCw, Camera, Type, Users, User, ArrowLeft, Sparkles, Search, X, Lightbulb, FileText, Presentation } from 'lucide-react';
 import { Button, Card } from '../components/ui';
 import { MaterialCard } from '../components/MaterialCard';
@@ -9,6 +9,7 @@ import { GroupsTab } from '../components/GroupsTab';
 import { PresentationGenerator } from '../components/PresentationGenerator';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
+import type { Material } from '../store/useStore';
 import { telegram } from '../lib/telegram';
 import { AskLibrary } from '../components/AskLibrary';
 
@@ -23,7 +24,7 @@ export function HomePage() {
 
     // Поиск
     const [searchQuery, setSearchQuery] = useState('');
-    const [_searchResults, setSearchResults] = useState<any[]>([]);
+    const [searchResults, setSearchResults] = useState<Material[]>([]);
     const [showSearch, setShowSearch] = useState(false);
 
     const {
@@ -37,6 +38,9 @@ export function HomePage() {
         activeTab, setActiveTab,
         removeMaterial,
     } = useStore();
+
+    // Polling ref — не пересоздаётся при каждом рендере
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     // ===== Функция обновления данных =====
     const refreshData = useCallback(async () => {
@@ -58,38 +62,44 @@ export function HomePage() {
             // Обновляем лимиты
             const limitsData = await api.getMyLimits();
             setLimits(limitsData);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Refresh error:', error);
         } finally {
             setIsRefreshing(false);
         }
     }, [activeTab, currentFolderId, setMaterials, setFolders, setGroups, setLimits]);
 
-    // ===== POLLING для обновления статусов материалов =====
+    // ===== POLLING — стабильный interval без пересоздания =====
     useEffect(() => {
         if (!Array.isArray(materials)) return;
-        const processingMaterials = materials.filter(m => m.status === 'processing');
+        const hasProcessing = materials.some(m => m.status === 'processing');
+        if (!hasProcessing) return;
 
-        if (processingMaterials.length === 0) return;
+        if (pollRef.current) return; // Уже запущен
 
-        const pollInterval = setInterval(async () => {
+        pollRef.current = setInterval(async () => {
             try {
-                const updatedMaterials = await api.getMaterials(currentFolderId || undefined);
+                const updatedMaterials = await api.getMaterials(currentFolderId || undefined) as Material[];
                 setMaterials(updatedMaterials);
 
-                // Если все обработаны — останавливаем
-                const stillProcessing = updatedMaterials.filter((m: any) => m.status === 'processing');
-                if (stillProcessing.length === 0) {
-                    clearInterval(pollInterval);
+                const stillProcessing = updatedMaterials.some(m => m.status === 'processing');
+                if (!stillProcessing) {
+                    if (pollRef.current) clearInterval(pollRef.current);
+                    pollRef.current = null;
                     telegram.haptic('success');
                 }
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Polling error:', error);
             }
         }, 3000);
 
-        return () => clearInterval(pollInterval);
-    }, [materials, currentFolderId, setMaterials]);
+        return () => {
+            if (pollRef.current) {
+                clearInterval(pollRef.current);
+                pollRef.current = null;
+            }
+        };
+    }, [currentFolderId, setMaterials, materials]);
 
     // Загрузка групп при старте
     useEffect(() => {
@@ -97,7 +107,7 @@ export function HomePage() {
             try {
                 const groupsData = await api.getMyGroups();
                 setGroups(groupsData);
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Failed to load groups:', error);
             }
         };
@@ -122,7 +132,7 @@ export function HomePage() {
             try {
                 const results = await api.searchMaterials(searchQuery.trim());
                 setSearchResults(results);
-            } catch (error) {
+            } catch (error: unknown) {
                 console.error('Search error:', error);
                 setSearchResults([]);
             }
@@ -155,7 +165,7 @@ export function HomePage() {
                 const groupsData = await api.getMyGroups();
                 setGroups(groupsData);
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to load data:', error);
         } finally {
             setIsLoading(false);
@@ -163,12 +173,12 @@ export function HomePage() {
         }
     };
 
-    const handleMaterialClick = async (material: any) => {
+    const handleMaterialClick = async (material: Material) => {
         try {
             const fullMaterial = await api.getMaterial(material.id);
             setSelectedMaterial(fullMaterial);
             window.location.hash = `#/material/${material.id}`;
-        } catch (error) {
+        } catch (error: unknown) {
             telegram.alert('Ошибка загрузки материала');
         }
     };
@@ -486,6 +496,29 @@ export function HomePage() {
             {/* Overlay для закрытия поиска */}
             {showSearch && searchQuery && (
                 <div className="fixed inset-0 z-40" onClick={clearSearch} />
+            )}
+
+            {/* Результаты поиска */}
+            {showSearch && searchQuery && searchResults.length > 0 && (
+                <div className="fixed inset-x-0 bottom-0 z-50 bg-white rounded-t-2xl max-h-[70vh] overflow-y-auto animate-slide-up shadow-2xl">
+                    <div className="sticky top-0 bg-white border-b border-purple-100 p-4 flex items-center justify-between">
+                        <h3 className="font-semibold text-lecto-text">
+                            Найдено: {searchResults.length}
+                        </h3>
+                        <button onClick={clearSearch} className="p-2 hover:bg-purple-50 rounded-full">
+                            <X className="w-5 h-5 text-gray-500" />
+                        </button>
+                    </div>
+                    <div className="p-4 space-y-2">
+                        {searchResults.map((m) => (
+                            <MaterialCard
+                                key={m.id}
+                                material={m}
+                                onClick={() => handleMaterialClick(m)}
+                            />
+                        ))}
+                    </div>
+                </div>
             )}
 
             {/* Upload Modal */}

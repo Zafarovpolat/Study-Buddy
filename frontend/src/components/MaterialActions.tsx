@@ -35,8 +35,8 @@ export function MaterialActions({ material, onUpdate, onDelete, children }: Mate
             telegram.haptic('success');
             onUpdate();
             setIsRenaming(false);
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка переименования');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка переименования');
         } finally {
             setIsLoading(false);
         }
@@ -53,8 +53,8 @@ export function MaterialActions({ material, onUpdate, onDelete, children }: Mate
             await api.deleteMaterial(material.id);
             telegram.haptic('success');
             onDelete();
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка удаления');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка удаления');
         } finally {
             setIsLoading(false);
         }

@@ -33,22 +33,23 @@ async def get_me(current_user: User = Depends(get_current_user)):
         "longest_streak": current_user.longest_streak or 0,
         "referral_code": current_user.referral_code,
         "referral_count": current_user.referral_count or 0,
-        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        "created_at": current_user.created_at.isoformat()
+        if current_user.created_at
+        else None,
     }
 
 
 @router.get("/me/limits")
 async def get_my_limits(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Получить информацию о лимитах"""
     user_service = UserService(db)
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
-    
+
     # subscription_tier — это строка, не enum!
     is_free = current_user.subscription_tier == SubscriptionTier.FREE
-    
+
     return {
         "subscription_tier": current_user.subscription_tier,
         "is_pro": current_user.is_pro,
@@ -61,72 +62,87 @@ async def get_my_limits(
 
 @router.get("/me/subscription")
 async def get_my_subscription(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Получить статус подписки"""
     from app.services.payment_service import PaymentService
-    
+
     payment_service = PaymentService(db)
     status = await payment_service.check_subscription_status(current_user)
-    
+
     return status
 
 
 @router.get("/me/streak")
 async def get_my_streak(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Получить информацию о streak"""
     user_service = UserService(db)
     streak_info = await user_service.get_streak_info(current_user)
-    
+
     return streak_info
 
 
 # ==================== DEBUG ENDPOINTS ====================
 
+
+def _is_admin(user: User) -> bool:
+    """Проверка что пользователь — админ"""
+    admin_ids = [7066763798]  # Telegram ID администраторов
+    return user.telegram_id in admin_ids
+
+
 @router.post("/debug/grant-pro")
 async def grant_pro_for_testing(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
     from datetime import datetime, timedelta
-    
+
     current_user.subscription_tier = SubscriptionTier.PRO
     current_user.subscription_expires_at = datetime.now() + timedelta(days=7)
-    
+
     await db.commit()
     await db.refresh(current_user)
-    
+
     return {
         "success": True,
         "message": "Pro подписка выдана на 7 дней",
-        "expires_at": current_user.subscription_expires_at.isoformat()
+        "expires_at": current_user.subscription_expires_at.isoformat(),
     }
 
 
 @router.post("/debug/reset-limits")
 async def debug_reset_limits(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
-    current_user.daily_requests = 0  # ← Правильное имя!
+    if not _is_admin(current_user):
+        raise HTTPException(status_code=403, detail="Admin only")
+
+    current_user.daily_requests = 0
     await db.commit()
-    
-    return {"success": True, "message": "Лимиты сброшены", "remaining": settings.FREE_DAILY_LIMIT}
+
+    return {
+        "success": True,
+        "message": "Лимиты сброшены",
+        "remaining": settings.FREE_DAILY_LIMIT,
+    }
+
 
 class UpdatePreferencesRequest(BaseModel):
     field_of_study: Optional[str] = None
     region: Optional[str] = None
     preferred_language: Optional[str] = None
 
+
 @router.patch("/me/preferences")
 async def update_preferences(
     request: UpdatePreferencesRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Обновить персонализацию пользователя"""
     if request.field_of_study:
@@ -135,25 +151,24 @@ async def update_preferences(
         current_user.region = request.region
     if request.preferred_language:
         current_user.preferred_language = request.preferred_language
-    
+
     current_user.onboarding_completed = True
-    
+
     await db.commit()
     await db.refresh(current_user)
-    
+
     return {
         "success": True,
         "user": {
             "field_of_study": current_user.field_of_study,
             "region": current_user.region,
-            "onboarding_completed": current_user.onboarding_completed
-        }
+            "onboarding_completed": current_user.onboarding_completed,
+        },
     }
 
+
 @router.get("/me/stats")
-async def get_user_stats(
-    current_user: User = Depends(get_current_user)
-):
+async def get_user_stats(current_user: User = Depends(get_current_user)):
     """Получить статистику пользователя"""
     return {
         "intellect_points": current_user.intellect_points or 0,

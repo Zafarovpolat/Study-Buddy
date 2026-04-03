@@ -10,16 +10,13 @@ from uuid import UUID
 from app.models import get_db, User, QuizResult
 from app.services.group_service import GroupService
 from app.api.deps import get_current_user
+from app.utils.typing import get_val
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
 
-def get_val(v):
-    """Безопасно получить value из enum или вернуть строку"""
-    return v.value if hasattr(v, 'value') else v
-
-
 # ==================== Schemas ====================
+
 
 class CreateGroupRequest(BaseModel):
     name: str
@@ -61,25 +58,24 @@ class ReferralStatsResponse(BaseModel):
 
 # ==================== Group Endpoints ====================
 
+
 @router.post("/", response_model=GroupResponse)
 async def create_group(
     request: CreateGroupRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
-    
+
     # ✅ ИСПРАВЛЕНО: распаковываем tuple
     success, message, group = await service.create_group(
-        owner=current_user,
-        name=request.name,
-        description=request.description
+        owner=current_user, name=request.name, description=request.description
     )
-    
+
     # Проверяем успешность
     if not success:
         raise HTTPException(status_code=400, detail=message)
-    
+
     # Получаем группы и возвращаем созданную
     groups = await service.get_user_groups(current_user)
     return next(g for g in groups if g["id"] == str(group.id))
@@ -87,8 +83,7 @@ async def create_group(
 
 @router.get("/", response_model=List[GroupResponse])
 async def get_my_groups(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     service = GroupService(db)
     return await service.get_user_groups(current_user)
@@ -96,8 +91,7 @@ async def get_my_groups(
 
 @router.get("/referral/stats", response_model=ReferralStatsResponse)
 async def get_referral_stats(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     service = GroupService(db)
     return await service.get_referral_stats(current_user)
@@ -105,8 +99,7 @@ async def get_referral_stats(
 
 @router.post("/referral/generate")
 async def generate_referral_code(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     service = GroupService(db)
     await service.get_or_create_referral_code(current_user)
@@ -117,18 +110,20 @@ async def generate_referral_code(
 async def join_group(
     request: JoinGroupRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
-    success, message, group = await service.join_group(current_user, request.invite_code)
-    
+    success, message, group = await service.join_group(
+        current_user, request.invite_code
+    )
+
     if not success:
         raise HTTPException(status_code=400, detail=message)
-    
+
     return {
         "success": True,
         "message": message,
-        "group": {"id": str(group.id), "name": group.name}
+        "group": {"id": str(group.id), "name": group.name},
     }
 
 
@@ -136,23 +131,23 @@ async def join_group(
 async def get_group(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
     group = await service.get_group_by_id(group_id)
-    
+
     if not group:
         raise HTTPException(status_code=404, detail="Группа не найдена")
-    
+
     groups = await service.get_user_groups(current_user)
     user_group = next((g for g in groups if g["id"] == str(group_id)), None)
-    
+
     if not user_group:
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
+
     members = await service.get_group_members(group_id)
     user_group["members"] = members
-    
+
     return user_group
 
 
@@ -160,14 +155,14 @@ async def get_group(
 async def leave_group(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
     success, message = await service.leave_group(current_user, group_id)
-    
+
     if not success:
         raise HTTPException(status_code=400, detail=message)
-    
+
     return {"success": True, "message": message}
 
 
@@ -175,14 +170,14 @@ async def leave_group(
 async def delete_group(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
     success, message = await service.delete_group(current_user, group_id)
-    
+
     if not success:
         raise HTTPException(status_code=400, detail=message)
-    
+
     return {"success": True, "message": message}
 
 
@@ -190,18 +185,19 @@ async def delete_group(
 async def get_group_members(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
-    
+
     groups = await service.get_user_groups(current_user)
     if not any(g["id"] == str(group_id) for g in groups):
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
+
     return await service.get_group_members(group_id)
 
 
 # ==================== Quiz Results ====================
+
 
 @router.post("/{group_id}/quiz-result")
 async def save_quiz_result(
@@ -210,27 +206,27 @@ async def save_quiz_result(
     score: int,
     max_score: int,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
-    
+
     if not any(g["id"] == str(group_id) for g in groups):
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
+
     percentage = round((score / max_score) * 100) if max_score > 0 else 0
-    
+
     result = QuizResult(
         user_id=current_user.id,
         material_id=material_id,
         group_id=group_id,
         score=score,
         max_score=max_score,
-        percentage=percentage
+        percentage=percentage,
     )
     db.add(result)
     await db.commit()
-    
+
     return {"success": True, "percentage": percentage}
 
 
@@ -238,45 +234,41 @@ async def save_quiz_result(
 async def get_group_quiz_results(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
-    
+
     user_group = next((g for g in groups if g["id"] == str(group_id)), None)
     if not user_group:
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
+
     if not user_group["is_owner"]:
-        raise HTTPException(status_code=403, detail="Только владелец может просматривать результаты")
-    
+        raise HTTPException(
+            status_code=403, detail="Только владелец может просматривать результаты"
+        )
+
     result = await db.execute(
         select(QuizResult)
-        .options(
-            selectinload(QuizResult.user),
-            selectinload(QuizResult.material)
-        )
+        .options(selectinload(QuizResult.user), selectinload(QuizResult.material))
         .where(QuizResult.group_id == group_id)
         .order_by(QuizResult.completed_at.desc())
     )
     results = result.scalars().all()
-    
+
     return [
         {
             "id": str(r.id),
             "user": {
                 "id": str(r.user.id),
                 "first_name": r.user.first_name,
-                "username": r.user.telegram_username
+                "username": r.user.telegram_username,
             },
-            "material": {
-                "id": str(r.material.id),
-                "title": r.material.title
-            },
+            "material": {"id": str(r.material.id), "title": r.material.title},
             "score": r.score,
             "max_score": r.max_score,
             "percentage": r.percentage,
-            "completed_at": r.completed_at.isoformat() if r.completed_at else None
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
         }
         for r in results
     ]
@@ -286,23 +278,23 @@ async def get_group_quiz_results(
 async def get_group_leaderboard(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     service = GroupService(db)
     groups = await service.get_user_groups(current_user)
-    
+
     if not any(g["id"] == str(group_id) for g in groups):
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
+
     result = await db.execute(
         select(
             QuizResult.user_id,
             User.first_name,
-            User.telegram_username.label('username'),
-            func.count(QuizResult.id).label('tests_count'),
-            func.sum(QuizResult.score).label('total_score'),
-            func.sum(QuizResult.max_score).label('total_max_score'),
-            func.avg(QuizResult.percentage).label('avg_percentage')
+            User.telegram_username.label("username"),
+            func.count(QuizResult.id).label("tests_count"),
+            func.sum(QuizResult.score).label("total_score"),
+            func.sum(QuizResult.max_score).label("total_max_score"),
+            func.avg(QuizResult.percentage).label("avg_percentage"),
         )
         .join(User, User.id == QuizResult.user_id)
         .where(QuizResult.group_id == group_id)
@@ -310,18 +302,20 @@ async def get_group_leaderboard(
         .order_by(func.avg(QuizResult.percentage).desc())
         .limit(50)
     )
-    
+
     leaderboard = []
     for i, row in enumerate(result.fetchall()):
-        leaderboard.append({
-            "rank": i + 1,
-            "user_id": str(row.user_id),
-            "first_name": row.first_name,
-            "username": row.username,
-            "tests_count": row.tests_count,
-            "total_score": int(row.total_score or 0),
-            "total_max_score": int(row.total_max_score or 0),
-            "avg_percentage": round(float(row.avg_percentage or 0), 1)
-        })
-    
+        leaderboard.append(
+            {
+                "rank": i + 1,
+                "user_id": str(row.user_id),
+                "first_name": row.first_name,
+                "username": row.username,
+                "tests_count": row.tests_count,
+                "total_score": int(row.total_score or 0),
+                "total_max_score": int(row.total_max_score or 0),
+                "avg_percentage": round(float(row.avg_percentage or 0), 1),
+            }
+        )
+
     return leaderboard

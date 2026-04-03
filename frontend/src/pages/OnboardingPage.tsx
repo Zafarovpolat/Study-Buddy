@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Scale, TrendingUp, Globe, Monitor, Stethoscope, GraduationCap } from 'lucide-react';
 import { telegram } from '../lib/telegram';
 
 const STEPS = [
@@ -22,12 +23,12 @@ const STEPS = [
 ];
 
 const FIELDS_OF_STUDY = [
-    { id: 'law', label: 'Юриспруденция', icon: '⚖️' },
-    { id: 'economics', label: 'Экономика', icon: '📈' },
-    { id: 'ir', label: 'Международные отношения', icon: '🌍' },
-    { id: 'it', label: 'IT и Инженерия', icon: '💻' },
-    { id: 'medicine', label: 'Медицина', icon: '🩺' },
-    { id: 'other', label: 'Другое', icon: '🎓' },
+    { id: 'law', label: 'Юриспруденция', Icon: Scale },
+    { id: 'economics', label: 'Экономика', Icon: TrendingUp },
+    { id: 'ir', label: 'Международные отношения', Icon: Globe },
+    { id: 'it', label: 'IT и Инженерия', Icon: Monitor },
+    { id: 'medicine', label: 'Медицина', Icon: Stethoscope },
+    { id: 'other', label: 'Другое', Icon: GraduationCap },
 ];
 
 export const OnboardingPage = () => {
@@ -65,7 +66,7 @@ export const OnboardingPage = () => {
 
             // Redirect to dashboard
             window.location.hash = '#/';
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to save profile', error);
         } finally {
             setIsLoading(false);
@@ -133,7 +134,7 @@ export const OnboardingPage = () => {
                                                 : 'bg-lecto-bg-secondary border-lecto-border hover:border-gray-600'}
                     `}
                                     >
-                                        <span className="text-2xl">{field.icon}</span>
+                                        <field.Icon className="w-6 h-6" />
                                         <span className="text-sm font-medium">{field.label}</span>
                                     </button>
                                 ))}

@@ -32,7 +32,7 @@ export function LeaderboardTab({ groupId }: LeaderboardTabProps) {
             setIsLoading(true);
             const data = await api.getGroupLeaderboard(groupId);
             setLeaderboard(data);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to load leaderboard:', error);
         } finally {
             setIsLoading(false);

@@ -388,11 +388,6 @@ class ApiClient {
         return data;
     }
 
-    async getInsightDetailed(insightId: string) {
-        const { data } = await this.client.get(`/insights/${insightId}/detailed`);
-        return data;
-    }
-
 }
 
 export const api = new ApiClient();

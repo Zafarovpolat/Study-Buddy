@@ -82,8 +82,8 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
             await api.leaveGroup(group.id);
             telegram.haptic('success');
             onRefresh();
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка');
         }
     };
 
@@ -95,8 +95,8 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
             await api.deleteGroup(group.id);
             telegram.haptic('success');
             onRefresh();
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка');
         }
     };
 
@@ -104,7 +104,7 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
         try {
             const materials = await api.getGroupMaterials(groupId);
             setGroupMaterials(Array.isArray(materials) ? materials : []);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to load group materials:', error);
             setGroupMaterials([]);
         }
@@ -509,9 +509,9 @@ function CreateGroupModal({ isOpen, onClose, onCreated }: {
                 onCreated();
             }, 300);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             telegram.haptic('error');
-            telegram.alert(error.response?.data?.detail || 'Ошибка создания группы');
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка создания группы');
         } finally {
             setIsLoading(false);
         }
@@ -585,9 +585,9 @@ function JoinGroupModal({ isOpen, onClose, onJoined }: {
                 onJoined();
             }, 300);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             telegram.haptic('error');
-            telegram.alert(error.response?.data?.detail || 'Группа не найдена');
+            telegram.alert((error as any).response?.data?.detail || 'Группа не найдена');
         } finally {
             setIsLoading(false);
         }

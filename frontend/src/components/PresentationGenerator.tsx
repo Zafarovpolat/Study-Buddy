@@ -1,5 +1,5 @@
 // frontend/src/components/PresentationGenerator.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     X,
     Presentation,
@@ -62,6 +62,16 @@ const THEMES: { value: Theme; label: string; color: string }[] = [
 export function PresentationGenerator({ isOpen, onClose }: PresentationGeneratorProps) {
     const { user } = useStore();
 
+    // Escape key
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     const [step, setStep] = useState<'form' | 'preview'>('form');
     const [topic, setTopic] = useState('');
     const [numSlides, setNumSlides] = useState(10);
@@ -97,10 +107,10 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
             setCurrentSlide(0);
             setStep('preview');
             telegram.haptic('success');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Generation error:', error);
             telegram.haptic('error');
-            telegram.alert(error.response?.data?.detail || 'Ошибка генерации');
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка генерации');
         } finally {
             setIsGenerating(false);
         }
@@ -114,7 +124,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
             await api.downloadPresentation(topic, numSlides, style, theme);
             telegram.haptic('success');
             telegram.alert('Презентация скачана!');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Download error:', error);
             telegram.haptic('error');
             telegram.alert('Ошибка скачивания');
@@ -222,7 +232,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                         {step === 'preview' && (
                             <button
                                 onClick={() => setStep('form')}
-                                className="p-1 hover:bg-purple-50 dark:bg-purple-900/30 rounded-full"
+                                className="p-1 hover:bg-purple-50 /30 rounded-full"
                             >
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
@@ -249,8 +259,8 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                 <div className="bg-gradient-to-r from-yellow-100 to-orange-100  rounded-xl p-4 flex items-center gap-3">
                                     <Crown className="w-8 h-8 text-yellow-500" />
                                     <div>
-                                        <p className="font-bold text-yellow-700 dark:text-yellow-400">Только для Pro</p>
-                                        <p className="text-sm text-yellow-600 dark:text-yellow-500">
+                                        <p className="font-bold text-yellow-700 ">Только для Pro</p>
+                                        <p className="text-sm text-yellow-600 ">
                                             Оформите подписку для доступа
                                         </p>
                                     </div>
@@ -300,7 +310,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             onClick={() => isPro && setStyle(s.value)}
                                             disabled={!isPro}
                                             className={`p-3 rounded-xl border-2 transition-all ${style === s.value
-                                                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                                                ? 'border-purple-500 bg-purple-50 /20'
                                                 : ' hover:border-purple-300'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >
@@ -342,7 +352,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                             {/* Info */}
                             <div className="bg-tg-secondary/50 rounded-xl p-3">
                                 <p className="text-xs text-tg-hint">
-                                    ✨ AI создаст структурированную презентацию с заголовками,
+                                    <Sparkles className="w-4 h-4 mr-2" /> AI создаст структурированную презентацию с заголовками,
                                     пунктами, цитатами и заметками докладчика
                                 </p>
                             </div>
@@ -415,7 +425,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             key={i}
                                             onClick={() => setCurrentSlide(i)}
                                             className={`w-full text-left p-2 rounded-lg text-sm transition-colors ${i === currentSlide
-                                                ? 'bg-purple-100 dark:bg-purple-900/30'
+                                                ? 'bg-purple-100 /30'
                                                 : 'bg-tg-secondary/50 hover:bg-tg-secondary'
                                                 }`}
                                         >

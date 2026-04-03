@@ -79,8 +79,9 @@ python-pptx
 
 ### Frontend
 ```
-React 18 · TypeScript · Vite
-Tailwind CSS · Zustand
+React 19 · TypeScript · Vite
+Tailwind CSS · Zustand · DOMPurify
+Lucide React · Framer Motion
 Telegram WebApp SDK
 ```
 

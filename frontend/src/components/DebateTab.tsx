@@ -1,6 +1,6 @@
 // frontend/src/components/DebateTab.tsx
 import { useState, useRef, useEffect } from 'react';
-import { Send, Trophy, Loader2, Zap, Brain, GraduationCap, Crown } from 'lucide-react';
+import { Send, Trophy, Loader2, Zap, Brain, GraduationCap, Crown, Lightbulb, Swords, Bot, Handshake } from 'lucide-react';
 import { Button, Card } from './ui';
 import { api } from '../lib/api';
 import { telegram } from '../lib/telegram';
@@ -90,9 +90,9 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                     setMessages([...newMessages, { role: 'ai', content: result.ai_message }]);
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             telegram.haptic('error');
-            const errorMsg = error.response?.data?.detail || 'Ошибка. Попробуйте ещё раз.';
+            const errorMsg = (error as any).response?.data?.detail || 'Ошибка. Попробуйте ещё раз.';
             setMessages(prev => [...prev, { role: 'ai', content: `⚠️ ${errorMsg}` }]);
         } finally {
             setIsLoading(false);
@@ -116,7 +116,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
             );
             setJudgeResult(result);
             telegram.haptic('success');
-        } catch (error) {
+        } catch (error: unknown) {
             telegram.haptic('error');
             telegram.alert('Ошибка оценки дебатов');
         } finally {
@@ -146,17 +146,17 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
         return (
             <div className="space-y-4">
                 <div className={`text-center p-6 rounded-2xl ${judgeResult.winner === 'user'
-                        ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
+                        ? 'bg-gradient-to-br from-green-100 to-emerald-50  '
                         : judgeResult.winner === 'ai'
-                            ? 'bg-gradient-to-br from-red-100 to-orange-50 dark:from-red-900/30 dark:to-orange-900/20'
+                            ? 'bg-gradient-to-br from-red-100 to-orange-50  '
                             : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700'
                     }`}>
                     <Trophy className={`w-12 h-12 mx-auto mb-2 ${judgeResult.winner === 'user' ? 'text-green-500' :
                             judgeResult.winner === 'ai' ? 'text-red-500' : 'text-gray-500'
                         }`} />
                     <h3 className="text-xl font-bold">
-                        {judgeResult.winner === 'user' ? '🎉 Вы победили!' :
-                            judgeResult.winner === 'ai' ? '🤖 AI победил' : '🤝 Ничья'}
+                        {judgeResult.winner === 'user' ? <><Trophy className="w-6 h-6 inline mr-1 text-yellow-500" /> Вы победили!</> :
+                            judgeResult.winner === 'ai' ? <><Bot className="w-6 h-6 inline mr-1 text-gray-500" /> AI победил</> : <><Handshake className="w-6 h-6 inline mr-1 text-gray-500" /> Ничья</>}
                     </h3>
                     <div className="flex justify-center gap-8 mt-4">
                         <div className="text-center">
@@ -176,8 +176,8 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                 </Card>
 
                 {judgeResult.tip && (
-                    <Card className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                        <h4 className="font-medium mb-1 text-blue-600">💡 Совет</h4>
+                    <Card className="bg-blue-50 /20 border border-blue-200 ">
+                        <h4 className="font-medium mb-1 text-blue-600 flex items-center gap-1"><Lightbulb className="w-4 h-4" /> Совет</h4>
                         <p className="text-sm text-tg-hint">{judgeResult.tip}</p>
                     </Card>
                 )}
@@ -206,9 +206,9 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
             {!debateStarted && (
                 <>
                     {/* Инструкция */}
-                    <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4">
+                    <div className="bg-gradient-to-r from-purple-50 to-pink-50   rounded-xl p-4">
                         <div className="flex items-start gap-3">
-                            <span className="text-2xl">⚔️</span>
+                            <Swords className="w-6 h-6 text-purple-500 flex-shrink-0 mt-0.5" />
                             <div>
                                 <p className="font-medium text-sm">Как играть</p>
                                 <p className="text-xs text-tg-hint mt-1">
@@ -226,12 +226,12 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                             <button
                                 onClick={() => selectDifficulty('easy')}
                                 className={`relative p-3 rounded-xl border-2 transition-all ${difficulty === 'easy'
-                                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                        ? 'border-green-500 bg-green-50 /20'
                                         : 'border-tg-secondary hover:border-green-300'
                                     }`}
                             >
                                 <div className="flex flex-col items-center gap-1">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${difficulty === 'easy' ? 'bg-green-500 text-white' : 'bg-green-100 dark:bg-green-900/30 text-green-500'
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${difficulty === 'easy' ? 'bg-green-500 text-white' : 'bg-green-100 /30 text-green-500'
                                         }`}>
                                         <GraduationCap className="w-5 h-5" />
                                     </div>
@@ -243,12 +243,12 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                             <button
                                 onClick={() => selectDifficulty('medium')}
                                 className={`relative p-3 rounded-xl border-2 transition-all ${difficulty === 'medium'
-                                        ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
+                                        ? 'border-yellow-500 bg-yellow-50 /20'
                                         : 'border-tg-secondary hover:border-yellow-300'
                                     }`}
                             >
                                 <div className="flex flex-col items-center gap-1">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${difficulty === 'medium' ? 'bg-yellow-500 text-white' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600'
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${difficulty === 'medium' ? 'bg-yellow-500 text-white' : 'bg-yellow-100 /30 text-yellow-600'
                                         }`}>
                                         <Brain className="w-5 h-5" />
                                     </div>
@@ -260,12 +260,12 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                             <button
                                 onClick={() => selectDifficulty('hard')}
                                 className={`relative p-3 rounded-xl border-2 transition-all ${difficulty === 'hard'
-                                        ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                                        ? 'border-red-500 bg-red-50 /20'
                                         : 'border-tg-secondary hover:border-red-300'
                                     } ${!isPro ? 'opacity-60' : ''}`}
                             >
                                 <div className="flex flex-col items-center gap-1">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${difficulty === 'hard' ? 'bg-red-500 text-white' : 'bg-red-100 dark:bg-red-900/30 text-red-500'
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${difficulty === 'hard' ? 'bg-red-500 text-white' : 'bg-red-100 /30 text-red-500'
                                         }`}>
                                         <Zap className="w-5 h-5" />
                                     </div>
@@ -291,7 +291,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                             <div
                                 className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user'
                                         ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
-                                        : 'bg-white dark:bg-gray-800 text-tg-text rounded-bl-md shadow-sm'
+                                        : 'bg-white  text-tg-text rounded-bl-md shadow-sm'
                                     }`}
                             >
                                 <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -301,7 +301,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
 
                     {isLoading && (
                         <div className="flex justify-start">
-                            <div className="bg-white dark:bg-gray-800 p-3 rounded-2xl rounded-bl-md shadow-sm">
+                            <div className="bg-white  p-3 rounded-2xl rounded-bl-md shadow-sm">
                                 <div className="flex gap-1">
                                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -332,7 +332,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                         placeholder={debateStarted ? "Ваш аргумент..." : "Напишите тезис для дебатов..."}
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                         disabled={isLoading}
                         className="flex-1 p-3 bg-tg-secondary rounded-xl text-tg-text placeholder-tg-hint focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
                     />
@@ -348,12 +348,12 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                 {debateStarted && messages.length >= 4 && (
                     <Button
                         variant="secondary"
-                        className="w-full border-2 border-dashed border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                        className="w-full border-2 border-dashed border-purple-300  hover:bg-purple-50 dark:hover:bg-purple-900/20"
                         onClick={handleEndDebate}
                         disabled={isLoading}
                     >
                         <Trophy className="w-4 h-4 mr-2 text-purple-500" />
-                        <span className="text-purple-600 dark:text-purple-400">Завершить и узнать результат</span>
+                        <span className="text-purple-600 ">Завершить и узнать результат</span>
                     </Button>
                 )}
             </div>

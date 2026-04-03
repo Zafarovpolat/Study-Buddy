@@ -1,19 +1,29 @@
 // frontend/src/pages/MaterialPage.tsx
 import { useEffect, useState, useRef } from 'react';
-import { ArrowLeft, Trash2, RefreshCw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trash2, RefreshCw, Loader2, XCircle } from 'lucide-react';
 import { Button, Card } from '../components/ui';
 import { OutputViewer } from '../components/OutputViewer';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
+import type { Material as MaterialType, AIOutput } from '../store/useStore';
 import { telegram } from '../lib/telegram';
+
+interface MaterialDetail extends MaterialType {
+    user_id?: string;
+    group_id?: string;
+    folder_id?: string;
+    raw_content?: string;
+    original_filename?: string;
+    updated_at?: string;
+}
 
 interface MaterialPageProps {
     materialId: string;
 }
 
 export function MaterialPage({ materialId }: MaterialPageProps) {
-    const [material, setMaterial] = useState<any>(null);
-    const [outputs, setOutputs] = useState<any[]>([]);
+    const [material, setMaterial] = useState<MaterialDetail | null>(null);
+    const [outputs, setOutputs] = useState<AIOutput[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -89,9 +99,9 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                     setOutputs([]);
                 }
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error loading material:', error);
-            const detail = error.response?.data?.detail;
+            const detail = (error as any).response?.data?.detail;
             setError(detail || 'Ошибка загрузки материала');
         } finally {
             setIsLoading(false);
@@ -107,8 +117,8 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
             removeMaterial(materialId);
             telegram.haptic('success');
             window.location.hash = '#/';
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка удаления');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка удаления');
         }
     };
 
@@ -204,7 +214,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                                 </span>
                             )}
                             {material.status === 'failed' && (
-                                <span className="text-red-500">❌ Ошибка</span>
+                                <span className="text-red-500 flex items-center gap-1"><XCircle className="w-4 h-4" /> Ошибка</span>
                             )}
                         </div>
                     </div>
@@ -225,7 +235,7 @@ export function MaterialPage({ materialId }: MaterialPageProps) {
                         <Card className="overflow-hidden">
                             <div className="p-4">
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center">
+                                    <div className="w-10 h-10 bg-yellow-100 /30 rounded-full flex items-center justify-center">
                                         <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
                                     </div>
                                     <div>

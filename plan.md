@@ -126,13 +126,24 @@
 - 🎉 **MVP 100% готов!**
 
 ### 2025-12-29
-- ✅ **UI компоненты** — Badge, Skeleton, ProgressBar, SliderTabs
+- ✅ **UI компоненты** — ProgressBar (Badge, Skeleton, SliderTabs удалены как неиспользуемые)
 - ✅ **Онбординг v2** — Персонализация (выбор направления и региона)
 - ✅ **User модель** — Новые поля: field_of_study, region, intellect_points, debates_won
 - ✅ **Инсайты модуль** — Backend + Frontend (без контента)
-- ✅ **Геймификация** — GamificationService для начисления Intellect Points
-- ✅ **ProWall** — Красивый paywall с 3 тарифами
+- ✅ **Геймификация** — GamificationService удалён (не интегрирован в API)
 - ✅ **UI тема** — Белая/фиолетовая цветовая схема
+
+### 2026-04-03 — Оптимизация и рефакторинг
+- ✅ **Безопасность** — HMAC-валидация Telegram Init Data, admin-only debug endpoints, CORS whitelist, SSL fix, path traversal
+- ✅ **Runtime баги** — Исправлены `.value` на строковых колонках, XSS через DOMPurify, `onKeyPress` → `onKeyDown`
+- ✅ **Мёртвый код** — Удалены 7 файлов, 8 зависимостей, мёртвые методы
+- ✅ **Дублирование** — Созданы `utils/text.py`, `utils/typing.py`, `utils/json.py`, убраны дубликаты
+- ✅ **Backend perf** — N+1 → GROUP BY, `asyncio.gather()` для AI, graceful shutdown, `schedule_background_task`
+- ✅ **Frontend perf** — Code splitting, manualChunks, polling fix, clsx → template literals, поиск работает
+- ✅ **Типизация** — Экспортированы интерфейсы, `any` → `unknown` в catch, типизированы пропсы
+- ✅ **UI палитра** — Убраны все `dark:` классы, только белая/фиолетовая тема, `prefers-reduced-motion`
+- ✅ **Эмодзи → SVG** — Все эмодзи заменены на Lucide иконки
+- ✅ **UX** — Escape key для модалок, результаты поиска отображаются
 
 ### 2025-12-12 (утро)
 - ✅ Vector Search (RAG) — VectorService

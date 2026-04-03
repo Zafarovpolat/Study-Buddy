@@ -4,33 +4,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* === LECTO 2.0 PREMIUM THEME === */
+/* === LECTO 2.0 БЕЛАЯ/ФИОЛЕТОВАЯ ПАЛИТРА === */
 :root {
   /* Background */
   --tg-theme-bg-color: #FFFFFF;
   --tg-theme-secondary-bg-color: #F8F9FA;
+  --tg-theme-tertiary-bg-color: #F3F4F6;
 
   /* Text */
   --tg-theme-text-color: #152886;
-  --tg-theme-hint-color: #6E7681;
+  --tg-theme-text-secondary: #4B5563;
+  --tg-theme-hint-color: #9CA3AF;
   --tg-theme-link-color: #9452ea;
 
   /* Button */
   --tg-theme-button-color: #9452ea;
   --tg-theme-button-text-color: #FFFFFF;
-}
 
-/* Force Light Mode (or respect system if needed, but user asked for white theme) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --tg-theme-bg-color: #FFFFFF;
-    --tg-theme-secondary-bg-color: #F8F9FA;
-    --tg-theme-text-color: #152886;
-    --tg-theme-hint-color: #6E7681;
-    --tg-theme-link-color: #9452ea;
-    --tg-theme-button-color: #9452ea;
-    --tg-theme-button-text-color: #FFFFFF;
-  }
+  /* Accent */
+  --tg-theme-accent-primary: #9452ea;
+  --tg-theme-accent-secondary: #7E22CE;
+  --tg-theme-accent-gold: #F59E0B;
+
+  /* Border */
+  --tg-theme-border-color: #E5E7EB;
+
+  /* Purple palette */
+  --purple-50: #FAF5FF;
+  --purple-100: #F3E8FF;
+  --purple-200: #E9D5FF;
+  --purple-300: #D8B4FE;
+  --purple-400: #C084FC;
+  --purple-500: #A855F7;
+  --purple-600: #9333EA;
+  --purple-700: #7E22CE;
+
+  /* Gray palette (только для тонких разделителей) */
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-800: #1F2937;
 }
 
 * {
@@ -43,8 +59,8 @@ html,
 body,
 #root {
   height: 100%;
-  background-color: #FFFFFF !important;
-  color: #152886 !important;
+  background-color: #FFFFFF;
+  color: #152886;
 }
 
 body {
@@ -123,4 +139,17 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up,
+  .animate-shimmer,
+  .animate-bounce-in {
+    animation: none;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

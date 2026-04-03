@@ -18,21 +18,19 @@ connect_args = {
 # SSL для Supabase
 if "supabase" in database_url or "pooler.supabase" in database_url:
     ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE  # Supabase использует self-signed
     connect_args["ssl"] = ssl_context
     print("🔒 SSL enabled for Supabase")
 
 engine = create_async_engine(
-    database_url, 
+    database_url,
     echo=False,
     poolclass=NullPool,  # Обязательно! Supabase сам делает pooling
     connect_args=connect_args,
 )
 
 AsyncSessionLocal = sessionmaker(
-    engine, 
-    class_=AsyncSession, 
+    engine,
+    class_=AsyncSession,
     expire_on_commit=False,
     autoflush=False,
 )

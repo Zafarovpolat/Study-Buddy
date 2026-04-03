@@ -34,8 +34,8 @@ export function GroupResultsPage({ groupId }: { groupId: string }) {
         try {
             const data = await api.getGroupQuizResults(groupId);
             setResults(data);
-        } catch (error: any) {
-            telegram.alert(error.response?.data?.detail || 'Ошибка загрузки');
+        } catch (error: unknown) {
+            telegram.alert((error as any).response?.data?.detail || 'Ошибка загрузки');
         } finally {
             setIsLoading(false);
         }
@@ -52,9 +52,9 @@ export function GroupResultsPage({ groupId }: { groupId: string }) {
     };
 
     const getScoreColor = (percentage: number) => {
-        if (percentage >= 80) return 'text-green-500 bg-green-100 dark:bg-green-900/30';
-        if (percentage >= 60) return 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30';
-        return 'text-red-500 bg-red-100 dark:bg-red-900/30';
+        if (percentage >= 80) return 'text-green-500 bg-green-100 /30';
+        if (percentage >= 60) return 'text-yellow-500 bg-yellow-100 /30';
+        return 'text-red-500 bg-red-100 /30';
     };
 
     if (isLoading) {

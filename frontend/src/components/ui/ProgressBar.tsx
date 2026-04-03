@@ -1,5 +1,3 @@
-import { clsx } from 'clsx';
-
 interface ProgressBarProps {
     value: number;
     max?: number;
@@ -8,6 +6,13 @@ interface ProgressBarProps {
     showLabel?: boolean;
     className?: string;
 }
+
+const sizeMap: Record<string, string> = { sm: 'h-1', md: 'h-2', lg: 'h-3' };
+const variantMap: Record<string, string> = {
+    default: 'bg-lecto-accent-blue',
+    success: 'bg-lecto-accent-green',
+    gold: 'bg-gradient-to-r from-yellow-400 to-orange-400',
+};
 
 export function ProgressBar({
     value,
@@ -20,26 +25,10 @@ export function ProgressBar({
     const percentage = Math.min(100, Math.max(0, (value / max) * 100));
 
     return (
-        <div className={clsx('w-full', className)}>
-            <div
-                className={clsx(
-                    'w-full bg-lecto-bg-tertiary rounded-full overflow-hidden',
-                    {
-                        'h-1': size === 'sm',
-                        'h-2': size === 'md',
-                        'h-3': size === 'lg',
-                    }
-                )}
-            >
+        <div className={`w-full ${className || ''}`}>
+            <div className={`w-full bg-lecto-bg-tertiary rounded-full overflow-hidden ${sizeMap[size]}`}>
                 <div
-                    className={clsx(
-                        'h-full rounded-full transition-all duration-500 ease-out',
-                        {
-                            'bg-lecto-accent-blue': variant === 'default',
-                            'bg-lecto-accent-green': variant === 'success',
-                            'bg-gradient-to-r from-yellow-400 to-orange-400': variant === 'gold',
-                        }
-                    )}
+                    className={`h-full rounded-full transition-all duration-500 ease-out ${variantMap[variant]}`}
                     style={{ width: `${percentage}%` }}
                 />
             </div>

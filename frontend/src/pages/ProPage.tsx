@@ -83,7 +83,7 @@ export function ProPage() {
             // Mock for now
             await new Promise(resolve => setTimeout(resolve, 1500));
             telegram.alert(`Payment for ${tier} initiated! (Mock)`);
-        } catch (error) {
+        } catch (error: unknown) {
             telegram.alert('Payment failed');
         } finally {
             setIsLoading(null);

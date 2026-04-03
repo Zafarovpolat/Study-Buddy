@@ -1,6 +1,6 @@
 // frontend/src/components/UploadModal.tsx
 import { useState, useEffect } from 'react';
-import { X, Upload, FileText, Type, Camera, Image, ChevronDown, Users, User, Folder, Sparkles } from 'lucide-react';
+import { X, Upload, FileText, Type, Camera, Image, ChevronDown, Users, User, Folder, Sparkles, Lightbulb } from 'lucide-react';
 import { Button, Input, Textarea, Card } from './ui';
 import { api } from '../lib/api';
 import { useStore } from '../store/useStore';
@@ -56,6 +56,19 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
             setUploadTarget(getInitialTarget());
         }
     }, [isOpen, initialMode, folderId, groupId, groups, folders]);
+
+    // Escape key для закрытия
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                resetForm();
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     // Очистка превью при размонтировании
     useEffect(() => {
@@ -197,18 +210,18 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                 resetForm();
             }, 300);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Upload error:', error);
             telegram.haptic('error');
 
             // Проверяем тип ошибки
-            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+            if ((error as any).code === 'ECONNABORTED' || (error as Error).message?.includes('timeout')) {
                 // Timeout — но материал скорее всего создан
                 telegram.alert('Материал загружен, обработка идёт в фоне. Обновите страницу.');
                 resetForm();
                 onClose();
             } else {
-                const errorMessage = error.response?.data?.detail || error.message || 'Ошибка загрузки';
+                const errorMessage = (error as any).response?.data?.detail || (error as Error).message || 'Ошибка загрузки';
                 telegram.alert(errorMessage);
             }
         } finally {
@@ -474,7 +487,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                         />
 
                         <p className="text-xs text-tg-hint">
-                            💡 AI распознает текст с фото
+                            <Lightbulb className="w-4 h-4 mr-2" /> AI распознает текст с фото
                         </p>
                     </div>
                 )}
@@ -517,7 +530,7 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                             onChange={(e) => setTopicName(e.target.value)}
                         />
                         <p className="text-xs text-tg-hint">
-                            ✨ AI создаст: конспект, тест (15-20 вопросов), глоссарий и карточки
+                            <Sparkles className="w-4 h-4 mr-2" /> AI создаст: конспект, тест (15-20 вопросов), глоссарий и карточки
                         </p>
                     </div>
                 )}
@@ -537,11 +550,11 @@ export function UploadModal({ isOpen, onClose, folderId, groupId, initialMode = 
                     }
                 >
                     {mode === 'topic'
-                        ? '✨ Сгенерировать'
+                        ? <><Sparkles className="w-4 h-4 mr-2" /> Сгенерировать</>
                         : uploadTarget.type === 'group'
-                            ? `👥 Загрузить`
+                            ? <><Users className="w-4 h-4 mr-2" /> Загрузить</>
                             : mode === 'scan'
-                                ? '📷 Сканировать'
+                                ? <><Camera className="w-4 h-4 mr-2" /> Сканировать</>
                                 : '📤 Загрузить'
                     }
                 </Button>

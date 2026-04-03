@@ -109,9 +109,7 @@ frontend/
 │   │   ├── OutputViewer.tsx          # AI outputs: тест, карточки, дебаты
 │   │   ├── GroupsTab.tsx             # Группы: создание, вступление
 │   │   ├── LeaderboardTab.tsx        # Рейтинг участников
-│   │   ├── OnboardingModal.tsx       # Туториал (4 слайда)
 │   │   ├── AskLibrary.tsx            # "Спроси библиотеку" (RAG)
-│   │   ├── InviteBanner.tsx          # Реферальный баннер
 │   │   ├── PresentationGenerator.tsx # Генератор презентаций 🆕
 │   │   ├── DebateTab.tsx             # AI Дебаты 🆕
 │   │   └── ui/                       # Button, Card, Input...
@@ -345,13 +343,23 @@ Frontend ████████████████ 100%
 - 🎉 **MVP 100% готов!**
 
 ### 2025-12-29
-- ✅ **UI компоненты** — Badge, Skeleton, ProgressBar, SliderTabs
+- ✅ **UI компоненты** — ProgressBar (Badge, Skeleton, SliderTabs удалены как неиспользуемые)
 - ✅ **Онбординг v2** — Персонализация (выбор направления и региона)
 - ✅ **User модель** — Новые поля: field_of_study, region, intellect_points, debates_won
 - ✅ **Инсайты модуль** — Backend + Frontend (без контента)
-- ✅ **Геймификация** — GamificationService для начисления Intellect Points
-- ✅ **ProWall** — Красивый paywall с 3 тарифами
 - ✅ **UI тема** — Обновление на белую/фиолетовую цветовую схему
+
+### 2026-04-03 — Оптимизация и рефакторинг
+- ✅ **Безопасность** — HMAC-валидация Telegram Init Data, admin-only debug endpoints, CORS whitelist, SSL fix, path traversal
+- ✅ **Runtime баги** — Исправлены `.value` на строковых колонках, XSS через DOMPurify, `onKeyPress` → `onKeyDown`
+- ✅ **Мёртвый код** — Удалены 7 файлов (OnboardingModal, ProWall, InviteBanner, SliderTabs, Badge, Skeleton, App.css), 8 зависимостей
+- ✅ **Дублирование** — Созданы `utils/text.py`, `utils/typing.py`, `utils/json.py`
+- ✅ **Backend perf** — N+1 → GROUP BY, `asyncio.gather()` для AI, graceful shutdown
+- ✅ **Frontend perf** — Code splitting (-49% initial load), manualChunks, polling fix, поиск работает
+- ✅ **Типизация** — Экспортированы интерфейсы, `any` → `unknown` в catch
+- ✅ **UI палитра** — Убраны все `dark:` классы, только белая/фиолетовая тема
+- ✅ **Эмодзи → SVG** — Все эмодзи заменены на Lucide иконки
+- ✅ **UX** — Escape key для модалок, результаты поиска отображаются
 
 ### 2025-12-12 (утро)
 - ✅ Vector Search (RAG) — VectorService

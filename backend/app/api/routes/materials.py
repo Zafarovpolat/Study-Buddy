@@ -9,7 +9,17 @@ from pydantic import BaseModel
 import asyncio
 import traceback
 
-from app.models import get_db, User, Material, Folder, AIOutput, ProcessingStatus, MaterialType, AsyncSessionLocal
+from app.main import schedule_background_task
+from app.models import (
+    get_db,
+    User,
+    Material,
+    Folder,
+    AIOutput,
+    ProcessingStatus,
+    MaterialType,
+    AsyncSessionLocal,
+)
 from app.services import UserService, MaterialService
 from app.api.schemas import MaterialResponse, MaterialDetailResponse, SuccessResponse
 from app.api.deps import get_current_user
@@ -20,9 +30,11 @@ router = APIRouter(prefix="/materials", tags=["materials"])
 
 # ==================== Schemas ====================
 
+
 class UpdateMaterialRequest(BaseModel):
     title: Optional[str] = None
     folder_id: Optional[UUID] = None
+
 
 class GenerateFromTopicRequest(BaseModel):
     topic: str
@@ -32,11 +44,12 @@ class GenerateFromTopicRequest(BaseModel):
 
 # ==================== Background Tasks ====================
 
+
 async def process_material_background(
     material_id: UUID,
     group_id: Optional[UUID] = None,
     user_telegram_id: int = None,
-    user_first_name: Optional[str] = None
+    user_first_name: Optional[str] = None,
 ):
     """Фоновая обработка материала — НЕ блокирует основной поток!"""
     # Создаём НОВУЮ сессию для background task
@@ -46,29 +59,29 @@ async def process_material_background(
                 select(Material).where(Material.id == material_id)
             )
             material = result.scalar_one_or_none()
-            
+
             if not material:
                 print(f"❌ Material {material_id} not found")
                 return
-            
+
             from app.services.processing_service import ProcessingService
+
             processing_service = ProcessingService(db)
             await processing_service.process_material(material)
             await db.commit()
-            
+
             print(f"✅ Background processing complete: {material_id}")
-            
+
             # Уведомления группе
             if group_id and material.status == ProcessingStatus.COMPLETED:
                 await send_group_notification(
-                    db, group_id, material.title, 
-                    user_first_name, user_telegram_id
+                    db, group_id, material.title, user_first_name, user_telegram_id
                 )
-                
+
         except Exception as e:
             print(f"❌ Background processing error: {e}")
             traceback.print_exc()
-            
+
             # Помечаем как failed
             try:
                 await db.rollback()
@@ -88,52 +101,52 @@ async def generate_topic_background(
     topic: str,
     group_id: Optional[UUID] = None,
     user_telegram_id: int = None,
-    user_first_name: Optional[str] = None
+    user_first_name: Optional[str] = None,
 ):
     """Фоновая генерация по теме"""
     async with AsyncSessionLocal() as db:
         try:
             print(f"🎯 Background generating: {topic}")
-            
+
             from app.services.ai_service import gemini_service
             from app.services.text_extractor import clean_text_for_db
-            
+
             # Генерируем контент
             generated_content = await gemini_service.generate_content_from_topic(topic)
             generated_content = clean_text_for_db(generated_content)
-            
+
             # Обновляем материал
             result = await db.execute(
                 select(Material).where(Material.id == material_id)
             )
             material = result.scalar_one_or_none()
-            
+
             if not material:
                 print(f"❌ Material {material_id} not found")
                 return
-            
+
             material.raw_content = generated_content
             await db.commit()
-            
+
             # Обрабатываем
             from app.services.processing_service import ProcessingService
+
             processing_service = ProcessingService(db)
             await processing_service.process_material(material)
             await db.commit()
-            
+
             print(f"✅ Background generation complete: {material_id}")
-            
+
             # Уведомления
             if group_id and material.status == ProcessingStatus.COMPLETED:
                 await send_group_notification(
-                    db, group_id, material.title,
-                    user_first_name, user_telegram_id
+                    db, group_id, material.title, user_first_name, user_telegram_id
                 )
-                
+
         except Exception as e:
             print(f"❌ Background generation error: {e}")
             traceback.print_exc()
-            
+
             try:
                 await db.rollback()
                 result = await db.execute(
@@ -152,24 +165,24 @@ async def send_group_notification(
     group_id: UUID,
     material_title: str,
     user_first_name: Optional[str],
-    user_telegram_id: int
+    user_telegram_id: int,
 ):
     """Отправка уведомлений группе"""
     try:
         from app.services.notification_service import NotificationService
         from app.services.group_service import GroupService
         from app.main import bot_app
-        
+
         if not bot_app:
             return
-        
+
         group_service = GroupService(db)
         members = await group_service.get_group_members(group_id)
         member_ids = [m.get("telegram_id") for m in members if m.get("telegram_id")]
-        
+
         group = await group_service.get_group_by_id(group_id)
         group_name = group.name if group else "Группа"
-        
+
         notification_service = NotificationService(db)
         sent = await notification_service.send_group_material_notification(
             group_name=group_name,
@@ -177,7 +190,7 @@ async def send_group_notification(
             uploader_name=user_first_name or "Участник",
             member_telegram_ids=member_ids,
             exclude_user_id=user_telegram_id,
-            bot=bot_app.bot
+            bot=bot_app.bot,
         )
         print(f"📨 Notified {sent} members")
     except Exception as e:
@@ -185,6 +198,7 @@ async def send_group_notification(
 
 
 # ==================== Upload Endpoints ====================
+
 
 @router.post("/upload", response_model=MaterialResponse)
 async def upload_material(
@@ -194,57 +208,63 @@ async def upload_material(
     group_id: Optional[UUID] = Form(None),
     auto_process: bool = Form(True),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Загрузить материал — обработка в фоне"""
     user_service = UserService(db)
     can_proceed, remaining = await user_service.check_rate_limit(current_user)
-    
+
     if not can_proceed:
         raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
-    
+
     target_folder_id = folder_id
     if group_id:
         from app.services.group_service import GroupService
+
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
         if not any(g["id"] == str(group_id) for g in groups):
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = group_id
-    
+
     content = await file.read()
     size_mb = len(content) / (1024 * 1024)
-    
+
     if size_mb > settings.MAX_FILE_SIZE_MB:
-        raise HTTPException(status_code=413, detail=f"Файл слишком большой. Макс: {settings.MAX_FILE_SIZE_MB}MB")
-    
+        raise HTTPException(
+            status_code=413,
+            detail=f"Файл слишком большой. Макс: {settings.MAX_FILE_SIZE_MB}MB",
+        )
+
     material_service = MaterialService(db)
     material_type = material_service.detect_material_type(file.filename)
-    file_path = await material_service.save_uploaded_file(content, file.filename, current_user.id)
-    
+    file_path = await material_service.save_uploaded_file(
+        content, file.filename, current_user.id
+    )
+
     material = await material_service.create_material(
         user=current_user,
         title=title or file.filename,
         material_type=material_type,
         file_path=file_path,
         original_filename=file.filename,
-        folder_id=target_folder_id
+        folder_id=target_folder_id,
     )
-    
+
     await user_service.increment_request_count(current_user)
     await db.commit()
-    
+
     # 🚀 Запускаем обработку В ФОНЕ
     if auto_process:
-        asyncio.create_task(
+        schedule_background_task(
             process_material_background(
                 material_id=material.id,
                 group_id=group_id,
                 user_telegram_id=current_user.telegram_id,
-                user_first_name=current_user.first_name
+                user_first_name=current_user.first_name,
             )
         )
-    
+
     return material
 
 
@@ -255,53 +275,56 @@ async def create_text_material(
     folder_id: Optional[UUID] = Form(None),
     group_id: Optional[UUID] = Form(None),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Создать материал из текста — обработка в фоне"""
     user_service = UserService(db)
     can_proceed, _ = await user_service.check_rate_limit(current_user)
-    
+
     if not can_proceed:
         raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
-    
+
     if len(content.strip()) < 10:
-        raise HTTPException(status_code=400, detail="Текст слишком короткий (минимум 10 символов)")
-    
+        raise HTTPException(
+            status_code=400, detail="Текст слишком короткий (минимум 10 символов)"
+        )
+
     target_folder_id = folder_id
     if group_id:
         from app.services.group_service import GroupService
+
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
         if not any(g["id"] == str(group_id) for g in groups):
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = group_id
-    
+
     material_service = MaterialService(db)
-    
+
     # Создаём материал со статусом PROCESSING
     material = await material_service.create_material(
         user=current_user,
         title=title,
         material_type=MaterialType.TXT,
         folder_id=target_folder_id,
-        raw_content=content
+        raw_content=content,
     )
     material.status = ProcessingStatus.PROCESSING
-    
+
     await user_service.increment_request_count(current_user)
     await db.commit()
     await db.refresh(material)
-    
+
     # 🚀 Запускаем обработку В ФОНЕ (НЕ блокируем!)
-    asyncio.create_task(
+    schedule_background_task(
         process_material_background(
             material_id=material.id,
             group_id=group_id,
             user_telegram_id=current_user.telegram_id,
-            user_first_name=current_user.first_name
+            user_first_name=current_user.first_name,
         )
     )
-    
+
     return material
 
 
@@ -312,37 +335,42 @@ async def scan_image(
     folder_id: Optional[UUID] = Form(None),
     group_id: Optional[UUID] = Form(None),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Сканировать изображение — обработка в фоне"""
     user_service = UserService(db)
     can_proceed, _ = await user_service.check_rate_limit(current_user)
-    
+
     if not can_proceed:
         raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
-    
-    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+
+    allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
     if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Только изображения: JPG, PNG, WebP")
-    
+        raise HTTPException(
+            status_code=400, detail="Только изображения: JPG, PNG, WebP"
+        )
+
     target_folder_id = folder_id
     if group_id:
         from app.services.group_service import GroupService
+
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
         if not any(g["id"] == str(group_id) for g in groups):
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = group_id
-    
+
     content = await file.read()
     size_mb = len(content) / (1024 * 1024)
-    
+
     if size_mb > settings.MAX_FILE_SIZE_MB:
         raise HTTPException(status_code=413, detail=f"Файл слишком большой")
-    
+
     material_service = MaterialService(db)
-    file_path = await material_service.save_uploaded_file(content, file.filename, current_user.id)
-    
+    file_path = await material_service.save_uploaded_file(
+        content, file.filename, current_user.id
+    )
+
     # Создаём материал со статусом PROCESSING
     material = await material_service.create_material(
         user=current_user,
@@ -350,24 +378,24 @@ async def scan_image(
         material_type=MaterialType.IMAGE,
         file_path=file_path,
         original_filename=file.filename,
-        folder_id=target_folder_id
+        folder_id=target_folder_id,
     )
     material.status = ProcessingStatus.PROCESSING
-    
+
     await user_service.increment_request_count(current_user)
     await db.commit()
     await db.refresh(material)
-    
+
     # 🚀 Запускаем обработку В ФОНЕ
-    asyncio.create_task(
+    schedule_background_task(
         process_material_background(
             material_id=material.id,
             group_id=group_id,
             user_telegram_id=current_user.telegram_id,
-            user_first_name=current_user.first_name
+            user_first_name=current_user.first_name,
         )
     )
-    
+
     return material
 
 
@@ -375,30 +403,31 @@ async def scan_image(
 async def generate_from_topic(
     request: GenerateFromTopicRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Генерация по теме — в фоне"""
     user_service = UserService(db)
     can_proceed, _ = await user_service.check_rate_limit(current_user)
-    
+
     if not can_proceed:
         raise HTTPException(status_code=429, detail="Дневной лимит исчерпан")
-    
+
     if len(request.topic.strip()) < 3:
         raise HTTPException(status_code=400, detail="Название темы слишком короткое")
-    
+
     target_folder_id = None
     if request.folder_id:
         target_folder_id = UUID(request.folder_id)
-    
+
     if request.group_id:
         from app.services.group_service import GroupService
+
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
         if not any(g["id"] == request.group_id for g in groups):
             raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
         target_folder_id = UUID(request.group_id)
-    
+
     # Создаём материал со статусом PROCESSING
     material = Material(
         user_id=current_user.id,
@@ -406,29 +435,30 @@ async def generate_from_topic(
         material_type=MaterialType.TXT,
         folder_id=target_folder_id,
         status=ProcessingStatus.PROCESSING,
-        raw_content=""
+        raw_content="",
     )
     db.add(material)
-    
+
     await user_service.increment_request_count(current_user)
     await db.commit()
     await db.refresh(material)
-    
+
     # 🚀 Запускаем генерацию В ФОНЕ
-    asyncio.create_task(
+    schedule_background_task(
         generate_topic_background(
             material_id=material.id,
             topic=request.topic,
             group_id=UUID(request.group_id) if request.group_id else None,
             user_telegram_id=current_user.telegram_id,
-            user_first_name=current_user.first_name
+            user_first_name=current_user.first_name,
         )
     )
-    
+
     return material
 
 
 # ==================== Get Endpoints ====================
+
 
 @router.get("/", response_model=List[MaterialResponse])
 async def list_materials(
@@ -436,15 +466,12 @@ async def list_materials(
     limit: int = 50,
     offset: int = 0,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Получить материалы пользователя"""
     material_service = MaterialService(db)
     materials = await material_service.get_user_materials(
-        user_id=current_user.id,
-        folder_id=folder_id,
-        limit=limit,
-        offset=offset
+        user_id=current_user.id, folder_id=folder_id, limit=limit, offset=offset
     )
     return materials
 
@@ -453,24 +480,24 @@ async def list_materials(
 async def get_group_materials(
     group_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Получить материалы группы"""
     from app.services.group_service import GroupService
-    
+
     group_service = GroupService(db)
     groups = await group_service.get_user_groups(current_user)
-    
+
     if not any(g["id"] == str(group_id) for g in groups):
         raise HTTPException(status_code=403, detail="Вы не состоите в этой группе")
-    
+
     result = await db.execute(
         select(Material)
         .where(Material.folder_id == group_id)
         .order_by(Material.created_at.desc())
     )
     materials = result.scalars().all()
-    
+
     return materials
 
 
@@ -479,45 +506,43 @@ async def search_materials(
     q: str,
     limit: int = 20,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Поиск по всем доступным материалам"""
     if not q or len(q.strip()) < 2:
         return []
-    
+
     search_query = f"%{q.strip().lower()}%"
-    
+
     from app.services.group_service import GroupService
+
     group_service = GroupService(db)
     user_groups = await group_service.get_user_groups(current_user)
     group_ids = [UUID(g["id"]) for g in user_groups]
-    
+
     conditions = [Material.user_id == current_user.id]
-    
+
     if group_ids:
         conditions.append(Material.folder_id.in_(group_ids))
-    
+
     result = await db.execute(
         select(Material)
-        .where(
-            or_(*conditions),
-            func.lower(Material.title).like(search_query)
-        )
+        .where(or_(*conditions), func.lower(Material.title).like(search_query))
         .order_by(Material.created_at.desc())
         .limit(limit)
     )
-    
+
     materials = result.scalars().all()
-    
+
     return [
         {
             "id": str(m.id),
             "title": m.title,
-            "material_type": m.material_type.value,
-            "status": m.status.value,
+            "material_type": m.material_type,
+            "status": m.status,
             "folder_id": str(m.folder_id) if m.folder_id else None,
             "created_at": m.created_at.isoformat(),
-            "is_own": m.user_id == current_user.id
+            "is_own": m.user_id == current_user.id,
         }
         for m in materials
     ]
@@ -525,45 +550,44 @@ async def search_materials(
 
 # ==================== Get Material by ID ====================
 
+
 @router.get("/{material_id}")
 async def get_material(
     material_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Получить материал с AI-выводами"""
     result = await db.execute(
         select(Material)
-        .options(
-            selectinload(Material.outputs),
-            selectinload(Material.folder)
-        )
+        .options(selectinload(Material.outputs), selectinload(Material.folder))
         .where(Material.id == material_id)
     )
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Материал не найден")
-    
+
     has_access = False
     group_id = None
-    
+
     if material.user_id == current_user.id:
         has_access = True
-    
+
     if material.folder_id:
         if material.folder and material.folder.is_group:
             group_id = material.folder_id
-        
+
         from app.services.group_service import GroupService
+
         group_service = GroupService(db)
         groups = await group_service.get_user_groups(current_user)
         if any(g["id"] == str(material.folder_id) for g in groups):
             has_access = True
-    
+
     if not has_access:
         raise HTTPException(status_code=403, detail="Нет доступа к материалу")
-    
+
     return {
         "id": str(material.id),
         "user_id": str(material.user_id),
@@ -579,53 +603,55 @@ async def get_material(
         "outputs": [
             {
                 "id": str(o.id),
-                "format": o.format if isinstance(o.format, str) else o.format.value,  # ← Безопасно!
+                "format": o.format
+                if isinstance(o.format, str)
+                else o.format.value,  # ← Безопасно!
                 "content": o.content,
-                "created_at": o.created_at.isoformat() if o.created_at else None
+                "created_at": o.created_at.isoformat() if o.created_at else None,
             }
             for o in material.outputs
-        ]
+        ],
     }
 
+
 # ==================== Update/Delete Endpoints ====================
+
 
 @router.patch("/{material_id}", response_model=MaterialResponse)
 async def update_material(
     material_id: UUID,
     request: UpdateMaterialRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Обновить материал"""
     result = await db.execute(
         select(Material).where(
-            Material.id == material_id,
-            Material.user_id == current_user.id
+            Material.id == material_id, Material.user_id == current_user.id
         )
     )
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Материал не найден")
-    
+
     if request.title is not None:
         material.title = request.title.strip()
-    
+
     if request.folder_id is not None:
         folder_result = await db.execute(
             select(Folder).where(
-                Folder.id == request.folder_id,
-                Folder.user_id == current_user.id
+                Folder.id == request.folder_id, Folder.user_id == current_user.id
             )
         )
         folder = folder_result.scalar_one_or_none()
         if not folder:
             raise HTTPException(status_code=404, detail="Папка не найдена")
         material.folder_id = request.folder_id
-    
+
     await db.commit()
     await db.refresh(material)
-    
+
     return material
 
 
@@ -633,24 +659,23 @@ async def update_material(
 async def move_material_to_root(
     material_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Переместить материал в корень"""
     result = await db.execute(
         select(Material).where(
-            Material.id == material_id,
-            Material.user_id == current_user.id
+            Material.id == material_id, Material.user_id == current_user.id
         )
     )
     material = result.scalar_one_or_none()
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Материал не найден")
-    
+
     material.folder_id = None
     await db.commit()
     await db.refresh(material)
-    
+
     return material
 
 
@@ -658,33 +683,33 @@ async def move_material_to_root(
 async def delete_material(
     material_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
     """Удалить материал"""
     material_service = MaterialService(db)
     material = await material_service.get_by_id(material_id, current_user.id)
-    
+
     if not material:
         raise HTTPException(status_code=404, detail="Материал не найден")
-    
+
     await material_service.delete_material(material)
-    
+
     return SuccessResponse(message="Удалено")
 
 
 # ==================== Debug/Test Endpoints ====================
 
+
 @router.post("/debug/test-notification")
 async def test_notification(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Тестовая отправка уведомления себе"""
     from app.main import bot_app
-    
+
     if not bot_app:
         return {"error": "Bot not initialized"}
-    
+
     try:
         await bot_app.bot.send_message(
             chat_id=current_user.telegram_id,
@@ -694,7 +719,7 @@ async def test_notification(
                 f"Твой telegram\\_id: `{current_user.telegram_id}`\n\n"
                 f"✅ Уведомления работают!"
             ),
-            parse_mode="Markdown"
+            parse_mode="Markdown",
         )
         return {"success": True, "sent_to": current_user.telegram_id}
     except Exception as e:
@@ -703,13 +728,13 @@ async def test_notification(
 
 @router.get("/debug/groups-check")
 async def debug_groups_check(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     """Отладка групп"""
     from sqlalchemy import text
-    
-    result = await db.execute(text("""
+
+    result = await db.execute(
+        text("""
         SELECT 
             f.id as group_id,
             f.name as group_name,
@@ -719,10 +744,8 @@ async def debug_groups_check(
         FROM folders f
         LEFT JOIN group_members gm ON f.id = gm.group_id
         WHERE f.is_group = true
-    """))
+    """)
+    )
     groups_data = [dict(row._mapping) for row in result.fetchall()]
-    
-    return {
-        "current_user_id": str(current_user.id),
-        "groups_and_members": groups_data
-    }
+
+    return {"current_user_id": str(current_user.id), "groups_and_members": groups_data}
