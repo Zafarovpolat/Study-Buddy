@@ -77,7 +77,7 @@ export const OnboardingPage = () => {
         <div className="min-h-screen bg-lecto-bg-primary text-lecto-text-primary flex flex-col p-6 relative overflow-hidden">
             {/* Background Elements */}
             <div className="absolute top-[-20%] left-[-20%] w-[80%] h-[50%] bg-lecto-accent-gold opacity-10 blur-[100px] rounded-full" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[40%] bg-blue-500 opacity-10 blur-[100px] rounded-full" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[40%] bg-purple-500 opacity-10 blur-[100px] rounded-full" />
 
             {/* Stepper */}
             <div className="flex gap-2 mb-8 z-10">

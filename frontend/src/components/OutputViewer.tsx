@@ -25,7 +25,7 @@ interface OutputViewerProps {
 
 const formatConfig: Record<string, { icon: typeof FileText; label: string; color: string }> = {
     source: { icon: File, label: 'Источник', color: 'text-gray-500' },
-    smart_notes: { icon: FileText, label: 'Конспект', color: 'text-blue-500' },
+    smart_notes: { icon: FileText, label: 'Конспект', color: 'text-purple-500' },
     quiz: { icon: HelpCircle, label: 'Тест', color: 'text-green-500' },
     debate: { icon: Swords, label: 'Дебаты', color: 'text-red-500' },
     flashcards: { icon: Layers, label: 'Карточки', color: 'text-pink-500' },
@@ -434,7 +434,7 @@ function QuizViewer({ data, materialId, groupId }: QuizViewerProps) {
             {showFinalResult && (
                 <Card className="text-center bg-gradient-to-br from-lecto-button/20 to-lecto-button/5">
                     <p className="text-4xl mb-2">
-                        {score === questions.length ? <Trophy className="w-8 h-8 text-yellow-500" /> : score >= questions.length * 0.7 ? <ThumbsUp className="w-8 h-8 text-green-500" /> : score >= questions.length * 0.5 ? <BookOpen className="w-8 h-8 text-blue-500" /> : <Dumbbell className="w-8 h-8 text-purple-500" />}
+                        {score === questions.length ? <Trophy className="w-8 h-8 text-yellow-500" /> : score >= questions.length * 0.7 ? <ThumbsUp className="w-8 h-8 text-green-500" /> : score >= questions.length * 0.5 ? <BookOpen className="w-8 h-8 text-purple-500" /> : <Dumbbell className="w-8 h-8 text-purple-500" />}
                     </p>
                     <p className="text-xl font-bold">
                         {score} из {questions.length}

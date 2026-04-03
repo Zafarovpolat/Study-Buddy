@@ -22,7 +22,7 @@ interface MaterialCardProps {
 
 const typeIcons: Record<string, React.ReactNode> = {
     pdf: <FileText className="w-6 h-6 text-red-500" />,
-    docx: <FileText className="w-6 h-6 text-blue-500" />,
+    docx: <FileText className="w-6 h-6 text-purple-500" />,
     txt: <FileText className="w-6 h-6 text-gray-500" />,
     image: <Image className="w-6 h-6 text-green-500" />,
     default: <File className="w-6 h-6 text-tg-hint" />,
@@ -67,7 +67,7 @@ export function MaterialCard({
             {/* Icon Container */}
             <div className="relative flex-shrink-0 w-12 h-12 bg-lecto-bg-tertiary rounded-xl flex items-center justify-center">
                 {material.status === 'processing' ? (
-                    <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                    <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
                 ) : (
                     icon
                 )}

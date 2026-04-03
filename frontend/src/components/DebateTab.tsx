@@ -160,7 +160,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                     </h3>
                     <div className="flex justify-center gap-8 mt-4">
                         <div className="text-center">
-                            <div className="text-2xl font-bold text-blue-500">{judgeResult.user_score}/10</div>
+                            <div className="text-2xl font-bold text-purple-500">{judgeResult.user_score}/10</div>
                             <div className="text-xs text-tg-hint">Ваш счёт</div>
                         </div>
                         <div className="text-center">
@@ -176,8 +176,8 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                 </Card>
 
                 {judgeResult.tip && (
-                    <Card className="bg-blue-50 /20 border border-blue-200 ">
-                        <h4 className="font-medium mb-1 text-blue-600 flex items-center gap-1"><Lightbulb className="w-4 h-4" /> Совет</h4>
+                    <Card className="bg-purple-50 /20 border border-purple-200 ">
+                        <h4 className="font-medium mb-1 text-purple-600 flex items-center gap-1"><Lightbulb className="w-4 h-4" /> Совет</h4>
                         <p className="text-sm text-tg-hint">{judgeResult.tip}</p>
                     </Card>
                 )}
@@ -290,7 +290,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                         >
                             <div
                                 className={`max-w-[85%] p-3 rounded-2xl ${msg.role === 'user'
-                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md'
+                                        ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-br-md'
                                         : 'bg-white  text-tg-text rounded-bl-md shadow-sm'
                                     }`}
                             >
@@ -303,9 +303,9 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                         <div className="flex justify-start">
                             <div className="bg-white  p-3 rounded-2xl rounded-bl-md shadow-sm">
                                 <div className="flex gap-1">
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                                    <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                                 </div>
                             </div>
                         </div>

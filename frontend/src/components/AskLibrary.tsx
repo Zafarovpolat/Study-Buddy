@@ -56,7 +56,7 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
                     setIsOpen(true);
                     telegram.haptic('light');
                 }}
-                className="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-br from-purple-500 to-blue-500 text-white rounded-full shadow-lg flex items-center justify-center z-40 active:scale-95 transition-transform"
+                className="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-700 text-white rounded-full shadow-lg flex items-center justify-center z-40 active:scale-95 transition-transform"
             >
                 <Sparkles className="w-6 h-6" />
             </button>
@@ -69,7 +69,7 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center">
                             <Sparkles className="w-5 h-5 text-white" />
                         </div>
                         <div>
@@ -88,7 +88,7 @@ export function AskLibrary({ materialId }: AskLibraryProps) {
                 </div>
 
                 {!isPro && (
-                    <Card className="mb-4 bg-gradient-to-r from-purple-100 to-blue-100">
+                    <Card className="mb-4 bg-gradient-to-r from-purple-100 to-purple-200">
                         <div className="flex items-center gap-3">
                             <Lock className="w-8 h-8 text-purple-500" />
                             <div>
