@@ -2,7 +2,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from sqlalchemy.pool import NullPool
-import ssl
 
 from app.core.config import settings
 
@@ -15,11 +14,9 @@ connect_args = {
     "statement_cache_size": 0,  # Обязательно для PgBouncer!
 }
 
-# SSL для Supabase
+# Render обеспечивает SSL до Supabase — не нужно настраивать вручную
 if "supabase" in database_url or "pooler.supabase" in database_url:
-    ssl_context = ssl.create_default_context()
-    connect_args["ssl"] = ssl_context
-    print("🔒 SSL enabled for Supabase")
+    print("🔒 SSL handled by Render proxy")
 
 engine = create_async_engine(
     database_url,
