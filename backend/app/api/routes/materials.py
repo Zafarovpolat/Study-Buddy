@@ -9,7 +9,7 @@ from pydantic import BaseModel
 import asyncio
 import traceback
 
-from app.main import schedule_background_task
+from app.utils.tasks import schedule_background_task
 from app.models import (
     get_db,
     User,

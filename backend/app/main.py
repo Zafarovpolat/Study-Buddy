@@ -12,19 +12,10 @@ from pathlib import Path
 from app.api.routes import api_router
 from app.core.config import settings
 from app.bot.bot import create_bot_application
+from app.utils.tasks import get_background_tasks
 
 # Глобальная переменная для бота
 bot_app = None
-# Глобальный список фоновых задач для graceful shutdown
-_background_tasks: set[asyncio.Task] = set()
-
-
-def schedule_background_task(coro):
-    """Создать фоновую задачу с отслеживанием для graceful shutdown"""
-    task = asyncio.create_task(coro)
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-    return task
 
 
 @asynccontextmanager
@@ -62,9 +53,10 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     # ===== ОЖИДАНИЕ ФОНОВЫХ ЗАДАЧ =====
-    if _background_tasks:
-        print(f"⏳ Waiting for {_background_tasks.__len__()} background tasks...")
-        await asyncio.gather(*_background_tasks, return_exceptions=True)
+    background_tasks = get_background_tasks()
+    if background_tasks:
+        print(f"⏳ Waiting for {len(background_tasks)} background tasks...")
+        await asyncio.gather(*background_tasks, return_exceptions=True)
         print("✅ All background tasks completed")
 
     # ===== ОСТАНОВКА ПЛАНИРОВЩИКА =====
