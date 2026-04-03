@@ -12,7 +12,7 @@ from app.config.prompts import (
     TLDR_PROMPT,
     QUIZ_PROMPT,
     GLOSSARY_PROMPT,
-    FLASHCARDS_PROMPT
+    FLASHCARDS_PROMPT,
 )
 from app.utils.json import parse_ai_json_response
 
@@ -22,32 +22,32 @@ _executor = ThreadPoolExecutor(max_workers=4)
 
 class GeminiService:
     """Сервис для работы с Gemini AI — НЕ БЛОКИРУЕТ event loop!"""
-    
+
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
         self.model_name = settings.GEMINI_MODEL
-        
+
         if self.api_key:
             genai.configure(api_key=self.api_key)
             print(f"🤖 Gemini configured with model: {self.model_name}")
         else:
             print("⚠️ GEMINI_API_KEY not set!")
-    
+
     def _get_model(self):
         """Получить модель Gemini"""
         return genai.GenerativeModel(self.model_name)
-    
+
     def _generate_sync(self, prompt: str) -> str:
         """Синхронный вызов Gemini — выполняется в thread pool"""
         model = self._get_model()
         response = model.generate_content(prompt)
         return response.text
-    
+
     async def _generate_async(self, prompt: str) -> str:
         """Асинхронная обёртка — НЕ блокирует event loop!"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(_executor, self._generate_sync, prompt)
-    
+
     async def generate_content_from_topic(self, topic: str) -> str:
         """Генерация учебного материала по теме"""
         prompt = TOPIC_GENERATION_PROMPT.format(topic=topic)
@@ -57,7 +57,7 @@ class GeminiService:
         except Exception as e:
             print(f"❌ Generate from topic error: {e}")
             raise
-    
+
     async def generate_smart_notes(self, content: str, title: str = "") -> str:
         """Генерация умного конспекта"""
         prompt = SMART_NOTES_PROMPT.format(title=title, content=content[:30000])
@@ -67,7 +67,7 @@ class GeminiService:
         except Exception as e:
             print(f"❌ Smart notes error: {e}")
             raise
-    
+
     async def generate_tldr(self, content: str) -> str:
         """Генерация краткого содержания"""
         prompt = TLDR_PROMPT.format(content=content[:20000])
@@ -77,29 +77,37 @@ class GeminiService:
         except Exception as e:
             print(f"❌ TLDR error: {e}")
             raise
-    
+
     async def generate_quiz(self, content: str, num_questions: int = 15) -> str:
         """Генерация теста"""
-        prompt = QUIZ_PROMPT.format(num_questions=num_questions, content=content[:25000])
+        prompt = QUIZ_PROMPT.format(
+            num_questions=num_questions, content=content[:25000]
+        )
 
         try:
             text = await self._generate_async(prompt)
             parsed = parse_ai_json_response(text)
-            if len(parsed.get("questions", [])) < num_questions:
-                print(f"⚠️ Only {len(parsed['questions'])} questions generated}")
-            
+            q_count = len(parsed.get("questions", []))
+            if q_count < num_questions:
+                print(f"⚠️ Only {q_count} questions generated")
+
             return json.dumps(parsed, ensure_ascii=False)
         except (json.JSONDecodeError, Exception):
-            return json.dumps({
-                "questions": [{
-                    "question": "Тест не удалось сгенерировать",
-                    "options": ["Попробуйте снова"],
-                    "correct": 0,
-                    "explanation": "",
-                    "difficulty": "easy"
-                }]
-            }, ensure_ascii=False)
-    
+            return json.dumps(
+                {
+                    "questions": [
+                        {
+                            "question": "Тест не удалось сгенерировать",
+                            "options": ["Попробуйте снова"],
+                            "correct": 0,
+                            "explanation": "",
+                            "difficulty": "easy",
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            )
+
     async def generate_glossary(self, content: str) -> str:
         """Генерация глоссария"""
         prompt = GLOSSARY_PROMPT.format(content=content[:25000])
@@ -113,7 +121,7 @@ class GeminiService:
         except Exception as e:
             print(f"❌ Glossary error: {e}")
             raise
-    
+
     async def generate_flashcards(self, content: str, num_cards: int = 15) -> str:
         """Генерация флэш-карточек"""
         prompt = FLASHCARDS_PROMPT.format(num_cards=num_cards, content=content[:25000])
@@ -123,13 +131,14 @@ class GeminiService:
             parsed = parse_ai_json_response(text)
             if not parsed.get("cards"):
                 raise ValueError("No cards")
-            
+
             return json.dumps(parsed, ensure_ascii=False)
         except json.JSONDecodeError as e:
             print(f"❌ Flashcards JSON error: {e}")
-            return json.dumps({
-                "cards": [{"front": "Ошибка", "back": "Попробуйте снова"}]
-            }, ensure_ascii=False)
+            return json.dumps(
+                {"cards": [{"front": "Ошибка", "back": "Попробуйте снова"}]},
+                ensure_ascii=False,
+            )
         except Exception as e:
             print(f"❌ Flashcards error: {e}")
             raise
