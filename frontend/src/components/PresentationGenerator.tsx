@@ -338,7 +338,7 @@ export function PresentationGenerator({ isOpen, onClose }: PresentationGenerator
                                             onClick={() => isPro && setTheme(t.value)}
                                             disabled={!isPro}
                                             className={`p-2 rounded-xl border-2 transition-all ${theme === t.value
-                                                ? 'border-gray-800 dark:border-white'
+                                                ? 'border-lecto-accent-primary '
                                                 : 'border-transparent hover:border-gray-300'
                                                 } ${!isPro ? 'opacity-50' : ''}`}
                                         >

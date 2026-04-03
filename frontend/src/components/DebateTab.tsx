@@ -149,7 +149,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                         ? 'bg-gradient-to-br from-green-100 to-emerald-50  '
                         : judgeResult.winner === 'ai'
                             ? 'bg-gradient-to-br from-red-100 to-orange-50  '
-                            : 'bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-800 dark:to-gray-700'
+                            : 'bg-gradient-to-br from-gray-100 to-gray-50 '
                     }`}>
                     <Trophy className={`w-12 h-12 mx-auto mb-2 ${judgeResult.winner === 'user' ? 'text-green-500' :
                             judgeResult.winner === 'ai' ? 'text-red-500' : 'text-gray-500'
@@ -348,7 +348,7 @@ export function DebateTab({ materialId, materialTitle }: DebateTabProps) {
                 {debateStarted && messages.length >= 4 && (
                     <Button
                         variant="secondary"
-                        className="w-full border-2 border-dashed border-purple-300  hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                        className="w-full border-2 border-dashed border-purple-300  hover:bg-purple-50 "
                         onClick={handleEndDebate}
                         disabled={isLoading}
                     >

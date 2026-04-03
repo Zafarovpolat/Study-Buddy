@@ -67,7 +67,7 @@ export function GroupsTab({ groups = [], onRefresh, onUploadToGroup }: GroupsTab
 
     const handleCopyInvite = async (e: React.MouseEvent, group: Group) => {
         e.stopPropagation();
-        const inviteText = `📚 Присоединяйся к группе "${group.name}" в Lecto!\n\n🔑 Код: ${group.invite_code}`;
+        const inviteText = `Присоединяйся к группе "${group.name}" в Lecto!\n\nКод: ${group.invite_code}`;
         await navigator.clipboard.writeText(inviteText);
         setCopiedId(group.id);
         telegram.haptic('success');

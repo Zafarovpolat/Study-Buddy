@@ -234,7 +234,7 @@ function GlossaryViewer({ data }: { data: { terms?: Term[] } }) {
     return (
         <div className="space-y-2">
             <p className="text-sm text-lecto-hint mb-3">
-                📚 {terms.length} терминов
+                <BookOpen className="w-4 h-4 inline mr-1" /> {terms.length} терминов
             </p>
 
             {terms.map((item, index) => (
